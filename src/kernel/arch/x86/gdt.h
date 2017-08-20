@@ -7,6 +7,5 @@
 
 #pragma once
 
-typedef unsigned long int	uint32_t;
-typedef unsigned short int	uint16_t;
-typedef unsigned char		uint8_t;
+// Setup GDT by initializing the GDTR register.
+void x86_gdt_setup(void);

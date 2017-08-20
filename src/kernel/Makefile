@@ -11,7 +11,8 @@ LDFLAGS = --warn-common -melf_i386 --strip-all
 BOOTLOADER_PATH = arch/x86-pc/bootstrap
 
 OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
-	arch/x86-pc/startup.o
+	  arch/x86/gdt.o \
+	  arch/x86-pc/startup.o
 
 KERNEL          = aragveli.elf
 MULTIBOOT_IMAGE	= aragveli.iso
