@@ -7,12 +7,10 @@
 
 #pragma once
 
+#include <arch/x86/registers.h>
 
-#define NULL ((void*)0)
+// Setup interruption service request handling.
+void x86_isr_setup(void);
 
-typedef unsigned long int	uint32_t;
-typedef unsigned short int	uint16_t;
-typedef unsigned char		uint8_t;
-
-// Return status
-typedef int			status_t;
+// Interruption service request handler.
+void x86_isr_handler(struct registers *r);

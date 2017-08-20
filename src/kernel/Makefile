@@ -12,6 +12,13 @@ BOOTLOADER_PATH = arch/x86-pc/bootstrap
 
 OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  arch/x86/gdt.o \
+	  arch/x86/idt.o \
+	  arch/x86/isr-stubs.o \
+	  arch/x86/isr.o \
+	  arch/x86/pic.o \
+	  arch/x86/irq-stubs.o \
+	  arch/x86/irq.o \
+	  arch/x86/pit.o \
 	  arch/x86-pc/startup.o
 
 KERNEL          = aragveli.elf
