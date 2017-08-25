@@ -50,6 +50,7 @@ aragveli_main(uint32_t magic, uint32_t address)
 
     vbe_setup(vbe_mode_info);
 
+    vbe_set_color(NORMAL_GREEN);
     vbe_draw_string("Aragveli", 2, 480, 350);
 
     // Enable interrupts

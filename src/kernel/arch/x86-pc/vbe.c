@@ -14,9 +14,9 @@ int screen_width;
 uint32_t color = 0xAAAAAA;
 
 void
-vbe_set_color(uint32_t color)
+vbe_set_color(uint32_t new_color)
 {
-	color = color;
+	color = new_color;
 }
 
 static void
@@ -26,7 +26,7 @@ box_fill(int x0, int y0, int x1, int y1)
 
 	for (y = y0; y <= y1; y++)
 		for (x = x0; x <= x1; x++)
-			vram[y * screen_width + x] = 0x123456;
+			vram[y * screen_width + x] = color;
 }
 
 static void
