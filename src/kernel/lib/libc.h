@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "types.h"
+#include <arch/x86-pc/vbe.h>
 
 /**
  * Assert an expression
@@ -21,8 +21,7 @@
 		{					\
 			/* Disable interrupts on x86 */	\
 			asm("cli\n");			\
-	 		*((unsigned char*)0xB8000) = 'B'; \
-	 		*((unsigned char*)0xB8001) = 0x1A; \
+	 		vbe_draw_string("Asserted!", 0, 0, NORMAL_RED);	\
 			/* Infinite loop and x86 processor halting */	\
 			while (1) asm("hlt");				\
 		}							\

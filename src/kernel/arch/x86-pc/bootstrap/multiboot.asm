@@ -11,12 +11,17 @@ extern aragveli_main	; this is our kernel's entry point
 MBALIGN		equ 1<<0		; Align loaded modules on page
 					; boundaries.
 MEMINFO		equ 1<<1		; Provide memory map.
-FLAGS		equ MBALIGN | MEMINFO	; Multiboot 'flag' field.
+GRAPHICS	equ 1<<2		; Provide VBE info.
+FLAGS		equ MBALIGN | MEMINFO | GRAPHICS	; Multiboot 'flag' field.
 MAGIC		equ 0x1BADB002		; 'Magic number' lets bootloader find
 					; the header.
 CHECKSUM	equ -(MAGIC + FLAGS)	; Checksum required to prove that we
 					; are multiboot.
 STACK_SIZE	equ 0x4000		; Stack size is 16KiB.
+VBE_MODE	equ 0
+VBE_WIDTH	equ 1024
+VBE_HEIGHT	equ 768
+VBE_DEPTH	equ 32
 
 
 ; The multiboot header must come first.
@@ -26,9 +31,18 @@ section .multiboot
 align 4
 
 multiboot_header:
-dd MAGIC
-dd FLAGS
-dd -(MAGIC + FLAGS)
+	dd MAGIC
+	dd FLAGS
+	dd CHECKSUM
+	dd 0
+	dd 0
+	dd 0
+	dd 0
+	dd 0
+	dd VBE_MODE
+	dd VBE_WIDTH
+	dd VBE_HEIGHT
+	dd VBE_DEPTH
 
 ; The beginning of our kernel code
 section .text

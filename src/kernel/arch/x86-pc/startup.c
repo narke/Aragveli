@@ -14,6 +14,7 @@
 #include <arch/x86/isr.h>
 #include <arch/x86/irq.h>
 #include <arch/x86/pit.h>
+#include <arch/x86-pc/vbe.h>
 
 // The kernel entry point. All starts from here!
 void
@@ -22,8 +23,7 @@ aragveli_main(uint32_t magic, uint32_t address)
     multiboot_info_t *mbi;
     mbi = (multiboot_info_t *)address;
 
-    (void)magic;
-    (void)mbi;
+    assert(magic == 0x2BADB002);
 
     // GDT
     x86_gdt_setup();
@@ -45,8 +45,12 @@ aragveli_main(uint32_t magic, uint32_t address)
     // Timer interrupt
     x86_irq_set_routine(IRQ_TIMER, timer_interrupt_handler);
 
-    *((unsigned char *)0xB8000) = 'A';
-    *((unsigned char *)0xB8001) = 0x1A;
+    struct vbe_mode_info *vbe_mode_info =
+	    (struct vbe_mode_info *)mbi->vbe_mode_info;
+
+    vbe_setup(vbe_mode_info);
+
+    vbe_draw_string("Aragveli", 2, 480, 350);
 
     // Enable interrupts
     asm volatile("sti");

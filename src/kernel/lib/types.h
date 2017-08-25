@@ -10,6 +10,8 @@
 
 #define NULL ((void*)0)
 
+typedef enum {false=0, true=1} bool;
+
 typedef unsigned long int	uint32_t;
 typedef unsigned short int	uint16_t;
 typedef unsigned char		uint8_t;

@@ -82,7 +82,4 @@ timer_interrupt_handler(int number)
 		seconds++;
 		ticks = 0;
 	}
-
-	*((unsigned char *)0xB8000) = 'C';
-	*((unsigned char *)0xB8001) = 0xf;
 }
