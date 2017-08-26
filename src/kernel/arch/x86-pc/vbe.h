@@ -349,6 +349,12 @@ static const unsigned char font[] = {
 
 void vbe_set_color(uint32_t new_color);
 
-void vbe_draw_string(const char *str, int scale, int x, int y);
+void vbe_set_position(uint16_t new_y, uint16_t new_x);
+
+void vbe_set_scale(uint8_t scale);
+
+void vbe_draw_character(unsigned char c);
+
+void vbe_draw_string(const char *str);
 
 void vbe_setup(struct vbe_mode_info *vbe_mode_info);

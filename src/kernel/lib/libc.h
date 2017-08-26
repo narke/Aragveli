@@ -21,7 +21,8 @@
 		{					\
 			/* Disable interrupts on x86 */	\
 			asm("cli\n");			\
-	 		vbe_draw_string("Asserted!", 0, 0, NORMAL_RED);	\
+			vbe_set_color(NORMAL_RED);	\
+			vbe_draw_string("Asserted!");	\
 			/* Infinite loop and x86 processor halting */	\
 			while (1) asm("hlt");				\
 		}							\

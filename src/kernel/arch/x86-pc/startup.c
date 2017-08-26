@@ -15,6 +15,7 @@
 #include <arch/x86/irq.h>
 #include <arch/x86/pit.h>
 #include <arch/x86-pc/vbe.h>
+#include <lib/printf.h>
 
 // The kernel entry point. All starts from here!
 void
@@ -50,8 +51,7 @@ aragveli_main(uint32_t magic, uint32_t address)
 
     vbe_setup(vbe_mode_info);
 
-    vbe_set_color(NORMAL_GREEN);
-    vbe_draw_string("Aragveli", 2, 480, 350);
+    printf("Aragveli");
 
     // Enable interrupts
     asm volatile("sti");
