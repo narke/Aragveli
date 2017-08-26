@@ -21,38 +21,37 @@
 void
 aragveli_main(uint32_t magic, uint32_t address)
 {
-    multiboot_info_t *mbi;
-    mbi = (multiboot_info_t *)address;
+	multiboot_info_t *mbi = (multiboot_info_t *)address;
 
-    assert(magic == 0x2BADB002);
+	assert(magic == 0x2BADB002);
 
-    // GDT
-    x86_gdt_setup();
+	// GDT
+	x86_gdt_setup();
 
-    // IDT
-    x86_idt_setup();
+	// IDT
+	x86_idt_setup();
 
-    // ISRs
-    x86_isr_setup();
+	// ISRs
+	x86_isr_setup();
 
-    // IRQs
-    x86_irq_setup();
+	// IRQs
+	x86_irq_setup();
 
-    // Timer: Raise IRQ0 at 100 HZ rate.
-    status_t status = x86_pit_set_frequency(100);
+	// Timer: Raise IRQ0 at 100 HZ rate.
+	status_t status = x86_pit_set_frequency(100);
 
-    assert(status == KERNEL_OK);
+	assert(status == KERNEL_OK);
 
-    // Timer interrupt
-    x86_irq_set_routine(IRQ_TIMER, timer_interrupt_handler);
+	// Timer interrupt
+	x86_irq_set_routine(IRQ_TIMER, timer_interrupt_handler);
 
-    struct vbe_mode_info *vbe_mode_info =
-	    (struct vbe_mode_info *)mbi->vbe_mode_info;
+	struct vbe_mode_info *vbe_mode_info =
+		(struct vbe_mode_info *)mbi->vbe_mode_info;
 
-    vbe_setup(vbe_mode_info);
+	vbe_setup(vbe_mode_info);
 
-    printf("Aragveli");
+	printf("Aragveli");
 
-    // Enable interrupts
-    asm volatile("sti");
+	// Enable interrupts
+	asm volatile("sti");
 }
