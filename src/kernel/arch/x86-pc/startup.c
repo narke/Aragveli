@@ -8,19 +8,21 @@
 #include <arch/x86-pc/bootstrap/multiboot.h>
 #include <lib/types.h>
 #include <lib/status.h>
-#include <lib/libc.h>
+#include <lib/c/assert.h>
+#include <lib/c/printf.h>
 #include <arch/x86/gdt.h>
 #include <arch/x86/idt.h>
 #include <arch/x86/isr.h>
 #include <arch/x86/irq.h>
 #include <arch/x86/pit.h>
 #include <arch/x86-pc/vbe.h>
-#include <lib/printf.h>
+#include <memory/physical-memory.h>
 
 // The kernel entry point. All starts from here!
 void
 aragveli_main(uint32_t magic, uint32_t address)
 {
+	status_t status;
 	multiboot_info_t *mbi = (multiboot_info_t *)address;
 
 	assert(magic == 0x2BADB002);
@@ -38,17 +40,21 @@ aragveli_main(uint32_t magic, uint32_t address)
 	x86_irq_setup();
 
 	// Timer: Raise IRQ0 at 100 HZ rate.
-	status_t status = x86_pit_set_frequency(100);
-
+	status = x86_pit_set_frequency(100);
 	assert(status == KERNEL_OK);
 
 	// Timer interrupt
 	x86_irq_set_routine(IRQ_TIMER, timer_interrupt_handler);
 
+	// VBE
 	struct vbe_mode_info *vbe_mode_info =
 		(struct vbe_mode_info *)mbi->vbe_mode_info;
 
 	vbe_setup(vbe_mode_info);
+
+	// Physical memory
+	status = physical_memory_setup((mbi->mem_upper << 10) + (1 << 20));
+	assert(status == KERNEL_OK);
 
 	printf("Aragveli");
 

@@ -20,7 +20,9 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  arch/x86/irq.o \
 	  arch/x86/pit.o \
 	  arch/x86-pc/vbe.o \
-	  lib/printf.o \
+	  lib/c/printf.o \
+	  lib/c/string.o \
+	  memory/physical-memory.o \
 	  arch/x86-pc/startup.o
 
 KERNEL          = aragveli.elf

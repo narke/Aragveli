@@ -6,8 +6,8 @@
  */
 
 #include <arch/x86-pc/vbe.h>
+#include <lib/types.h>
 #include "printf.h"
-#include "types.h"
 #include "stdarg.h"
 
 static void

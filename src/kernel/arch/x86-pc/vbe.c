@@ -52,7 +52,7 @@ vbe_draw_character(unsigned char c)
 
 	if (c == '\n')
 	{
-		vbe_set_position(y + 20, x);
+		vbe_set_position(y + 20, 0);
 		return;
 	}
 
