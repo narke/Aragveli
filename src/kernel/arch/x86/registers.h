@@ -10,6 +10,8 @@
  *
  * This defines what the stack looks like after an ISR was running.
  */
+#pragma once
+
 struct registers
 {
     unsigned int gs, fs, es, ds;

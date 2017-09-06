@@ -17,3 +17,17 @@ memset(void *dst, int c, size_t length)
 
 	return p;
 }
+
+void *
+memcpy(void *dst, const void *src, size_t size)
+{
+	char *destination;
+	const char *_src;
+
+	for (destination = (char*)dst, _src = (const char*)src;
+			size > 0 ;
+			destination++, _src++, size--)
+		*destination = *_src;
+
+	return dst;
+}

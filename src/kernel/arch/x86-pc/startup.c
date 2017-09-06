@@ -17,6 +17,7 @@
 #include <arch/x86/pit.h>
 #include <arch/x86-pc/vbe.h>
 #include <memory/physical-memory.h>
+#include <arch/x86/paging.h>
 
 // The kernel entry point. All starts from here!
 void
@@ -53,8 +54,21 @@ aragveli_main(uint32_t magic, uint32_t address)
 	vbe_setup(vbe_mode_info);
 
 	// Physical memory
-	status = physical_memory_setup((mbi->mem_upper << 10) + (1 << 20));
+	paddr_t identity_mapping_start, identity_mapping_end;
+	status = physical_memory_setup((mbi->mem_upper << 10) + (1 << 20),
+			vbe_mode_info,
+			&identity_mapping_start,
+			&identity_mapping_end);
 	assert(status == KERNEL_OK);
+
+	// Paging
+	status = paging_setup(identity_mapping_start,
+			identity_mapping_end,
+			vbe_mode_info);
+	assert(status == KERNEL_OK);
+
+	// Handle page faults
+	isr_set_handler(14, page_fault);
 
 	printf("Aragveli");
 

@@ -7,7 +7,9 @@
 
 #pragma once
 
+#include <arch/x86-pc/vbe.h>
 #include <lib/status.h>
+#include <lib/types.h>
 
 #define PAGE_SIZE 4096
 
@@ -25,8 +27,13 @@
 #define IS_PAGE_ALIGNED(value) \
 	(0 == (((unsigned)(value)) & ((PAGE_SIZE)-1)))
 
-status_t physical_memory_setup(size_t ram_size);
+status_t physical_memory_setup(size_t ram_size,
+		struct vbe_mode_info *vbe_mode_info,
+		paddr_t *identity_mapping_start,
+		paddr_t *identity_mapping_end);
 
 paddr_t frame_alloc(void);
+
+status_t frame_ref_at(paddr_t frame_address);
 
 status_t frame_free(paddr_t frame_address);

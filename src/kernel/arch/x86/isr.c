@@ -9,6 +9,7 @@
 
 #include <arch/x86/idt.h>
 #include <arch/x86/segment.h>
+#include <lib/c/printf.h>
 #include <lib/types.h>
 
 #include "isr.h"
@@ -125,7 +126,12 @@ char *exception_messages[] =
     "Reserved"
 };
 
+static isr_handler_t isr_routines[256] = {0, };
 
+void isr_set_handler(uint8_t isr_number, isr_handler_t handler)
+{
+	isr_routines[isr_number] = handler;
+}
 
 /* All of our Exception handling Interrupt Service Routines will
 *  point to this function. This will tell us what exception has
@@ -137,10 +143,23 @@ char *exception_messages[] =
 void
 x86_isr_handler(struct registers *r)
 {
-    if (r->interrupt_number < EXCEPTIONS_NUMBER)
-    {
-        for (;;);
-    }
+	isr_handler_t handler = isr_routines[r->interrupt_number];
+
+	if (handler)
+	{
+		handler(r);
+	}
+	else
+	{
+		printf("Unhandled exception: [%d] - %s\n",
+			r->interrupt_number,
+			exception_messages[r->interrupt_number]);
+
+		while (1)
+		{
+			asm("hlt");
+		}
+	}
 }
 
 

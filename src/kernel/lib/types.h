@@ -17,6 +17,6 @@ typedef unsigned short int	uint16_t;
 typedef unsigned char		uint8_t;
 
 typedef unsigned int		paddr_t;	// Physical address
+typedef unsigned int		vaddr_t;	// Virtual address
 typedef int			status_t;	// Return status
 typedef unsigned int 		size_t;		// Memory size of an object
-
