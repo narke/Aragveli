@@ -261,9 +261,13 @@ paging_get_frame(vaddr_t vaddr)
 
 void page_fault(struct registers *r)
 {
+	uint32_t fault_address;
 	(void)r;
+
 	vbe_set_color(NORMAL_RED);
-	printf("Page fault!\n");
+
+	asm("mov %%cr2, %0":"=r"(fault_address));
+	printf("Page fault at %x\n", fault_address);
 
 	while (1)
 		asm("hlt");

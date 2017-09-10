@@ -18,6 +18,7 @@
 #include <arch/x86-pc/vbe.h>
 #include <memory/physical-memory.h>
 #include <arch/x86/paging.h>
+#include <memory/heap.h>
 
 // The kernel entry point. All starts from here!
 void
@@ -50,6 +51,10 @@ aragveli_main(uint32_t magic, uint32_t address)
 	// VBE
 	struct vbe_mode_info *vbe_mode_info =
 		(struct vbe_mode_info *)mbi->vbe_mode_info;
+	uint32_t framebuffer_start = vbe_mode_info->framebuffer_addr;
+	uint32_t framebuffer_end = vbe_mode_info->framebuffer_addr
+			+ vbe_mode_info->pitch
+			* vbe_mode_info->y_res;
 
 	vbe_setup(vbe_mode_info);
 
@@ -69,6 +74,12 @@ aragveli_main(uint32_t magic, uint32_t address)
 
 	// Handle page faults
 	isr_set_handler(14, page_fault);
+
+	// Heap
+	heap_setup(identity_mapping_start,
+			identity_mapping_end,
+			framebuffer_start,
+			framebuffer_end);
 
 	printf("Aragveli");
 

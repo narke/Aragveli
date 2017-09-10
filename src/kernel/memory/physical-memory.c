@@ -60,7 +60,7 @@ physical_memory_setup(size_t ram_size,
 
 	frames_array = (frame_t *)FRAMES_ARRAY_ADDRSS;
 
-	enum {RESERVED, FREE, KERNEL} action;
+	enum {RESERVED, HARDWARE, FREE, KERNEL} action;
 
 	for (frame_address = 0, frame = frames_array;
 		frame_address < physical_memory_end;
@@ -70,11 +70,26 @@ physical_memory_setup(size_t ram_size,
 
 		frame->address = frame_address;
 
-		if (frame_address < *identity_mapping_start)
+		if (frame_address < physical_memory_start)
 		{
 			action = RESERVED;
 		}
-		else if ((frame_address >= *identity_mapping_start)
+		else if ((frame_address >= physical_memory_start)
+			&& (frame_address < vbe_mode_info->framebuffer_addr))
+		{
+			action = FREE;
+		}
+		else if((frame_address >= vbe_mode_info->framebuffer_addr)
+			&& (frame_address < (vbe_mode_info->framebuffer_addr
+				+ vbe_mode_info->pitch
+				* vbe_mode_info->y_res)))
+		{
+			action = HARDWARE;
+		}
+
+		else if ((frame_address >= (vbe_mode_info->framebuffer_addr
+				+ vbe_mode_info->pitch
+				* vbe_mode_info->y_res))
 			&& (frame_address < (paddr_t)&__kernel_start))
 		{
 			action = FREE;
@@ -83,13 +98,6 @@ physical_memory_setup(size_t ram_size,
 			&& (frame_address < *identity_mapping_end))
 		{
 			action = KERNEL;
-		}
-		else if((frame_address >= vbe_mode_info->framebuffer_addr)
-			&& (frame_address < (vbe_mode_info->framebuffer_addr
-				+ vbe_mode_info->pitch
-				* vbe_mode_info->y_res)))
-		{
-			action = RESERVED;
 		}
 		else
 		{
@@ -103,6 +111,7 @@ physical_memory_setup(size_t ram_size,
 				SLIST_INSERT_HEAD(&free_frames, frame, next);
 				break;
 
+			case HARDWARE:
 			case KERNEL:
 				frame->ref_count = 1;
 				SLIST_INSERT_HEAD(&used_frames, frame, next);
