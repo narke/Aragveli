@@ -10,6 +10,7 @@
 #include <lib/status.h>
 #include <arch/x86/io-ports.h>
 #include <arch/x86//irq.h>
+#include <process/scheduler.h>
 
 #include "pit.h"
 
@@ -72,6 +73,7 @@ timer_interrupt_handler(int number)
 {
 	static int ticks = 0;
 	static int seconds = 0;
+	uint32_t flags;
 
 	(void)number; // Avoid a useless warning ;-)
 
@@ -82,4 +84,8 @@ timer_interrupt_handler(int number)
 		seconds++;
 		ticks = 0;
 	}
+
+	X86_IRQs_DISABLE(flags);
+	schedule();
+	X86_IRQs_ENABLE(flags);
 }

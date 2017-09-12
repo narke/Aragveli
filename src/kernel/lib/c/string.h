@@ -11,3 +11,4 @@
 
 void *memset(void *dst, int c, size_t length);
 void *memcpy(void *dst, const void *src, size_t size);
+char *strzcpy(register char *dst, const char *src, size_t len);

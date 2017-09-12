@@ -19,6 +19,9 @@
 #include <memory/physical-memory.h>
 #include <arch/x86/paging.h>
 #include <memory/heap.h>
+#include <process/thread.h>
+#include <process/scheduler.h>
+
 
 // The kernel entry point. All starts from here!
 void
@@ -80,6 +83,12 @@ aragveli_main(uint32_t magic, uint32_t address)
 			identity_mapping_end,
 			framebuffer_start,
 			framebuffer_end);
+
+	// Scheduler
+	scheduler_setup();
+
+	// Theading
+	threading_setup();
 
 	printf("Aragveli");
 

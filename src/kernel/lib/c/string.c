@@ -31,3 +31,23 @@ memcpy(void *dst, const void *src, size_t size)
 
 	return dst;
 }
+
+char *
+strzcpy(register char *dst, const char *src, size_t len)
+{
+	size_t i;
+
+	if (len <= 0)
+		return dst;
+
+	for (i = 0; i < len; i++)
+	{
+		dst[i] = src[i];
+
+		if(src[i] == '\0')
+			return dst;
+	}
+
+	dst[len-1] = '\0';
+	return dst;
+}

@@ -25,6 +25,11 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  memory/physical-memory.o \
 	  arch/x86/paging.o \
 	  memory/heap.o \
+	  lib/c/stdlib.o \
+	  arch/x86/cpu-context.o \
+	  arch/x86/cpu-context-switch.o \
+	  process/thread.o \
+	  process/scheduler.o \
 	  arch/x86-pc/startup.o
 
 KERNEL          = aragveli.elf
