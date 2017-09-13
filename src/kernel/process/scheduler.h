@@ -11,5 +11,5 @@
 #include "thread.h"
 
 void scheduler_setup(void);
-void scheduler_set_ready(struct thread * thr);
+void scheduler_set_ready(thread_t * thr);
 void schedule(void);

@@ -20,10 +20,6 @@
 
 #define THREAD_MAX_NAMELEN 32
 
-/* Forward declaration */
-struct thread;
-
-
 /*
  * The possible states of a valid thread
  */
@@ -41,7 +37,7 @@ typedef enum
  */
 typedef void (*kernel_thread_start_routine_t)(void *arg);
 
-struct thread
+typedef struct thread
 {
 	/* Kernel stack parameters */
 	uint32_t	stack_base_address;
@@ -50,7 +46,7 @@ struct thread
 	thread_state	state;
 	struct cpu_state *cpu_state;
 	TAILQ_ENTRY(thread) next;
-};
+} thread_t;
 
 
 /*
@@ -60,8 +56,8 @@ struct thread
  * the same way as an ordinary thread created by thread_create().
  */
 void threading_setup(void);
-struct thread *thread_create(const char *name,
+thread_t *thread_create(const char *name,
 		kernel_thread_start_routine_t start_func,
 		void *start_arg);
-inline void thread_set_current(struct thread *current_thread);
-struct thread *thread_get_current(void);
+inline void thread_set_current(thread_t *current_thread);
+thread_t *thread_get_current(void);

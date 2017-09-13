@@ -15,7 +15,7 @@
 
 TAILQ_HEAD(, thread) kernel_threads;
 
-static volatile struct thread *g_current_thread = NULL;
+static volatile thread_t *g_current_thread = NULL;
 
 static void
 idle_thread()
@@ -25,7 +25,7 @@ idle_thread()
 }
 
 inline void
-thread_set_current(struct thread *current_thread)
+thread_set_current(thread_t *current_thread)
 {
 	assert(current_thread->state == THREAD_READY);
 
@@ -33,11 +33,11 @@ thread_set_current(struct thread *current_thread)
 	g_current_thread->state = THREAD_RUNNING;
 }
 
-struct thread *
+thread_t *
 thread_get_current(void)
 {
 	assert(g_current_thread->state == THREAD_RUNNING);
-	return (struct thread *)g_current_thread;
+	return (thread_t *)g_current_thread;
 }
 
 void
@@ -45,26 +45,26 @@ threading_setup(void)
 {
 	TAILQ_INIT(&kernel_threads);
 
-	struct thread *idle = thread_create("idle", idle_thread, NULL);
+	thread_t *idle = thread_create("idle", idle_thread, NULL);
 	assert(idle != NULL);
 
 	idle->state = THREAD_READY;
 	thread_set_current(idle);
 }
 
-struct thread *
+thread_t *
 thread_create(const char *name,
 		kernel_thread_start_routine_t start_func,
 		void *start_arg)
 {
 	uint32_t flags;
-	struct thread *new_thread;
+	thread_t *new_thread;
 
 	if (!start_func)
 		return NULL;
 
 	// Allocate a new thread structure for the current running thread
-	new_thread = malloc(sizeof(struct thread));
+	new_thread = malloc(sizeof(thread_t));
 
 	if (!new_thread)
 		return NULL;

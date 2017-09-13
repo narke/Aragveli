@@ -20,7 +20,7 @@ scheduler_setup(void)
 }
 
 static void
-add_in_ready_queue(struct thread *t, bool insert_at_tail)
+add_in_ready_queue(thread_t *t, bool insert_at_tail)
 {
 	assert((THREAD_CREATED == t->state)
 		|| (THREAD_RUNNING == t->state)
@@ -35,7 +35,7 @@ add_in_ready_queue(struct thread *t, bool insert_at_tail)
 }
 
 void
-scheduler_set_ready(struct thread *t)
+scheduler_set_ready(thread_t *t)
 {
 	/* Don't do anything for already ready threads */
 	if (THREAD_READY == t->state)
@@ -48,11 +48,11 @@ scheduler_set_ready(struct thread *t)
 void
 schedule(void)
 {
-	struct thread *current_thread = thread_get_current();
+	thread_t *current_thread = thread_get_current();
 
 	assert(TAILQ_EMPTY(&ready_threads) == false);
 
-	struct thread *next_thread = TAILQ_FIRST(&ready_threads);
+	thread_t *next_thread = TAILQ_FIRST(&ready_threads);
 	TAILQ_REMOVE(&ready_threads, next_thread, next);
 	TAILQ_INSERT_TAIL(&ready_threads, next_thread, next);
 
