@@ -1,6 +1,13 @@
+/*
+ * Copyright (c) 2017 Konstantin Tcholokachvili.
+ * All rights reserved.
+ * Use of this source code is governed by a MIT license that can be
+ * found in the LICENSE file.
+ */
+
 #include <lib/queue.h>
 #include <lib/c/assert.h>
-#include <memory/physical-memory.h>
+#include <memory/frame.h>
 #include "heap.h"
 
 uint32_t heap = 0;

@@ -16,7 +16,7 @@
 #include <arch/x86/irq.h>
 #include <arch/x86/pit.h>
 #include <arch/x86-pc/vbe.h>
-#include <memory/physical-memory.h>
+#include <memory/frame.h>
 #include <arch/x86/paging.h>
 #include <memory/heap.h>
 #include <process/thread.h>

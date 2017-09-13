@@ -10,7 +10,7 @@
 #include <lib/types.h>
 #include <lib/c/string.h>
 #include <lib/c/assert.h>
-#include "physical-memory.h"
+#include "frame.h"
 
 typedef struct frame
 {

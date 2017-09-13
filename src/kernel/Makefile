@@ -22,7 +22,7 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  arch/x86-pc/vbe.o \
 	  lib/c/printf.o \
 	  lib/c/string.o \
-	  memory/physical-memory.o \
+	  memory/frame.o \
 	  arch/x86/paging.o \
 	  memory/heap.o \
 	  lib/c/stdlib.o \

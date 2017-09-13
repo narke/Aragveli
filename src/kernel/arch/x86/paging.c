@@ -5,7 +5,7 @@
  * found in the LICENSE file.
  */
 
-#include <memory/physical-memory.h>
+#include <memory/frame.h>
 #include <lib/c/string.h>
 #include <lib/c/assert.h>
 #include <lib/c/printf.h>

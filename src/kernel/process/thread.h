@@ -10,7 +10,7 @@
 #include <lib/queue.h>
 #include <lib/types.h>
 #include <arch/x86/cpu-context.h>
-#include <memory/physical-memory.h>
+#include <memory/frame.h>
 
 
 /*

@@ -10,7 +10,7 @@
 #include <lib/c/printf.h>
 #include <lib/queue.h>
 #include <arch/x86-pc/vbe.h>
-#include <memory/physical-memory.h>
+#include <memory/frame.h>
 
 #include "frame-test.h"
 
