@@ -28,16 +28,18 @@ static uint32_t physical_memory_start;
 static uint32_t physical_memory_end;
 static frame_t *frames_array;
 
-#define FRAMES_ARRAY_ADDRSS PAGE_ALIGN_UP((paddr_t)(&__kernel_end))
 
 status_t
 physical_memory_setup(size_t ram_size,
 		struct vbe_mode_info *vbe_mode_info,
 		paddr_t *identity_mapping_start,
-		paddr_t *identity_mapping_end)
+		paddr_t *identity_mapping_end,
+		paddr_t initrd_end)
 {
 	frame_t *frame;
 	paddr_t frame_address;
+
+#define FRAMES_ARRAY_ADDRSS PAGE_ALIGN_UP(initrd_end)
 
 	SLIST_INIT(&free_frames);
 	SLIST_INIT(&used_frames);
@@ -67,7 +69,6 @@ physical_memory_setup(size_t ram_size,
 		frame_address += PAGE_SIZE, frame++)
 	{
 		memset(frame, 0, sizeof(frame_t));
-
 		frame->address = frame_address;
 
 		if (frame_address < physical_memory_start)
@@ -86,7 +87,6 @@ physical_memory_setup(size_t ram_size,
 		{
 			action = HARDWARE;
 		}
-
 		else if ((frame_address >= (vbe_mode_info->framebuffer_addr
 				+ vbe_mode_info->pitch
 				* vbe_mode_info->y_res))

@@ -21,6 +21,40 @@
 #include <memory/heap.h>
 #include <process/thread.h>
 #include <process/scheduler.h>
+#include <fs/tarfs.h>
+#include <lib/c/string.h>
+
+int
+cmd_ls(struct dentry *root, struct dentry *cwd, char *path)
+{
+	struct dentry *tmp_node = NULL, *start_root;
+
+	if (!cwd && !root)
+		return -KERNEL_NO_SUCH_FILE_OR_DIRECTORY;
+
+	if (strlen(path) > 0 && path[0] == '/')
+		start_root = resolve_node(path, root);
+	else
+		start_root = resolve_node(path, cwd);
+
+	if (!start_root)
+		return -KERNEL_NO_SUCH_FILE_OR_DIRECTORY;
+
+	if (start_root->type == TARFS_DIRECTORY)
+	{
+		LIST_FOREACH(tmp_node, &start_root->u.dir.nodes, next)
+		{
+			printf("%s\n", tmp_node->name);
+		}
+	}
+	else if (start_root->type == TARFS_FILE)
+		printf("%s\n", tmp_node->name);
+	else
+		return -KERNEL_NO_SUCH_FILE_OR_DIRECTORY;
+
+	return KERNEL_OK;
+
+}
 
 
 // The kernel entry point. All starts from here!
@@ -61,12 +95,17 @@ aragveli_main(uint32_t magic, uint32_t address)
 
 	vbe_setup(vbe_mode_info);
 
+	// Initrd
+	uint32_t initrd_start = *((uint32_t *)mbi->mods_addr);
+	uint32_t initrd_end   = *(uint32_t *)(mbi->mods_addr + 4);
+
 	// Physical memory
 	paddr_t identity_mapping_start, identity_mapping_end;
 	status = physical_memory_setup((mbi->mem_upper << 10) + (1 << 20),
 			vbe_mode_info,
 			&identity_mapping_start,
-			&identity_mapping_end);
+			&identity_mapping_end,
+			initrd_end);
 	assert(status == KERNEL_OK);
 
 	// Paging
@@ -90,8 +129,20 @@ aragveli_main(uint32_t magic, uint32_t address)
 	// Theading
 	threading_setup();
 
-	printf("Aragveli");
+	// File system
+	vfs_list_init();
+
+	status = tarfs_init(initrd_start, initrd_end);
+	assert(status == KERNEL_OK);
+
+	struct superblock *root_fs;
+	status = vfs_init("initrd", "tarfs", "/", NULL, &root_fs);
+	assert(status == KERNEL_OK);
+
+	printf("Aragveli\n");
 
 	// Enable interrupts
 	asm volatile("sti");
+
+	cmd_ls(root_fs->root, root_fs->root, "/");
 }

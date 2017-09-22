@@ -9,6 +9,8 @@ CFLAGS  = -Wall -Wextra -m32 -Wa,--32 -nostdlib -nostdinc -ffreestanding -I$(PWD
 LDFLAGS = --warn-common -melf_i386 --strip-all
 
 BOOTLOADER_PATH = arch/x86-pc/bootstrap
+INITRD_DST = arch/x86-pc/bootstrap/iso
+INITRD_SRC = ../../initrd
 
 OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  arch/x86/gdt.o \
@@ -30,12 +32,14 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  arch/x86/cpu-context-switch.o \
 	  process/thread.o \
 	  process/scheduler.o \
+	  fs/vfs.o \
+	  fs/tarfs.o \
 	  arch/x86-pc/startup.o
 
 KERNEL          = aragveli.elf
 MULTIBOOT_IMAGE	= aragveli.iso
 
-all: kernel cdrom
+all: kernel initrd cdrom
 
 kernel: $(KERNEL)
 
@@ -51,13 +55,22 @@ $(KERNEL): $(OBJECTS)
 	$(assembling) '$< > $@'
 	nasm -f elf $<
 
+initrd:
+	$(generating) '$@'
+	tar cvf initrd.tar $(INITRD_SRC)
+	mv initrd.tar $(INITRD_DST)
+
 cdrom:
 	$(generating) '$@'
 	mv $(KERNEL) $(BOOTLOADER_PATH)/iso/boot/
 	grub-mkrescue -o $(MULTIBOOT_IMAGE) $(BOOTLOADER_PATH)/iso/
+
+run:
+	qemu-system-i386 -m 8 -vga std -cdrom $(MULTIBOOT_IMAGE)
 
 clean:
 	$(cleaning)
 	$(RM) $(OBJECTS)
 	$(RM) $(BOOTLOADER_PATH)/iso/boot/$(KERNEL)
 	$(RM) $(MULTIBOOT_IMAGE)
+	$(RM) $(INITRD_DST)/initrd.tar

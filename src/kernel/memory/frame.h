@@ -30,7 +30,8 @@
 status_t physical_memory_setup(size_t ram_size,
 		struct vbe_mode_info *vbe_mode_info,
 		paddr_t *identity_mapping_start,
-		paddr_t *identity_mapping_end);
+		paddr_t *identity_mapping_end,
+		paddr_t initrd_end);
 
 paddr_t frame_alloc(void);
 

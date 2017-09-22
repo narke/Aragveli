@@ -11,4 +11,8 @@
 
 void *memset(void *dst, int c, size_t length);
 void *memcpy(void *dst, const void *src, size_t size);
-char *strzcpy(register char *dst, const char *src, size_t len);
+char *strzcpy(char *dst, const char *src, size_t len);
+size_t strlen(const char *s);
+int strncmp(const char *s1, const char *s2, size_t n);
+char *strchr(const char *s, int c);
+char *strrchr(const char *s, int c);
