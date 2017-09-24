@@ -7,7 +7,7 @@
 
 #include <lib/types.h>
 #include <lib/c/assert.h>
-#include <lib/c/printf.h>
+#include <lib/c/stdio.h>
 #include <lib/queue.h>
 #include <arch/x86-pc/vbe.h>
 #include <memory/frame.h>

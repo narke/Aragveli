@@ -8,7 +8,7 @@
 #pragma once
 
 #include <arch/x86-pc/vbe.h>
-#include <lib/c/printf.h>
+#include <lib/c/stdio.h>
 
 /**
  * Assert an expression

@@ -37,9 +37,6 @@ strzcpy(char *dst, const char *src, size_t len)
 {
 	size_t i;
 
-	if (len <= 0)
-		return dst;
-
 	for (i = 0; i < len; i++)
 	{
 		dst[i] = src[i];

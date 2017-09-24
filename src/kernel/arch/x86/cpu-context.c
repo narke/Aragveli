@@ -7,7 +7,7 @@
 
 #include <lib/c/string.h>
 #include <arch/x86/segment.h>
-#include <lib/c/printf.h>
+#include <lib/c/stdio.h>
 
 #include "cpu-context.h"
 

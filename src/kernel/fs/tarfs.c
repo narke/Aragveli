@@ -9,7 +9,7 @@
 #include <fs/vfs.h>
 #include <lib/c/string.h>
 #include <lib/c/stdlib.h>
-#include <lib/c/printf.h>
+#include <lib/c/stdio.h>
 #include <lib/c/assert.h>
 #include <lib/types.h>
 #include <lib/queue.h>

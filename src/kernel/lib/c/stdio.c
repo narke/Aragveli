@@ -7,7 +7,7 @@
 
 #include <arch/x86-pc/vbe.h>
 #include <lib/types.h>
-#include "printf.h"
+#include "stdio.h"
 #include "stdarg.h"
 
 static void
@@ -17,8 +17,6 @@ itoa(int value, char *str, uint8_t base)
 	uint8_t j = 0;
 	uint8_t divisor = 10;
 	uint8_t is_negative = 0;
-	uint8_t remainder;
-	char tmp;
 
 	// Convert 0
 	if (value == 0)
@@ -36,7 +34,7 @@ itoa(int value, char *str, uint8_t base)
 	// Convert the value into the corresponding base
 	while (value > 0)
 	{
-		remainder = value % divisor;
+		uint8_t remainder = value % divisor;
 		str[i++] = (remainder < 10) ? remainder + '0' : remainder + 'a' - 10;
 		value = value / divisor;
 	}
@@ -56,7 +54,7 @@ itoa(int value, char *str, uint8_t base)
 	str[i] = '\0';
 	for (i = i-1, j = 0; j < i; i--, j++)
 	{
-		tmp = str[j];
+		char tmp = str[j];
 		str[j] = str[i];
 		str[i] = tmp;
 	}

@@ -9,7 +9,7 @@
 #include <lib/types.h>
 #include <lib/status.h>
 #include <lib/c/assert.h>
-#include <lib/c/printf.h>
+#include <lib/c/stdio.h>
 #include <arch/x86/gdt.h>
 #include <arch/x86/idt.h>
 #include <arch/x86/isr.h>
@@ -101,7 +101,7 @@ aragveli_main(uint32_t magic, uint32_t address)
 
 	// Physical memory
 	paddr_t identity_mapping_start, identity_mapping_end;
-	status = physical_memory_setup((mbi->mem_upper << 10) + (1 << 20),
+	status = frame_setup((mbi->mem_upper << 10) + (1 << 20),
 			vbe_mode_info,
 			&identity_mapping_start,
 			&identity_mapping_end,

@@ -8,7 +8,7 @@
 #include <memory/frame.h>
 #include <lib/c/string.h>
 #include <lib/c/assert.h>
-#include <lib/c/printf.h>
+#include <lib/c/stdio.h>
 #include <lib/types.h>
 #include <lib/status.h>
 #include "paging.h"

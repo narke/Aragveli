@@ -37,7 +37,7 @@ x86_pit_set_frequency(uint32_t frequency)
 {
 	uint32_t divisor;
 
-	if (frequency <= 0 || frequency > MAX_FREQUENCY)
+	if (frequency == 0 || frequency > MAX_FREQUENCY)
 		return -KERNEL_INVALID_VALUE;
 
 	/* Ticks per second
@@ -46,7 +46,7 @@ x86_pit_set_frequency(uint32_t frequency)
 	divisor = MAX_FREQUENCY / frequency;
 
 	/* The divisor must be between 1 and 65536 (16 bits value) */
-	if (divisor <= 0 || divisor > 65536)
+	if (divisor == 0 || divisor > 65536)
 		return -KERNEL_INVALID_VALUE;
 
 	/* Prevent the divisor value to overflow, because it is coded

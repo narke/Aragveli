@@ -9,7 +9,7 @@
 
 #include <arch/x86/idt.h>
 #include <arch/x86/segment.h>
-#include <lib/c/printf.h>
+#include <lib/c/stdio.h>
 #include <lib/types.h>
 
 #include "isr.h"
