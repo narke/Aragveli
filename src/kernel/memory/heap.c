@@ -10,6 +10,9 @@
 #include <memory/frame.h>
 #include "heap.h"
 
+
+#define VM_BASE 0x4000	// 16 Kb
+
 uint32_t heap = 0;
 
 SLIST_HEAD(, memory_range) free_ranges;
@@ -46,18 +49,14 @@ create_range(bool is_free, vaddr_t start_address, vaddr_t end_address)
 }
 
 void
-heap_setup(vaddr_t identity_mapping_start,
+heap_setup(size_t ram_size,
+		vaddr_t identity_mapping_start,
 		vaddr_t identity_mapping_end,
 		uint32_t framebuffer_start,
 		uint32_t framebuffer_end)
 {
 	SLIST_INIT(&free_ranges);
 	SLIST_INIT(&used_ranges);
-
-	// For heap management
-	map_pages(PAGE_ALIGN_UP(identity_mapping_end),
-			identity_mapping_end + PAGE_SIZE,
-			false);
 
 	heap = PAGE_ALIGN_UP(identity_mapping_end);
 
@@ -89,48 +88,7 @@ heap_setup(vaddr_t identity_mapping_start,
 	// Free: Heap's allocation zone - Kernel end
 	create_range(true,
 			PAGE_ALIGN_UP(identity_mapping_end + PAGE_SIZE),
-			VM_TOP);
-}
-
-void
-map_pages(vaddr_t base_address,
-		vaddr_t top_address,
-		bool is_user_page)
-{
-	vaddr_t va;
-	paddr_t pa;
-
-	for (va = base_address;
-		va < top_address;
-		va += PAGE_SIZE)
-	{
-		pa = frame_alloc();
-
-		assert(pa != (paddr_t)NULL);
-
-		status_t status = paging_map(pa, va, is_user_page,
-			VM_MAP_ATOMIC | VM_MAP_PROT_READ | VM_MAP_PROT_WRITE);
-
-		assert(status == KERNEL_OK);
-
-		/* This page is already mapped, so it can be unreferenced.
-		   It's reference_counter should = 1 at this step
-		   when mapped first time */
-		frame_free(pa);
-	}
-}
-
-void
-unmap_pages(vaddr_t base_address, vaddr_t top_address)
-{
-	vaddr_t va;
-
-	for (va = base_address;
-		va < top_address;
-		va += PAGE_SIZE)
-    {
-	    assert(paging_unmap(va) == KERNEL_OK);
-    }
+			ram_size - PAGE_ALIGN_UP(identity_mapping_end + PAGE_SIZE));
 }
 
 void *
@@ -164,12 +122,6 @@ heap_alloc(size_t size)
 				new_range->nb_pages = nb_requested_pages;
 
 				SLIST_INSERT_HEAD(&used_ranges, new_range, next);
-
-				map_pages(new_range->base_address,
-					new_range->base_address
-					+ new_range->nb_pages * PAGE_SIZE,
-					false);
-
 				return (void *)new_range->base_address;
 			}
 			else
@@ -178,15 +130,11 @@ heap_alloc(size_t size)
 						memory_range, next);
 				SLIST_INSERT_HEAD(&used_ranges, range, next);
 
-				map_pages(range->base_address,
-					range->base_address
-					+ range->nb_pages * PAGE_SIZE,
-					false);
-
 				return (void *)range->base_address;
 			}
 		}
 	}
+	printf("alloc failed\n");
 
 	return NULL;
 }
@@ -204,11 +152,6 @@ heap_free(void *address)
 		if (range->base_address == (uint32_t)address)
 		{
 			SLIST_REMOVE(&used_ranges, range, memory_range, next);
-
-			unmap_pages(range->base_address,
-				range->base_address
-				+ range->nb_pages * PAGE_SIZE);
-
 			SLIST_INSERT_HEAD(&free_ranges, range, next);
 		}
 	}

@@ -34,7 +34,4 @@ status_t frame_setup(size_t ram_size,
 		paddr_t initrd_end);
 
 paddr_t frame_alloc(void);
-
-status_t frame_ref_at(paddr_t frame_address);
-
 status_t frame_free(paddr_t frame_address);

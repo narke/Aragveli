@@ -17,7 +17,6 @@
 #include <arch/x86/pit.h>
 #include <arch/x86-pc/vbe.h>
 #include <memory/frame.h>
-#include <arch/x86/paging.h>
 #include <memory/heap.h>
 #include <process/thread.h>
 #include <process/scheduler.h>
@@ -101,24 +100,17 @@ aragveli_main(uint32_t magic, uint32_t address)
 
 	// Physical memory
 	paddr_t identity_mapping_start, identity_mapping_end;
-	status = frame_setup((mbi->mem_upper << 10) + (1 << 20),
+	size_t ram_size = (mbi->mem_upper << 10) + (1 << 20);
+	status = frame_setup(ram_size,
 			vbe_mode_info,
 			&identity_mapping_start,
 			&identity_mapping_end,
 			initrd_end);
 	assert(status == KERNEL_OK);
 
-	// Paging
-	status = paging_setup(identity_mapping_start,
-			identity_mapping_end,
-			vbe_mode_info);
-	assert(status == KERNEL_OK);
-
-	// Handle page faults
-	isr_set_handler(14, page_fault);
-
 	// Heap
-	heap_setup(identity_mapping_start,
+	heap_setup(ram_size,
+			identity_mapping_start,
 			identity_mapping_end,
 			framebuffer_start,
 			framebuffer_end);

@@ -25,7 +25,6 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  lib/c/stdio.o \
 	  lib/c/string.o \
 	  memory/frame.o \
-	  arch/x86/paging.o \
 	  memory/heap.o \
 	  lib/c/stdlib.o \
 	  arch/x86/cpu-context.o \

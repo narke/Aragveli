@@ -51,7 +51,7 @@ frame_setup(size_t ram_size,
 	*identity_mapping_end = FRAMES_ARRAY_ADDRSS
 		+ PAGE_ALIGN_UP((ram_size >> PAGE_SHIFT) * sizeof(frame_t));
 
-	// Is there enough memory to fit the kenel?
+	// Is there enough memory to fit the kernel?
 	if (*identity_mapping_end > ram_size)
 		return -KERNEL_NO_MEMORY;
 
@@ -179,35 +179,4 @@ frame_free(paddr_t frame_address)
 	}
 
 	return status;
-}
-
-inline static frame_t *
-get_frame_from_address(paddr_t frame_address)
-{
-	if (frame_address & PAGE_MASK)
-		return NULL;
-
-	if ((frame_address < physical_memory_start)
-		|| (frame_address >= physical_memory_end))
-		return NULL;
-
-	return frames_array + (frame_address >> PAGE_SHIFT);
-}
-
-status_t
-frame_ref_at(paddr_t frame_address)
-{
-	frame_t *frame = get_frame_from_address(frame_address);
-	if (!frame)
-		return -KERNEL_INVALID_VALUE;
-
-	frame->ref_count++;
-	if (frame->ref_count == 1)
-	{
-		SLIST_REMOVE(&free_frames, frame, frame, next);
-		SLIST_INSERT_HEAD(&used_frames, frame, next);
-		return false;
-	}
-
-	return true;
 }
