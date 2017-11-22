@@ -71,8 +71,10 @@ static struct x86_gdt_entry gdt[] = {
 		.segment_present		= 1,
 		.segment_limit_19_16		= 0xf,
 		.available			= 0,
+		.zero				= 0,
 		.operand_size			= 1,	// 32-bit
-		.granularity			= 1	// 4KB pages
+		.granularity			= 1,	// 4KB pages
+		.base_paged_address_31_24	= 0
 	},
 	[KERNEL_DATA_SEGMENT] = (struct x86_gdt_entry){
 		.segment_limit_15_0		= 0xffff,
@@ -84,8 +86,10 @@ static struct x86_gdt_entry gdt[] = {
 		.segment_present		= 1,
 		.segment_limit_19_16		= 0xf,
 		.available			= 0,
+		.zero				= 0,
 		.operand_size			= 1,	// 32-bit
-		.granularity			= 1	// 4KB pages
+		.granularity			= 1,	// 4KB pages
+		.base_paged_address_31_24	= 0
 	}
 
 };
