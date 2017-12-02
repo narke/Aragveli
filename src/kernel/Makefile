@@ -33,6 +33,8 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  process/scheduler.o \
 	  fs/vfs.o \
 	  fs/tarfs.o \
+	  process/semaphore.o \
+	  process/mutex.o \
 	  arch/x86-pc/startup.o
 
 KERNEL          = aragveli.elf
