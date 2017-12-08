@@ -68,7 +68,7 @@ frame_setup(size_t ram_size,
 		frame_address < physical_memory_end;
 		frame_address += PAGE_SIZE, frame++)
 	{
-		memset(frame, 0, sizeof(frame_t));
+		kmemset(frame, 0, sizeof(frame_t));
 		frame->address = frame_address;
 
 		if (frame_address < physical_memory_start)

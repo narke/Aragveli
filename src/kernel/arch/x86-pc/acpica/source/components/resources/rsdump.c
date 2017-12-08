@@ -291,14 +291,14 @@ AcpiRsDumpResourceList (
 
         if (Type == ACPI_RESOURCE_TYPE_SERIAL_BUS)
         {
-            AcpiRsDumpDescriptor (&ResourceList->Data,
+            /*AcpiRsDumpDescriptor (&ResourceList->Data,
                 AcpiGbl_DumpSerialBusDispatch[
-                    ResourceList->Data.CommonSerialBus.Type]);
+                    ResourceList->Data.CommonSerialBus.Type]);*/
         }
         else
         {
-            AcpiRsDumpDescriptor (&ResourceList->Data,
-                AcpiGbl_DumpResourceDispatch[Type]);
+            /*AcpiRsDumpDescriptor (&ResourceList->Data,
+                AcpiGbl_DumpResourceDispatch[Type]);*/
         }
 
         /* Point to the next resource structure */
@@ -348,7 +348,7 @@ AcpiRsDumpIrqList (
     for (Count = 0; PrtElement->Length; Count++)
     {
         AcpiOsPrintf ("\n[%02X] PCI IRQ Routing Table Package\n", Count);
-        AcpiRsDumpDescriptor (PrtElement, AcpiRsDumpPrt);
+        //AcpiRsDumpDescriptor (PrtElement, AcpiRsDumpPrt);
 
         PrtElement = ACPI_ADD_PTR (ACPI_PCI_ROUTING_TABLE,
             PrtElement, PrtElement->Length);
@@ -651,12 +651,12 @@ AcpiRsDumpAddressCommon (
     {
     case ACPI_MEMORY_RANGE:
 
-        AcpiRsDumpDescriptor (Resource, AcpiRsDumpMemoryFlags);
+        //AcpiRsDumpDescriptor (Resource, AcpiRsDumpMemoryFlags);
         break;
 
     case ACPI_IO_RANGE:
 
-        AcpiRsDumpDescriptor (Resource, AcpiRsDumpIoFlags);
+        //AcpiRsDumpDescriptor (Resource, AcpiRsDumpIoFlags);
         break;
 
     case ACPI_BUS_NUMBER_RANGE:
@@ -673,7 +673,7 @@ AcpiRsDumpAddressCommon (
 
     /* Decode the general flags */
 
-    AcpiRsDumpDescriptor (Resource, AcpiRsDumpGeneralFlags);
+    //AcpiRsDumpDescriptor (Resource, AcpiRsDumpGeneralFlags);
 }
 
 

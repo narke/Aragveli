@@ -8,7 +8,7 @@
 #include "string.h"
 
 void *
-memset(void *dst, int c, size_t length)
+kmemset(void *dst, int c, size_t length)
 {
 	char *p;
 
@@ -19,7 +19,7 @@ memset(void *dst, int c, size_t length)
 }
 
 void *
-memcpy(void *dst, const void *src, size_t size)
+kmemcpy(void *dst, const void *src, size_t size)
 {
 	char *destination;
 	const char *_src;
@@ -50,7 +50,7 @@ strzcpy(char *dst, const char *src, size_t len)
 }
 
 size_t
-strlen(const char *s)
+kstrlen(const char *s)
 {
 	size_t length = 0;
 
@@ -61,7 +61,7 @@ strlen(const char *s)
 }
 
 int
-strncmp(const char *s1, const char *s2, size_t n)
+kstrncmp(const char *s1, const char *s2, size_t n)
 {
 	uint16_t i = 0;
 
@@ -72,7 +72,7 @@ strncmp(const char *s1, const char *s2, size_t n)
 }
 
 char *
-strchr(const char *s, int c)
+kstrchr(const char *s, int c)
 {
 	while (*s++)
 	{
@@ -84,7 +84,7 @@ strchr(const char *s, int c)
 }
 
 char *
-strrchr(const char *s, int c)
+kstrrchr(const char *s, int c)
 {
 	char *result = NULL;
 

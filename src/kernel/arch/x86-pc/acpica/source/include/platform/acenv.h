@@ -290,7 +290,12 @@
 
 #endif
 
-#if defined(_LINUX) || defined(__linux__)
+#define __ARAGVELI__
+
+#if defined(__ARAGVELI__)
+#include "acaragveli.h"
+
+#elif defined(_LINUX) || defined(__linux__)
 #include "aclinux.h"
 
 #elif defined(_APPLE) || defined(__APPLE__)

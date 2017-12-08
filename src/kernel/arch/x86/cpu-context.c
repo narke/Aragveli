@@ -86,7 +86,7 @@ cpu_kstate_init(struct cpu_state **ctx,
 	kctx = (struct cpu_kstate *)tmp_vaddr;
 
 	/* Initialize the CPU context structure */
-	memset(kctx, 0x0, sizeof(struct cpu_kstate));
+	kmemset(kctx, 0x0, sizeof(struct cpu_kstate));
 
 	/* Tell the CPU context structure that the first instruction
 	 * to execute will be that of the core_routine() function */
