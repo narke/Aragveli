@@ -5,7 +5,9 @@ include messages.make
 
 CC      = gcc
 PWD    := $(shell pwd)
-CFLAGS  = -Wall -Wextra -fgnu89-inline -m32 -Wa,--32 -nostdlib -nostdinc -ffreestanding -I$(PWD)
+ACPICA_FLAGS = -I$(PWD)/arch/x86-pc/acpica/source/include -DACPI_USE_BUILTIN_STDARG
+CFLAGS  = -Wall -Wextra -fgnu89-inline -m32 -Wa,--32 -nostdlib -nostdinc \
+	  -ffreestanding -I$(PWD) $(ACPICA_FLAGS)
 LDFLAGS = --warn-common -melf_i386 --strip-all
 
 BOOTLOADER_PATH = arch/x86-pc/bootstrap
@@ -37,6 +39,20 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  process/mutex.o \
 	  arch/x86-pc/startup.o
 
+ACPICA_SOURCES = $(wildcard arch/x86-pc/acpica/source/components/dispatcher/*.c) \
+		 $(wildcard arch/x86-pc/acpica/source/components/events/*.c) \
+		 $(wildcard arch/x86-pc/acpica/source/components/executer/*.c) \
+		 $(wildcard arch/x86-pc/acpica/source/components/hardware/*.c) \
+		 $(wildcard arch/x86-pc/acpica/source/components/namespace/*.c) \
+		 $(wildcard arch/x86-pc/acpica/source/components/parser/*.c) \
+		 $(wildcard arch/x86-pc/acpica/source/components/resources/*.c) \
+		 $(wildcard arch/x86-pc/acpica/source/components/tables/*.c) \
+		 $(wildcard arch/x86-pc/acpica/source/components/utilities/*.c) \
+		 $(wildcard arch/x86-pc/acpica_layer/*.c)
+
+ACPICA_OBJECTS = $(ACPICA_SOURCES:.c=.o)
+
+
 KERNEL          = aragveli.elf
 MULTIBOOT_IMAGE	= aragveli.iso
 
@@ -44,8 +60,8 @@ all: kernel initrd cdrom
 
 kernel: $(KERNEL)
 
-$(KERNEL): $(OBJECTS)
-	$(linking) '$< > $@'
+$(KERNEL): $(ACPICA_OBJECTS) $(OBJECTS)
+	$(linking) '$^ > $@'
 	$(LD) $(LDFLAGS) -T arch/x86-pc/linker.ld -o $@ $^
 
 %.o: %.c
@@ -72,6 +88,7 @@ run:
 clean:
 	$(cleaning)
 	$(RM) $(OBJECTS)
+	$(RM) $(ACPICA_OBJECTS)
 	$(RM) $(BOOTLOADER_PATH)/iso/boot/$(KERNEL)
 	$(RM) $(MULTIBOOT_IMAGE)
 	$(RM) $(INITRD_DST)/initrd.tar
