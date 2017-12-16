@@ -44,14 +44,19 @@ struct cpu_kstate //thread_cpu_context
 
 
 static void core_routine(cpu_kstate_function_arg1_t *start_func,
-	uint32_t start_arg) __attribute__((noreturn));
+	uint32_t start_arg,
+	cpu_kstate_function_arg1_t *exit_func,
+	uint32_t exit_arg) __attribute__((noreturn));
 
 
 static void
 core_routine(cpu_kstate_function_arg1_t *start_func,
-		uint32_t start_arg)
+		uint32_t start_arg,
+		cpu_kstate_function_arg1_t *exit_func,
+		uint32_t exit_arg)
 {
 	start_func(start_arg);
+	exit_func(exit_arg);
 
 	for(;;);
 }
@@ -62,7 +67,9 @@ cpu_kstate_init(struct cpu_state **ctx,
 		cpu_kstate_function_arg1_t *start_func,
 		uint32_t start_arg,
 		uint32_t stack_base,
-		uint32_t stack_size)
+		uint32_t stack_size,
+		cpu_kstate_function_arg1_t *exit_func,
+		uint32_t exit_arg)
 {
 	/* We are initializing a Kernel thread's context */
 	struct cpu_kstate *kctx;
@@ -71,6 +78,8 @@ cpu_kstate_init(struct cpu_state **ctx,
 	uint32_t *stack = (uint32_t *)tmp_vaddr;
 
 	/* Simulate a call to the core_routine() function: prepare its arguments */
+	*(--stack) = exit_arg;
+	*(--stack) = (uint32_t)exit_func;
 	*(--stack) = start_arg;
 	*(--stack) = (uint32_t)start_func;
 	*(--stack) = 0; /* Return address of core_routine => force page fault */
@@ -107,7 +116,7 @@ cpu_kstate_init(struct cpu_state **ctx,
 	/* The newly created context is initially interruptible */
 	kctx->regs.eflags = (1 << 9); /* set IF bit */
 
-	/* Finally, update the generic kernel/user thread context */
+	/* Finally, update the generic kernel thread context */
 	*ctx = (struct cpu_state *)kctx;
 }
 

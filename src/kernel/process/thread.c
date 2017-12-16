@@ -48,7 +48,6 @@ threading_setup(void)
 	thread_t *idle = thread_create("idle", idle_thread, NULL);
 	assert(idle != NULL);
 
-	idle->state = THREAD_READY;
 	thread_set_current(idle);
 }
 
@@ -88,7 +87,9 @@ thread_create(const char *name,
 			(cpu_kstate_function_arg1_t *)start_func,
 			(uint32_t)start_arg,
 			new_thread->stack_base_address,
-			new_thread->stack_size);
+			new_thread->stack_size,
+			(cpu_kstate_function_arg1_t *)thread_exit,
+			(uint32_t)NULL);
 
 	// Add the thread in the global list
 	X86_IRQs_DISABLE(flags);
@@ -99,4 +100,23 @@ thread_create(const char *name,
 	scheduler_set_ready(new_thread);
 
 	return new_thread;
+}
+
+void
+thread_exit(void)
+{
+	uint32_t flags;
+
+	X86_IRQs_DISABLE(flags);
+
+	TAILQ_REMOVE(&kernel_threads, g_current_thread, next);
+
+	free((void *)g_current_thread->stack_base_address);
+	kmemset((void *)g_current_thread, 0, sizeof(thread_t));
+	free((void *)g_current_thread);
+
+	scheduler_remove_thread((void *)g_current_thread);
+	g_current_thread = scheduler_elect_new_current_thread();
+
+	X86_IRQs_ENABLE(flags);
 }

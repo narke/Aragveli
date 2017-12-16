@@ -19,21 +19,6 @@ scheduler_setup(void)
 	TAILQ_INIT(&ready_threads);
 }
 
-static void
-add_in_ready_queue(thread_t *t, bool insert_at_tail)
-{
-	assert((THREAD_CREATED == t->state)
-		|| (THREAD_RUNNING == t->state)
-		|| (THREAD_BLOCKED == t->state));
-
-	t->state = THREAD_READY;
-
-	if (insert_at_tail)
-		TAILQ_INSERT_TAIL(&ready_threads, t, next);
-	else
-		TAILQ_INSERT_HEAD(&ready_threads, t, next);
-}
-
 void
 scheduler_set_ready(thread_t *t)
 {
@@ -42,7 +27,25 @@ scheduler_set_ready(thread_t *t)
 		return;
 
 	/* Schedule it for the present turn */
-	add_in_ready_queue(t, true);
+	assert((t->state == THREAD_CREATED)
+		|| (t->state == THREAD_RUNNING)
+		|| (t->state == THREAD_BLOCKED));
+
+	t->state = THREAD_READY;
+
+	TAILQ_INSERT_TAIL(&ready_threads, t, next);
+}
+
+void
+scheduler_remove_thread(thread_t *t)
+{
+	TAILQ_REMOVE(&ready_threads, t,next);
+}
+
+thread_t *
+scheduler_elect_new_current_thread(void)
+{
+	return TAILQ_FIRST(&ready_threads);
 }
 
 void

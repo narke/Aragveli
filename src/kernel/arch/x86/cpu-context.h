@@ -22,7 +22,9 @@ void cpu_kstate_init(struct cpu_state **kctx,
 		cpu_kstate_function_arg1_t *start_func,
 		uint32_t start_arg,
 		uint32_t stack_base,
-		uint32_t stack_size);
+		uint32_t stack_size,
+		cpu_kstate_function_arg1_t *exit_func,
+		uint32_t exit_arg);
 
 void cpu_context_switch(struct cpu_state **from_ctx,
 		struct cpu_state *to_ctx);
