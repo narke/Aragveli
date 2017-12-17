@@ -88,7 +88,7 @@ mutex_unlock(mutex_t *mtx)
 		TAILQ_REMOVE(&mtx->waitqueue, blocked_thread, next);
 
 		if (blocked_thread->state != THREAD_RUNNING)
-			scheduler_set_ready(blocked_thread);
+			scheduler_insert_thread(blocked_thread);
 
 		status = KERNEL_OK;
 	}

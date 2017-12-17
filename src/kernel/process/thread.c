@@ -45,7 +45,7 @@ threading_setup(void)
 {
 	TAILQ_INIT(&kernel_threads);
 
-	thread_t *idle = thread_create("idle", idle_thread, NULL);
+	thread_t *idle = thread_create("idle", idle_thread, NULL, 0);
 	assert(idle != NULL);
 
 	thread_set_current(idle);
@@ -54,7 +54,8 @@ threading_setup(void)
 thread_t *
 thread_create(const char *name,
 		kernel_thread_start_routine_t start_func,
-		void *start_arg)
+		void *start_arg,
+		uint8_t priority)
 {
 	uint32_t flags;
 	thread_t *new_thread;
@@ -75,6 +76,7 @@ thread_create(const char *name,
 	// Allocate the stack for the new thread
 	new_thread->stack_base_address	= (uint32_t)malloc(THREAD_KERNEL_STACK_SIZE);
 	new_thread->stack_size		= THREAD_KERNEL_STACK_SIZE;
+	new_thread->priority		= priority;
 
 	if (!new_thread->stack_base_address)
 	{
@@ -97,7 +99,7 @@ thread_create(const char *name,
 	X86_IRQs_ENABLE(flags);
 
 	// Mark the thread as ready
-	scheduler_set_ready(new_thread);
+	scheduler_insert_thread(new_thread);
 
 	return new_thread;
 }
@@ -116,7 +118,7 @@ thread_exit(void)
 	free((void *)g_current_thread);
 
 	scheduler_remove_thread((void *)g_current_thread);
-	g_current_thread = scheduler_elect_new_current_thread();
+	scheduler_elect_new_current_thread();
 
 	X86_IRQs_ENABLE(flags);
 }

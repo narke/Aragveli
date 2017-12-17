@@ -20,10 +20,10 @@ scheduler_setup(void)
 }
 
 void
-scheduler_set_ready(thread_t *t)
+scheduler_insert_thread(thread_t *t)
 {
 	/* Don't do anything for already ready threads */
-	if (THREAD_READY == t->state)
+	if (t->state == THREAD_READY)
 		return;
 
 	/* Schedule it for the present turn */
@@ -32,6 +32,14 @@ scheduler_set_ready(thread_t *t)
 		|| (t->state == THREAD_BLOCKED));
 
 	t->state = THREAD_READY;
+
+	thread_t *thread;
+
+	TAILQ_FOREACH(thread, &ready_threads, next)
+	{
+		if (t->priority > thread->priority)
+			break;
+	}
 
 	TAILQ_INSERT_TAIL(&ready_threads, t, next);
 }
@@ -42,10 +50,12 @@ scheduler_remove_thread(thread_t *t)
 	TAILQ_REMOVE(&ready_threads, t,next);
 }
 
-thread_t *
+void
 scheduler_elect_new_current_thread(void)
 {
-	return TAILQ_FIRST(&ready_threads);
+	thread_t *t = TAILQ_FIRST(&ready_threads);
+	thread_set_current(t);
+	schedule();
 }
 
 void

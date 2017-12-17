@@ -52,8 +52,7 @@ semaphore_up(semaphore_t *semaphore)
 		// Awake a blocked thread
 		thread_t *unblocked_thread = TAILQ_FIRST(&semaphore->waitqueue);
 		TAILQ_REMOVE(&semaphore->waitqueue, unblocked_thread, next);
-		unblocked_thread->state = THREAD_READY;
-		scheduler_set_ready(unblocked_thread);
+		scheduler_insert_thread(unblocked_thread);
 	}
 
 	X86_IRQs_ENABLE(flags);

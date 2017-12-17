@@ -45,6 +45,7 @@ typedef struct thread
 	char		name[THREAD_MAX_NAMELEN];
 	thread_state	state;
 	struct cpu_state *cpu_state;
+	uint8_t		priority;
 	TAILQ_ENTRY(thread) next;
 } thread_t;
 
@@ -52,7 +53,8 @@ typedef struct thread
 void threading_setup(void);
 thread_t *thread_create(const char *name,
 		kernel_thread_start_routine_t start_func,
-		void *start_arg);
+		void *start_arg,
+		uint8_t priority);
 void thread_exit(void);
 inline void thread_set_current(thread_t *current_thread);
 thread_t *thread_get_current(void);

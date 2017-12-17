@@ -32,11 +32,11 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  arch/x86/cpu-context.o \
 	  arch/x86/cpu-context-switch.o \
 	  process/thread.o \
-	  process/scheduler.o \
 	  fs/vfs.o \
 	  fs/tarfs.o \
 	  process/semaphore.o \
 	  process/mutex.o \
+	  process/sched_rr.o \
 	  arch/x86-pc/startup.o
 
 ACPICA_SOURCES = $(wildcard arch/x86-pc/acpica/source/components/dispatcher/*.c) \
