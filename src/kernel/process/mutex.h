@@ -10,11 +10,13 @@
 #include <lib/queue.h>
 #include <lib/types.h>
 #include <process/thread.h>
+#include <arch/x86/atomic.h>
 #include "semaphore.h"
 
 typedef struct
 {
 	thread_t		*owner;
+	volatile atomic_count_t	count;
 	TAILQ_HEAD(, thread)	waitqueue;
 } mutex_t;
 

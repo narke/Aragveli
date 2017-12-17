@@ -225,7 +225,7 @@ struct file_system
 			const char *mount_args,
 			struct superblock **result_rootfs);
 	status_t (*umount)(void);
-	atomic_t refcount;
+	atomic_count_t refcount;
 
 	LIST_ENTRY(file_system)	next;
 };
@@ -233,7 +233,7 @@ struct file_system
 struct vfs_cache_node
 {
 	struct vfs_node	*node;
-	atomic_t	ref_count;
+	atomic_count_t	ref_count;
 	char 		*name;
 };
 
@@ -278,7 +278,7 @@ struct vnode
 
 	struct vnode_ops *ops;
 
-	atomic_t refcount;
+	atomic_count_t refcount;
 	// TODO mutex
 	// TODO pagecache
 	TAILQ_ENTRY(vnode) next;

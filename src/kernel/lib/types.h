@@ -27,11 +27,7 @@ typedef unsigned int		paddr_t;	// Physical address
 typedef unsigned int		vaddr_t;	// Virtual address
 typedef int			status_t;	// Return status
 typedef uint32_t		size_t;		// Memory size of an object
-typedef int32_t			ssize_t;
+typedef int32_t			ssize_t;	// Signed size of a memory object
 
 typedef uint32_t		sysarg_t;
-typedef uint32_t		atomic_count_t;
-
-typedef struct {
-	volatile atomic_count_t count;
-} atomic_t;
+typedef int32_t			atomic_count_t;

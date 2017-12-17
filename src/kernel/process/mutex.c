@@ -23,6 +23,7 @@ mutex_create(void)
 		return NULL;
 
 	mtx->owner = NULL;
+	mtx->count = 0;
 	TAILQ_INIT(&mtx->waitqueue);
 
 	return mtx;
@@ -44,10 +45,9 @@ mutex_destroy(mutex_t *mtx)
 status_t
 mutex_lock(mutex_t *mtx)
 {
-	uint32_t flags;
 	status_t status = KERNEL_OK;
 
-	X86_IRQs_DISABLE(flags);
+	atomic_inc(mtx->count);
 
 	// Mutex already owned?
 	if (mtx->owner != NULL)
@@ -60,18 +60,15 @@ mutex_lock(mutex_t *mtx)
 			TAILQ_INSERT_TAIL(&mtx->waitqueue, current_thread, next);
 	}
 
-	X86_IRQs_ENABLE(flags);
-
 	return status;
 }
 
 status_t
 mutex_unlock(mutex_t *mtx)
 {
-	uint32_t flags;
 	status_t status;
 
-	X86_IRQs_DISABLE(flags);
+	atomic_dec(mtx->count);
 
 	if (mtx->owner != thread_get_current())
 	{
@@ -92,8 +89,6 @@ mutex_unlock(mutex_t *mtx)
 
 		status = KERNEL_OK;
 	}
-
-	X86_IRQs_ENABLE(flags);
 
 	return status;
 }
