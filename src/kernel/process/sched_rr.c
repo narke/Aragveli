@@ -47,15 +47,13 @@ scheduler_insert_thread(thread_t *t)
 void
 scheduler_remove_thread(thread_t *t)
 {
-	TAILQ_REMOVE(&ready_threads, t,next);
+	TAILQ_REMOVE(&ready_threads, t, next);
 }
 
-void
+thread_t *
 scheduler_elect_new_current_thread(void)
 {
-	thread_t *t = TAILQ_FIRST(&ready_threads);
-	thread_set_current(t);
-	schedule();
+	return TAILQ_FIRST(&ready_threads);
 }
 
 void

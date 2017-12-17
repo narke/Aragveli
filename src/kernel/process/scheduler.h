@@ -13,5 +13,5 @@
 void scheduler_setup(void);
 void scheduler_insert_thread(thread_t * t);
 void scheduler_remove_thread(thread_t *t);
-void scheduler_elect_new_current_thread(void);
+thread_t *scheduler_elect_new_current_thread(void);
 void schedule(void);

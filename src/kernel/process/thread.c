@@ -117,8 +117,11 @@ thread_exit(void)
 	kmemset((void *)g_current_thread, 0, sizeof(thread_t));
 	free((void *)g_current_thread);
 
-	scheduler_remove_thread((void *)g_current_thread);
-	scheduler_elect_new_current_thread();
+	scheduler_remove_thread((thread_t *)g_current_thread);
+	thread_t *new_current_thread = scheduler_elect_new_current_thread();
+	thread_set_current(new_current_thread);
 
 	X86_IRQs_ENABLE(flags);
+
+	schedule();
 }
