@@ -19,7 +19,7 @@ semaphore_create(int32_t value)
 	if (!semaphore)
 		return NULL;
 
-	semaphore->value = value;
+	semaphore->count = value;
 	TAILQ_INIT(&semaphore->waitqueue);
 
 	return semaphore;
@@ -41,13 +41,9 @@ semaphore_destroy(semaphore_t *semaphore)
 void
 semaphore_up(semaphore_t *semaphore)
 {
-	uint32_t flags;
+	atomic_inc(semaphore->count);
 
-	X86_IRQs_DISABLE(flags);
-
-	semaphore->value++;
-
-	if (semaphore->value >= 0)
+	if (semaphore->count >= 0)
 	{
 		// Awake a blocked thread
 		thread_t *unblocked_thread = TAILQ_FIRST(&semaphore->waitqueue);
@@ -55,27 +51,20 @@ semaphore_up(semaphore_t *semaphore)
 		unblocked_thread->state = THREAD_READY;
 		scheduler_set_ready(unblocked_thread);
 	}
-
-	X86_IRQs_ENABLE(flags);
 }
 
 void
 semaphore_down(semaphore_t *semaphore)
 {
-	uint32_t flags;
-
-	X86_IRQs_DISABLE(flags);
-
-	if (semaphore->value >= 0)
-		semaphore->value--;
-
-	if (semaphore->value < 0)
+	if (semaphore->count >= 0)
+	{
+		atomic_dec(semaphore->count);
+	}
+	else
 	{
 		thread_t *current_thread = thread_get_current();
 		current_thread->state = THREAD_BLOCKED;
 		TAILQ_INSERT_TAIL(&semaphore->waitqueue, current_thread, next);
 		schedule();
 	}
-
-	X86_IRQs_ENABLE(flags);
 }
