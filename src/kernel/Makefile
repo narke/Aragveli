@@ -28,6 +28,7 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  lib/c/string.o \
 	  memory/frame.o \
 	  memory/heap.o \
+	  memory/pool.o \
 	  lib/c/stdlib.o \
 	  arch/x86/cpu-context.o \
 	  arch/x86/cpu-context-switch.o \
