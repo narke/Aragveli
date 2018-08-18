@@ -40,20 +40,6 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  process/sched_rr.o \
 	  arch/x86-pc/startup.o
 
-ACPICA_SOURCES = $(wildcard arch/x86-pc/acpica/source/components/dispatcher/*.c) \
-		 $(wildcard arch/x86-pc/acpica/source/components/events/*.c) \
-		 $(wildcard arch/x86-pc/acpica/source/components/executer/*.c) \
-		 $(wildcard arch/x86-pc/acpica/source/components/hardware/*.c) \
-		 $(wildcard arch/x86-pc/acpica/source/components/namespace/*.c) \
-		 $(wildcard arch/x86-pc/acpica/source/components/parser/*.c) \
-		 $(wildcard arch/x86-pc/acpica/source/components/resources/*.c) \
-		 $(wildcard arch/x86-pc/acpica/source/components/tables/*.c) \
-		 $(wildcard arch/x86-pc/acpica/source/components/utilities/*.c) \
-		 $(wildcard arch/x86-pc/acpica_layer/*.c)
-
-ACPICA_OBJECTS = $(ACPICA_SOURCES:.c=.o)
-
-
 KERNEL          = aragveli.elf
 MULTIBOOT_IMAGE	= aragveli.iso
 
@@ -61,7 +47,7 @@ all: kernel initrd cdrom
 
 kernel: $(KERNEL)
 
-$(KERNEL): $(ACPICA_OBJECTS) $(OBJECTS)
+$(KERNEL): $(OBJECTS)
 	$(linking) '$^ > $@'
 	$(LD) $(LDFLAGS) -T arch/x86-pc/linker.ld -o $@ $^
 
@@ -89,7 +75,6 @@ run:
 clean:
 	$(cleaning)
 	$(RM) $(OBJECTS)
-	$(RM) $(ACPICA_OBJECTS)
 	$(RM) $(BOOTLOADER_PATH)/iso/boot/$(KERNEL)
 	$(RM) $(MULTIBOOT_IMAGE)
 	$(RM) $(INITRD_DST)/initrd.tar

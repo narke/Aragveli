@@ -22,16 +22,6 @@
 #include <process/scheduler.h>
 #include <fs/tarfs.h>
 #include <lib/c/string.h>
-#include <acpi.h>
-
-#define ACPI_MAX_INIT_TABLES	16
-static ACPI_TABLE_DESC		TableArray[ACPI_MAX_INIT_TABLES];
-
-ACPI_STATUS
-EarlyAcpiTables(void)
-{
-	return AcpiInitializeTables(TableArray, ACPI_MAX_INIT_TABLES, TRUE);
-}
 
 int
 cmd_ls(struct dentry *root, struct dentry *cwd, char *path)
@@ -140,23 +130,6 @@ aragveli_main(uint32_t magic, uint32_t address)
 	struct superblock *root_fs;
 	status = vfs_init("initrd", "tarfs", "/", NULL, &root_fs);
 	assert(status == KERNEL_OK);
-
-	// ACPI
-	ACPI_STATUS acpica_status = EarlyAcpiTables();
-
-	if (ACPI_FAILURE(acpica_status))
-	{
-		switch(acpica_status)
-		{
-			case AE_NOT_FOUND:
-				printf("ACPI error: Table not found!\n");
-				break;
-
-			case AE_NO_MEMORY:
-				printf("ACPI error: Not enought memory\n");
-				break;
-		}
-	};
 
 	printf("Aragveli\n");
 
