@@ -5,9 +5,8 @@ include messages.make
 
 CC      = gcc
 PWD    := $(shell pwd)
-ACPICA_FLAGS = -I$(PWD)/arch/x86-pc/acpica/source/include -DACPI_USE_BUILTIN_STDARG
 CFLAGS  = -Wall -Wextra -fgnu89-inline -m32 -Wa,--32 -nostdlib -nostdinc \
-	  -ffreestanding -I$(PWD) $(ACPICA_FLAGS)
+	  -ffreestanding -I$(PWD)
 LDFLAGS = --warn-common -melf_i386 --strip-all
 
 BOOTLOADER_PATH = arch/x86-pc/bootstrap
@@ -24,6 +23,7 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  arch/x86/irq.o \
 	  arch/x86/pit.o \
 	  arch/x86-pc/vbe.o \
+	  arch/x86-pc/pci.o \
 	  lib/c/stdio.o \
 	  lib/c/string.o \
 	  memory/frame.o \
@@ -70,7 +70,8 @@ cdrom:
 	grub-mkrescue -o $(MULTIBOOT_IMAGE) $(BOOTLOADER_PATH)/iso/
 
 run:
-	qemu-system-i386 -m 8 -vga std -cdrom $(MULTIBOOT_IMAGE)
+	qemu-system-i386 -m 8 -vga std -netdev user,id=mynet0 \
+		-device rtl8139,netdev=mynet0 -cdrom $(MULTIBOOT_IMAGE)
 
 clean:
 	$(cleaning)

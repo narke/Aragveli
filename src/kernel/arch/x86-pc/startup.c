@@ -22,6 +22,7 @@
 #include <process/scheduler.h>
 #include <fs/tarfs.h>
 #include <lib/c/string.h>
+#include <arch/x86-pc/pci.h>
 
 int
 cmd_ls(struct dentry *root, struct dentry *cwd, char *path)
@@ -136,5 +137,9 @@ aragveli_main(uint32_t magic, uint32_t address)
 	// Enable interrupts
 	asm volatile("sti");
 
-	cmd_ls(root_fs->root, root_fs->root, "/");
+	//cmd_ls(root_fs->root, root_fs->root, "/");
+
+	// PCI devices
+	pci_scan();
+	pci_devices_print();
 }
