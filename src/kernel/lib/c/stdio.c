@@ -44,7 +44,7 @@ itoa(int value, char *str, uint8_t base)
 		str[i++] = '-';
 
 	// Handle hex values
-	if (base == 'x')
+	if (base == 'p')
 	{
 		str[i++] = 'x';
 		str[i++] = '0';

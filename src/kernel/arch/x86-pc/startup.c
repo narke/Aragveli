@@ -23,6 +23,7 @@
 #include <fs/tarfs.h>
 #include <lib/c/string.h>
 #include <arch/x86-pc/pci.h>
+#include <arch/x86-pc/rtl8139.h>
 
 int
 cmd_ls(struct dentry *root, struct dentry *cwd, char *path)
@@ -142,4 +143,7 @@ aragveli_main(uint32_t magic, uint32_t address)
 	// PCI devices
 	pci_scan();
 	pci_devices_print();
+
+	// RTL8139 network card
+	rtl8139_setup();
 }
