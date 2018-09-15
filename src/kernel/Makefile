@@ -22,9 +22,9 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  arch/x86/irq-stubs.o \
 	  arch/x86/irq.o \
 	  arch/x86/pit.o \
-	  arch/x86-pc/vbe.o \
-	  arch/x86-pc/pci.o \
-	  arch/x86-pc/rtl8139.o \
+	  drivers/vbe.o \
+	  drivers/pci.o \
+	  drivers/rtl8139.o \
 	  lib/c/stdio.o \
 	  lib/c/string.o \
 	  memory/frame.o \

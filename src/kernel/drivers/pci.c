@@ -7,9 +7,9 @@
 
 #include <lib/types.h>
 #include <lib/c/stdio.h>
-#include <arch/x86-pc/vbe.h>
+#include <drivers/vbe.h>
 #include <arch/x86/io-ports.h>
-#include <arch/x86-pc/pci.h>
+#include "pci.h"
 
 // https://wiki.osdev.org/PCI
 

@@ -8,13 +8,12 @@
 #include <arch/x86/io-ports.h>
 #include <lib/c/stdlib.h>
 #include <lib/c/string.h>
+#include <lib/c/stdio.h>
 #include <arch/x86/irq.h>
-
+#include <drivers/vbe.h>
 #include "rtl8139.h"
 #include "pci.h"
 
-#include <lib/c/stdio.h>
-#include <arch/x86-pc/vbe.h>
 
 // https://wiki.osdev.org/RTL8139
 

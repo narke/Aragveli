@@ -5,7 +5,7 @@
  * found in the LICENSE file.
  */
 
-#include <arch/x86-pc/vbe.h>
+#include <drivers/vbe.h>
 #include <lib/types.h>
 #include "stdio.h"
 #include "stdarg.h"

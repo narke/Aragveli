@@ -8,7 +8,7 @@
 #pragma once
 
 #include <lib/types.h>
-#include <arch/x86-pc/vbe.h>
+#include <drivers/vbe.h>
 
 void heap_setup(size_t ram_size,
 		vaddr_t identity_mapping_start,

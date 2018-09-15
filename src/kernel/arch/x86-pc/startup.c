@@ -15,15 +15,15 @@
 #include <arch/x86/isr.h>
 #include <arch/x86/irq.h>
 #include <arch/x86/pit.h>
-#include <arch/x86-pc/vbe.h>
 #include <memory/frame.h>
 #include <memory/heap.h>
 #include <process/thread.h>
 #include <process/scheduler.h>
 #include <fs/tarfs.h>
 #include <lib/c/string.h>
-#include <arch/x86-pc/pci.h>
-#include <arch/x86-pc/rtl8139.h>
+#include <drivers/vbe.h>
+#include <drivers/pci.h>
+#include <drivers/rtl8139.h>
 
 int
 cmd_ls(struct dentry *root, struct dentry *cwd, char *path)

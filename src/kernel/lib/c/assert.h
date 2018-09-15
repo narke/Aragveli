@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <arch/x86-pc/vbe.h>
+#include <drivers/vbe.h>
 #include <lib/c/stdio.h>
 
 /**
