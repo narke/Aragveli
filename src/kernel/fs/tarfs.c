@@ -51,7 +51,7 @@ strip_slashes(char *path)
 	else
 		tmp = path;
 
-	kmemset(path_item, 0, kstrlen(path_item));
+	memset(path_item, 0, strlen(path_item));
 
 	while (*++tmp)
 		if (*tmp != '/')
@@ -66,7 +66,7 @@ strip_slashes(char *path)
 
 	remaining_path = tmp;
 
-	if (*tmp == '\0' && kstrlen(path_item) == 0)
+	if (*tmp == '\0' && strlen(path_item) == 0)
 	{
 		remaining_path = NULL;
 		return NULL;
@@ -133,12 +133,12 @@ resolve_node(char *path, struct dentry *root_node)
 	char *path_item;
 	bool found = false;
 
-	char *complete_path = malloc(kstrlen(path)+1);
+	char *complete_path = malloc(strlen(path)+1);
 
 	if (!complete_path)
 		return NULL;
 
-	strzcpy(complete_path, path, kstrlen(path)+1);
+	strzcpy(complete_path, path, strlen(path)+1);
 
 	path_item = strip_slashes(complete_path);
 	tmp_node = root_node;
@@ -147,7 +147,7 @@ resolve_node(char *path, struct dentry *root_node)
 	{
 		LIST_FOREACH(node, &tmp_node->u.dir.nodes, next)
 		{
-			if (kstrncmp(path_item, node->name, kstrlen(node->name)+1) == 0)
+			if (strncmp(path_item, node->name, strlen(node->name)+1) == 0)
 			{
 				tmp_node = node;
 				found = true;
@@ -171,12 +171,12 @@ resolve_node(char *path, struct dentry *root_node)
 static char *
 tarfs_basename(char *path)
 {
-	char *last_slash = kstrrchr(path, '/');
+	char *last_slash = strrchr(path, '/');
 
 	if (!last_slash)
 		return NULL;
 
-	if (!(kstrlen(last_slash) == 1 && last_slash[0] == '/'))
+	if (!(strlen(last_slash) == 1 && last_slash[0] == '/'))
 		++last_slash; // Remove the leading slash by the way
 
 	return last_slash;
@@ -185,12 +185,12 @@ tarfs_basename(char *path)
 static char *
 tarfs_dirname(char *path)
 {
-	char *last_slash = kstrrchr(path, '/');
+	char *last_slash = strrchr(path, '/');
 
 	if (!last_slash)
 		return NULL;
 
-	int new_path_length = kstrlen(path) - kstrlen(last_slash) + 1;
+	int new_path_length = strlen(path) - strlen(last_slash) + 1;
 	char *new_path = malloc(new_path_length);
 
 	if (!new_path)
@@ -208,8 +208,8 @@ add_node(char *path, uint8_t type, int file_size, void *archive,
 	if (type == TMPFS_DIRECTORY)
 	{
 		// Strip trailing '/' for no root directories
-		if (kstrlen(path) > 1 && path[kstrlen(path) - 1] == '/')
-			path[kstrlen(path) - 1] = '\0';
+		if (strlen(path) > 1 && path[strlen(path) - 1] == '/')
+			path[strlen(path) - 1] = '\0';
 
 		char *directory_dirname = tarfs_dirname(path);
 		char *directory_basename = tarfs_basename(path);
@@ -225,17 +225,17 @@ add_node(char *path, uint8_t type, int file_size, void *archive,
 		if (!dir_node)
 			return -KERNEL_NO_MEMORY;
 
-		kmemset(dir_node, 0, sizeof(struct dentry));
+		memset(dir_node, 0, sizeof(struct dentry));
 
 		dir_node->type = TMPFS_DIRECTORY;
-		dir_node->name_length = kstrlen(directory_basename)+1;
+		dir_node->name_length = strlen(directory_basename)+1;
 		strzcpy(dir_node->name,
 				directory_basename,
 				dir_node->name_length);
 
 		// Don't report '/'
-		if (!kstrncmp(parent_node->name, "/", kstrlen("/"))
-				&& !kstrncmp(dir_node->name, "/", kstrlen("/")))
+		if (!strncmp(parent_node->name, "/", strlen("/"))
+				&& !strncmp(dir_node->name, "/", strlen("/")))
 			return KERNEL_OK;
 
 		LIST_INSERT_HEAD(&(parent_node->u.dir.nodes), dir_node, next);
@@ -257,7 +257,7 @@ add_node(char *path, uint8_t type, int file_size, void *archive,
 			return -KERNEL_NO_MEMORY;
 
 		file_node->type = TMPFS_FILE;
-		file_node->name_length = kstrlen(directory_basename)+1;
+		file_node->name_length = strlen(directory_basename)+1;
 		strzcpy(file_node->name,
 				directory_basename,
 				file_node->name_length);
@@ -279,7 +279,7 @@ untar(void *ramdisk_address, struct dentry *root_node)
 
 	while (1)
 	{
-		kmemcpy(buff, ramdisk_address, 512);
+		memcpy(buff, ramdisk_address, 512);
 		ramdisk_address += 512;
 
 		if (is_end_of_archive(buff))
@@ -300,7 +300,7 @@ untar(void *ramdisk_address, struct dentry *root_node)
 
 			ramdisk_address += file_size;
 
-			char *normalized_path = kstrchr(buff, '/');
+			char *normalized_path = strchr(buff, '/');
 
 			status = add_node(normalized_path, TMPFS_FILE,
 					file_size, ramdisk_address, root_node);
@@ -308,7 +308,7 @@ untar(void *ramdisk_address, struct dentry *root_node)
 		}
 		else if (buff[156] == '5')
 		{
-			char *normalized_path = kstrchr(buff, '/');
+			char *normalized_path = strchr(buff, '/');
 
 			status = add_node(normalized_path, TMPFS_DIRECTORY, 0,
 					ramdisk_address, root_node);
@@ -332,7 +332,7 @@ tarfs_mount(const char *root_device, const char *mount_point,
 		return -KERNEL_NO_MEMORY;
 
 	root_node->type = TMPFS_DIRECTORY;
-	root_node->name_length = kstrlen("/")+1;
+	root_node->name_length = strlen("/")+1;
 	strzcpy(root_node->name, "/", root_node->name_length);
 
 	LIST_INIT(&(root_node->u.dir.nodes));
@@ -358,7 +358,7 @@ tarfs_umount(void)
 status_t
 tarfs_init(vaddr_t start, vaddr_t end)
 {
-	strzcpy(tarfs.name, "tarfs", kstrlen("tarfs")+1);
+	strzcpy(tarfs.name, "tarfs", strlen("tarfs")+1);
 	tarfs.mount  = tarfs_mount;
 	tarfs.umount = tarfs_umount;
 

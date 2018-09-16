@@ -32,7 +32,7 @@ vfs_init(const char        *root_device,
 
 	LIST_FOREACH(fs, &file_systems, next)
 	{
-		if (kstrncmp(fs_name, fs->name, kstrlen(fs->name)+1) == 0)
+		if (strncmp(fs_name, fs->name, strlen(fs->name)+1) == 0)
 		{
 			return fs->mount(root_device, mount_point, mount_args,
 					result_rootfs);
@@ -49,7 +49,7 @@ fs_register(struct file_system *fs)
 
 	LIST_FOREACH(fs_item, &file_systems, next)
 	{
-		if (!kstrncmp(fs->name, fs_item->name, kstrlen(fs_item->name)+1))
+		if (!strncmp(fs->name, fs_item->name, strlen(fs_item->name)+1))
 			return -KERNEL_FILE_ALREADY_EXISTS;
 	}
 
@@ -65,7 +65,7 @@ fs_unregister(struct file_system *fs)
 
 	LIST_FOREACH(fs_item, &file_systems, next)
 	{
-		if (!kstrncmp(fs->name, fs_item->name, NAME_MAX))
+		if (!strncmp(fs->name, fs_item->name, NAME_MAX))
 		{
 			LIST_REMOVE(fs, next);
 			free(fs);

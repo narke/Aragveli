@@ -9,10 +9,10 @@
 
 #include <lib/types.h>
 
-void *kmemset(void *dst, int c, size_t length);
-void *kmemcpy(void *dst, const void *src, size_t size);
+void *memset(void *dst, int c, size_t length);
+void *memcpy(void *dst, const void *src, size_t size);
 char *strzcpy(char *dst, const char *src, size_t len);
-size_t kstrlen(const char *s);
-int kstrncmp(const char *s1, const char *s2, size_t n);
-char *kstrchr(const char *s, int c);
-char *kstrrchr(const char *s, int c);
+size_t strlen(const char *s);
+int strncmp(const char *s1, const char *s2, size_t n);
+char *strchr(const char *s, int c);
+char *strrchr(const char *s, int c);

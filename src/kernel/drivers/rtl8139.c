@@ -121,7 +121,7 @@ rtl8139_setup(void)
 
 	// 5. Init the receive buffer
 	rtl8139_device.rx_buffer = malloc(8192 + 16 + 1500);
-	kmemset(rtl8139_device.rx_buffer, 0x0, 8192 + 16 + 1500);
+	memset(rtl8139_device.rx_buffer, 0x0, 8192 + 16 + 1500);
 	outl(rtl8139_device.io_base + RX_BUF, (uint32_t)rtl8139_device.rx_buffer);
 	outl(rtl8139_device.io_base + RX_BUF_PTR, 0);
 	outl(rtl8139_device.io_base + RX_BUF_ADDR, 0);

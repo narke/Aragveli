@@ -33,7 +33,7 @@ cmd_ls(struct dentry *root, struct dentry *cwd, char *path)
 	if (!cwd && !root)
 		return -KERNEL_NO_SUCH_FILE_OR_DIRECTORY;
 
-	if (kstrlen(path) > 0 && path[0] == '/')
+	if (strlen(path) > 0 && path[0] == '/')
 		start_root = resolve_node(path, root);
 	else
 		start_root = resolve_node(path, cwd);
