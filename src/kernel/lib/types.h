@@ -28,6 +28,7 @@ typedef unsigned int		vaddr_t;	// Virtual address
 typedef int			status_t;	// Return status
 typedef uint32_t		size_t;		// Memory size of an object
 typedef int32_t			ssize_t;	// Signed size of a memory object
+typedef unsigned long		uintptr_t;
 
 typedef uint32_t		sysarg_t;
 typedef int32_t			atomic_count_t;

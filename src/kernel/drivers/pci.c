@@ -39,53 +39,66 @@ pci_device_t pci_devices[16];
 uint8_t pci_devices_idx = 0;
 
 uint16_t
-pci_config_read_word(uint16_t bus, uint16_t slot, uint16_t func, uint8_t offset)
+pci_config_read_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset)
 {
-	uint32_t address;
-	uint32_t lbus = (uint32_t)bus;
-	uint32_t lslot = (uint32_t)slot;
-	uint32_t lfunc = (uint32_t)func;
-	uint16_t tmp = 0;
+	uint32_t address =
+		((uint32_t)1 << 31)          // enabled
+		| ((uint32_t)bus << 16)      // bus number
+		| ((uint32_t)slot << 11)     // slot number
+		| ((uint32_t)func << 8)      // function number
+		| ((uint32_t)offset & 0xfc); // register number
 
-	address = (uint32_t)((lbus << 16) | (lslot << 11) | (lfunc << 8)
-			| (offset & 0xfc) | ((uint32_t)0x80000000));
+	outdw(PCI_CONFIG_ADDR, address);
 
-	outl(PCI_CONFIG_ADDR, address);
+	// (offset & 2) * 8) = 0 will choose the first word of the 32 bits register
+	return (uint16_t)((indw(PCI_CONFIG_DATA) >> ((offset & 2) * 8)) & 0xffff);
+}
 
-	tmp = (uint16_t)((inl(PCI_CONFIG_DATA) >> ((offset & 2) * 8)) & 0xffff);
 
-	return tmp;
+uint32_t
+pci_config_read_dword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset)
+{
+	uint32_t address =
+		((uint32_t)1 << 31)          // enabled
+		| ((uint32_t)bus << 16)      // bus number
+		| ((uint32_t)slot << 11)     // slot number
+		| ((uint32_t)func << 8)      // function number
+		| ((uint32_t)offset & 0xfc); // register number
+
+	outdw(PCI_CONFIG_ADDR, address);
+	return indw(PCI_CONFIG_DATA);
 }
 
 void
-pci_config_write_dword (uint16_t bus, uint16_t device, uint16_t function,
+pci_config_write_dword(uint8_t bus, uint8_t slot, uint8_t func,
 		uint8_t offset, uint32_t value)
 {
 	uint32_t address =
-		(uint32_t)(1 << 31)  //enabled
-		| (uint32_t)(bus << 16)  //bus number
-		| (uint32_t)(device << 11)  //device number
-		| (uint32_t)(function << 8) //function number
-		| ((uint32_t)offset & 0xfc); //Register number
+		((uint32_t)1 << 31)          // enabled
+		| ((uint32_t)bus << 16)      // bus number
+		| ((uint32_t)slot << 11)     // slot number
+		| ((uint32_t)func << 8)      // function number
+		| ((uint32_t)offset & 0xfc); // register number
 
-	outl(PCI_CONFIG_ADDR, address);
-	outl(PCI_CONFIG_DATA, value);
+
+	outdw(PCI_CONFIG_ADDR, address);
+	outdw(PCI_CONFIG_DATA, value);
 }
 
 uint16_t
-pci_get_vendor_id(uint16_t bus, uint16_t slot, uint16_t function)
+pci_get_vendor_id(uint8_t bus, uint8_t slot, uint8_t function)
 {
 	return pci_config_read_word(bus, slot, function, 0);
 }
 
 uint16_t
-pci_get_device_id(uint16_t bus, uint16_t slot, uint16_t function)
+pci_get_device_id(uint8_t bus, uint8_t slot, uint8_t function)
 {
 	return pci_config_read_word(bus, slot, function, 2);
 }
 
 uint16_t
-pci_get_device_class_id(uint16_t bus, uint16_t slot, uint16_t function)
+pci_get_device_class_id(uint8_t bus, uint8_t slot, uint8_t function)
 {
 	uint32_t class_id_seg;
 	class_id_seg = pci_config_read_word(bus, slot, function, 0xA);
@@ -94,8 +107,8 @@ pci_get_device_class_id(uint16_t bus, uint16_t slot, uint16_t function)
 }
 
 static void
-pci_device_add(uint16_t bus, uint16_t slot, uint16_t vendor_id,
-		uint16_t device_id, uint16_t class_id, uint16_t function)
+pci_device_add(uint8_t bus, uint8_t slot, uint16_t vendor_id,
+		uint16_t device_id, uint16_t class_id, uint8_t function)
 {
 	pci_devices[pci_devices_idx].bus       = bus;
 	pci_devices[pci_devices_idx].slot      = slot;

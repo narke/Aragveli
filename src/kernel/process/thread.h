@@ -35,7 +35,7 @@ typedef enum
 /*
  * Definition of the function executed by a kernel thread
  */
-typedef void (*kernel_thread_start_routine_t)(void *arg);
+typedef void (*kernel_thread_start_routine_t)(uint32_t arg);
 
 typedef struct thread
 {

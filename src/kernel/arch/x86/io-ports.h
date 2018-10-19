@@ -11,72 +11,50 @@
 
 #include <lib/types.h>
 
-/**
- * Write a value to an I/O port.
- *
- * @param value
- * @param port
- * @return None
- */
-static inline void outb(uint16_t port, uint8_t value)
+// Write a byte
+static inline void outb(uint16_t port, uint8_t data)
 {
-	asm volatile("outb %0, %1" :: "a"(value), "Nd"(port));
+	asm volatile("outb %0, %1" :: "a"(data), "dN"(port));
 }
 
-static inline void outw(uint16_t port, uint16_t value)
+// Write a word
+static inline void outw(uint16_t port, uint16_t data)
 {
-	asm volatile("outw %0, %1" :: "a"(value), "Nd"(port));
+	asm volatile("outw %0, %1" :: "a"(data), "dN"(port));
 }
 
-static inline void outd(uint16_t port, uint32_t value)
+// Write a double word
+static inline void outdw(uint16_t port, uint32_t data)
 {
-	asm volatile("outd %0, %1" :: "a"(value), "Nd"(port));
+	asm volatile("outl %%eax, %%dx" :: "dN"(port), "a"(data));
 }
 
-static inline void outl(uint32_t port, uint32_t value)
-{
-	asm volatile("outl %0, %w1" :: "a"(value), "Nd"(port));
-}
-
-
-/**
- * Read one byte from I/O port.
- *
- * @param port
- * @return value
- */
+// Read a byte
 static inline uint8_t inb(uint16_t port)
 {
-	uint8_t ret;
+	uint8_t data;
 	asm volatile("inb %1, %0"
-			: "=a"(ret)
-			: "Nd"(port));
-	return ret;
+			: "=a"(data)
+			: "dN"(port));
+	return data;
 }
 
+// Read a word
 static inline uint16_t inw(uint16_t port)
 {
-	uint16_t ret;
+	uint16_t data;
 	asm volatile("inw %1, %0"
-			: "=a"(ret)
-			: "Nd"(port));
-	return ret;
+			: "=a"(data)
+			: "dN"(port));
+	return data;
 }
 
-static inline uint32_t ind(uint16_t port)
-{
-	uint32_t ret;
-	asm volatile("ind %1, %0"
-			: "=a"(ret)
-			: "Nd"(port));
-	return ret;
-}
-
-static inline uint32_t inl(uint32_t port)
+// Read a double word
+static inline uint32_t indw(uint16_t port)
 {
 	uint32_t data;
-	asm volatile("inl %w1, %0"
+	asm volatile("inl %%dx, %%eax"
 			: "=a"(data)
-			: "Nd"(port));
+			: "dN"(port));
 	return data;
 }
