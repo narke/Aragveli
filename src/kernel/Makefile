@@ -71,8 +71,10 @@ cdrom:
 	grub-mkrescue -o $(MULTIBOOT_IMAGE) $(BOOTLOADER_PATH)/iso/
 
 run:
-	qemu-system-i386 -m 8 -vga std -netdev user,id=mynet0 \
-		-device rtl8139,netdev=mynet0 -cdrom $(MULTIBOOT_IMAGE)
+	qemu-system-i386 -m 8 -vga std \
+		-netdev user,id=net0 \
+		-device rtl8139,netdev=net0 \
+		-cdrom $(MULTIBOOT_IMAGE)
 
 clean:
 	$(cleaning)
