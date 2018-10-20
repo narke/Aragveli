@@ -50,6 +50,9 @@ packet_handler(int number)
 	(void)number;
 	uint16_t status = inw(rtl8139_device.io_base + ISR);
 
+	if (!status)
+		return;
+
 	// Acknowledge
 	outw(rtl8139_device.io_base + ISR, status);
 
@@ -123,8 +126,14 @@ rtl8139_setup(void)
 
 	// 5. Init the receive buffer
 	rtl8139_device.rx_buffer = malloc(8192 + 16 + 1500);
+
+	if (!rtl8139_device.rx_buffer)
+	{
+		return;
+	}
+
 	memset(rtl8139_device.rx_buffer, 0x0, 8192 + 16 + 1500);
-	outdw(rtl8139_device.io_base + RX_BUF, (unsigned long)rtl8139_device.rx_buffer);
+	outdw(rtl8139_device.io_base + RX_BUF, (uintptr_t)rtl8139_device.rx_buffer);
 	outdw(rtl8139_device.io_base + RX_BUF_PTR, 0);
 	outdw(rtl8139_device.io_base + RX_BUF_ADDR, 0);
 
