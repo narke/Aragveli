@@ -53,13 +53,19 @@ packet_handler(int number)
 	if (!status)
 		return;
 
-	// Acknowledge
-	outw(rtl8139_device.io_base + ISR, status);
-
 	if (status & TX_OK)
+	{
 		printf("Packet sent.\n");
+	}
 	if (status & RX_OK)
+	{
 		printf("Packet received.\n");
+
+		// Acknowledge
+		outw(rtl8139_device.io_base + ISR, RX_OK);
+
+	}
+
 }
 
 void
@@ -151,10 +157,7 @@ rtl8139_setup(void)
 	uint32_t irq_number = pci_config_read_dword(pci_rtl8139_device.bus,
 			pci_rtl8139_device.slot, pci_rtl8139_device.func, 0x3c) & 0xff;
 
-	printf("RTL IRQ: %d\n", irq_number);
-
 	x86_irq_set_routine(irq_number, packet_handler);
-
 
 	read_mac_address();
 }

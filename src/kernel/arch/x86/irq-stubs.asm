@@ -58,15 +58,15 @@ section .text
 
 		SAVE_REGISTERS
 
-		; Send EOI to PIC. See Intel 8259 datasheet
-		mov al, 0x20
-		out byte 0x20, al
-
 		; Call the handler with IRQ number as argument
 		push %1
 		lea  edi, [x86_irq_handler_array]
 		call [edi+4*%1]
 		add  esp, 4
+
+		; Send EOI to PIC. See Intel 8259 datasheet
+		mov al, 0x20
+		out byte 0x20, al
 
 		RESTORE_REGISTERS
 
@@ -90,16 +90,16 @@ section .text
 
 		SAVE_REGISTERS
 
-		; Send EOI to PIC. See Intel 8259 datasheet
-		mov byte  al, 0x20
-		out byte 0xa0, al
-		out byte 0x20, al
-
 		; Call the handler with IRQ number as argument
 		push %1
 		lea  edi, [x86_irq_handler_array]
 		call [edi+4*%1]
 		add  esp, 4
+
+		; Send EOI to PIC. See Intel 8259 datasheet
+		mov byte  al, 0x20
+		out byte 0xa0, al
+		out byte 0x20, al
 
 		RESTORE_REGISTERS
 
