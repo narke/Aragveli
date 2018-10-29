@@ -22,9 +22,6 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  arch/x86/irq-stubs.o \
 	  arch/x86/irq.o \
 	  arch/x86/pit.o \
-	  ../extra/drivers/vbe.o \
-	  ../extra/drivers/pci.o \
-	  ../extra/drivers/rtl8139.o \
 	  lib/c/stdio.o \
 	  lib/c/string.o \
 	  memory/frame.o \
@@ -34,11 +31,14 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  arch/x86/cpu-context.o \
 	  arch/x86/cpu-context-switch.o \
 	  process/thread.o \
-	  fs/vfs.o \
-	  fs/tarfs.o \
 	  process/semaphore.o \
 	  process/mutex.o \
 	  process/sched_rr.o \
+	  ../extra/drivers/vbe.o \
+	  ../extra/drivers/pci.o \
+	  ../extra/drivers/rtl8139.o \
+	  ../extra/fs/vfs.o \
+	  ../extra/fs/tarfs.o \
 	  arch/x86-pc/startup.o
 
 KERNEL          = aragveli.elf
