@@ -74,7 +74,7 @@ handle_rx(void)
 {
 	rxpacket_t *packet;
 
-	while ((inb(rtl8139_device.io_base + CMD) & CMD_NOT_EMPTY) == 0)
+	while ((in8(rtl8139_device.io_base + CMD) & CMD_NOT_EMPTY) == 0)
 	{
 		uint32_t offset = rtl8139_device.rx_buffer_idx % RX_BUFFER_LENGTH;
 
@@ -111,7 +111,7 @@ handle_rx(void)
 
 		// Align on 4 bytes
 		rtl8139_device.rx_buffer_idx = (rtl8139_device.rx_buffer_idx + rx_size + 4 + 3) & ~ 3;
-		outw(rtl8139_device.io_base + RX_BUF_PTR, rtl8139_device.rx_buffer_idx - 0x10);
+		out16(rtl8139_device.io_base + RX_BUF_PTR, rtl8139_device.rx_buffer_idx - 0x10);
 
 		free(packet);
 	}
@@ -123,7 +123,7 @@ handle_tx(void)
 	for (int i = 0; i < NB_TX_DESCRIPTORS; i++)
 	{
 		// Read the status of every descriptor when a Tx interrupt occurs
-		indw(rtl8139_device.io_base + TX_STATUS + (i * 4));
+		in32(rtl8139_device.io_base + TX_STATUS + (i * 4));
 	}
 }
 
@@ -131,13 +131,13 @@ static void
 packet_handler(int number)
 {
 	(void)number;
-	uint16_t status = inw(rtl8139_device.io_base + ISR);
+	uint16_t status = in16(rtl8139_device.io_base + ISR);
 
 	if (!status)
 		return;
 
 	// Acknowledge
-	outw(rtl8139_device.io_base + ISR, status);
+	out16(rtl8139_device.io_base + ISR, status);
 
 	if (status & (RX_OK | RX_ERR))
 	{
@@ -154,8 +154,8 @@ packet_handler(int number)
 static void
 read_mac_address(void)
 {
-	uint32_t mac_part1 = indw(rtl8139_device.io_base + 0x00);
-	uint16_t mac_part2 = inw(rtl8139_device.io_base + 0x04);
+	uint32_t mac_part1 = in32(rtl8139_device.io_base + 0x00);
+	uint16_t mac_part2 = in16(rtl8139_device.io_base + 0x04);
 
 	rtl8139_device.mac_addr[0] = mac_part1 >> 0;
 	rtl8139_device.mac_addr[1] = mac_part1 >> 8;
@@ -182,7 +182,7 @@ send_packet(const void *data, size_t length)
 
 	X86_IRQs_DISABLE(flags);
 
-	if (indw(rtl8139_device.io_base + TX_STATUS + (rtl8139_device.tx_buffer_idx * 4)) & TX_HOST_OWNS)
+	if (in32(rtl8139_device.io_base + TX_STATUS + (rtl8139_device.tx_buffer_idx * 4)) & TX_HOST_OWNS)
 	{
 		// A free buffer was found.
 
@@ -199,11 +199,11 @@ send_packet(const void *data, size_t length)
 
 		// Move TX buffer's content to the internal transmission FIFO
 		// and then to PCI bus.
-		outdw(rtl8139_device.io_base + TX_ADDRESS + rtl8139_device.tx_buffer_idx * 4,
+		out32(rtl8139_device.io_base + TX_ADDRESS + rtl8139_device.tx_buffer_idx * 4,
 				(uint32_t)(rtl8139_device.tx_buffer +
 					(TX_BUFFER_SIZE * rtl8139_device.tx_buffer_idx)));
 
-		outdw(rtl8139_device.io_base + TX_STATUS + rtl8139_device.tx_buffer_idx * 4,
+		out32(rtl8139_device.io_base + TX_STATUS + rtl8139_device.tx_buffer_idx * 4,
 				((TX_FIFO_THRESHOLD << 11) & 0x003F0000) | length);
 
 		// Select a new descriptor for future transmission.
@@ -249,12 +249,12 @@ rtl8139_setup(void)
 	rtl8139_device.io_base = io_base & (~0x3);
 
 	// 3. Power on the device
-	outb(rtl8139_device.io_base + CONFIG_1, 0x0);
+	out8(rtl8139_device.io_base + CONFIG_1, 0x0);
 
 	// 4. Software reset
-	outb(rtl8139_device.io_base + CMD, 0x10);
+	out8(rtl8139_device.io_base + CMD, 0x10);
 
-	while ((inb(rtl8139_device.io_base + CMD) & 0x10) != 0)
+	while ((in8(rtl8139_device.io_base + CMD) & 0x10) != 0)
 	{
 		/* Wait for RST to be done */
 	}
@@ -268,9 +268,9 @@ rtl8139_setup(void)
 	}
 
 	memset(rtl8139_device.rx_buffer, 0x0, RX_BUFFER_LENGTH);
-	outdw(rtl8139_device.io_base + RX_BUF, (uintptr_t)rtl8139_device.rx_buffer);
-	outdw(rtl8139_device.io_base + RX_BUF_PTR, 0);
-	outdw(rtl8139_device.io_base + RX_BUF_ADDR, 0);
+	out32(rtl8139_device.io_base + RX_BUF, (uintptr_t)rtl8139_device.rx_buffer);
+	out32(rtl8139_device.io_base + RX_BUF_PTR, 0);
+	out32(rtl8139_device.io_base + RX_BUF_ADDR, 0);
 
 	rtl8139_device.rx_buffer_idx = 0;
 
@@ -284,19 +284,19 @@ rtl8139_setup(void)
 
 	for (int i = 0; i < NB_TX_DESCRIPTORS; i++)
 	{
-		outdw(rtl8139_device.io_base + TX_ADDRESS + (i * 4),
+		out32(rtl8139_device.io_base + TX_ADDRESS + (i * 4),
 				(uint32_t)(rtl8139_device.tx_buffer + (TX_BUFFER_SIZE * i)));
 	}
 
 	// 6. Set IMR + ISR, enable some interrupts
-	outw(rtl8139_device.io_base + IMR, RX_OK | TX_OK | TX_ERR);
+	out16(rtl8139_device.io_base + IMR, RX_OK | TX_OK | TX_ERR);
 
 	// 7. Set RCR (Receive Configuration Register)
-	outdw(rtl8139_device.io_base + RCR, RCR_AAP | RCR_APM | RCR_AM | RCR_AB | RCR_WRAP);
+	out32(rtl8139_device.io_base + RCR, RCR_AAP | RCR_APM | RCR_AM | RCR_AB | RCR_WRAP);
 
 	// 8. Enable RX and TX
-	outdw(rtl8139_device.io_base + RX_MISSED, 0x0);
-	outb(rtl8139_device.io_base + CMD, 0x0c); // Sets the RE and TE bits high
+	out32(rtl8139_device.io_base + RX_MISSED, 0x0);
+	out8(rtl8139_device.io_base + CMD, 0x0c); // Sets the RE and TE bits high
 
 	// 9. Register IRQ handler
 	uint32_t irq_number = pci_config_read_dword(pci_rtl8139_device.bus,

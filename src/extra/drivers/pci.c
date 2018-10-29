@@ -48,10 +48,10 @@ pci_config_read_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset)
 		| ((uint32_t)func << 8)      // function number
 		| ((uint32_t)offset & 0xfc); // register number
 
-	outdw(PCI_CONFIG_ADDR, address);
+	out32(PCI_CONFIG_ADDR, address);
 
 	// (offset & 2) * 8) = 0 will choose the first word of the 32 bits register
-	return (uint16_t)((indw(PCI_CONFIG_DATA) >> ((offset & 2) * 8)) & 0xffff);
+	return (uint16_t)((in32(PCI_CONFIG_DATA) >> ((offset & 2) * 8)) & 0xffff);
 }
 
 
@@ -65,8 +65,8 @@ pci_config_read_dword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset)
 		| ((uint32_t)func << 8)      // function number
 		| ((uint32_t)offset & 0xfc); // register number
 
-	outdw(PCI_CONFIG_ADDR, address);
-	return indw(PCI_CONFIG_DATA);
+	out32(PCI_CONFIG_ADDR, address);
+	return in32(PCI_CONFIG_DATA);
 }
 
 void
@@ -81,8 +81,8 @@ pci_config_write_dword(uint8_t bus, uint8_t slot, uint8_t func,
 		| ((uint32_t)offset & 0xfc); // register number
 
 
-	outdw(PCI_CONFIG_ADDR, address);
-	outdw(PCI_CONFIG_DATA, value);
+	out32(PCI_CONFIG_ADDR, address);
+	out32(PCI_CONFIG_DATA, value);
 }
 
 uint16_t

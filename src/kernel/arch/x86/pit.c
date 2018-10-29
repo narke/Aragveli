@@ -57,13 +57,13 @@ x86_pit_set_frequency(uint32_t frequency)
 	/* Configure the timer (channel 0) frequency by sending LSB+MSB
 	 * (0x30) and tell it to behave as a rate generator (mode 2: 0x4)
 	 * 0x30 + 0x4 = 0x34 */
-	outb(CONTROL_REGISTER, 0x34);
+	out8(CONTROL_REGISTER, 0x34);
 
 	/* Send LSB */
-	outb(CHANNEL0, (divisor & 0xFF));
+	out8(CHANNEL0, (divisor & 0xFF));
 
 	/* Send MSB */
-	outb(CHANNEL0, (divisor >> 8) & 0xFF);
+	out8(CHANNEL0, (divisor >> 8) & 0xFF);
 
 	return KERNEL_OK;
 }

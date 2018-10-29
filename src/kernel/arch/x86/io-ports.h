@@ -12,25 +12,25 @@
 #include <lib/types.h>
 
 // Write a byte
-static inline void outb(uint16_t port, uint8_t data)
+static inline void out8(uint16_t port, uint8_t data)
 {
 	asm volatile("outb %0, %1" :: "a"(data), "dN"(port));
 }
 
 // Write a word
-static inline void outw(uint16_t port, uint16_t data)
+static inline void out16(uint16_t port, uint16_t data)
 {
 	asm volatile("outw %0, %1" :: "a"(data), "dN"(port));
 }
 
 // Write a double word
-static inline void outdw(uint16_t port, uint32_t data)
+static inline void out32(uint16_t port, uint32_t data)
 {
 	asm volatile("outl %%eax, %%dx" :: "dN"(port), "a"(data));
 }
 
 // Read a byte
-static inline uint8_t inb(uint16_t port)
+static inline uint8_t in8(uint16_t port)
 {
 	uint8_t data;
 	asm volatile("inb %1, %0"
@@ -40,7 +40,7 @@ static inline uint8_t inb(uint16_t port)
 }
 
 // Read a word
-static inline uint16_t inw(uint16_t port)
+static inline uint16_t in16(uint16_t port)
 {
 	uint16_t data;
 	asm volatile("inw %1, %0"
@@ -50,7 +50,7 @@ static inline uint16_t inw(uint16_t port)
 }
 
 // Read a double word
-static inline uint32_t indw(uint16_t port)
+static inline uint32_t in32(uint16_t port)
 {
 	uint32_t data;
 	asm volatile("inl %%dx, %%eax"
