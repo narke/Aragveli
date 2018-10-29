@@ -26,8 +26,14 @@
 #define CONFIG_1 0x52
 
 #define RX_OK 0x01
+#define RX_ERR 0x02
 #define TX_OK 0x04
 #define TX_ERR 0x08
+#define TX_STATUS 0x10
+#define TX_ADDRESS 0x20
+#define TX_BUFFER_SIZE 1536
+#define TX_HOST_OWNS 0x2000
+#define TX_FIFO_THRESHOLD 256
 
 #define RCR_AAP  (1 << 0) /* Accept All Packets */
 #define RCR_APM  (1 << 1) /* Accept Physical Match Packets */
@@ -41,10 +47,87 @@
 
 #define RX_MISSED 0x4c
 
+#define CMD_NOT_EMPTY 0x01
+
+#define RX_BUFFER_LENGTH 8192 + 16 + 1500
+
+#define RX_STATUS_OK 0x1
+#define RX_BAD_ALIGN 0x2
+#define RX_CRC_ERR 0x4
+#define RX_TOO_LONG 0x8
+#define RX_RUNT 0x10
+#define RX_BAD_SYMBOL 0x20
+#define RX_BROADCAST 0x2000
+#define RX_PHYSICAL 0x4000
+#define RX_MULTICAST 0x8000
+
+#define NB_TX_DESCRIPTORS 4
+
+#define ETH_MIN_LENGTH 60
+#define ETH_FRAME_LEGTH 1514
+
 pci_device_t  pci_rtl8139_device;
 rtl8139_dev_t rtl8139_device;
 
-void
+static void
+handle_rx(void)
+{
+	rxpacket_t *packet;
+
+	while ((inb(rtl8139_device.io_base + CMD) & CMD_NOT_EMPTY) == 0)
+	{
+		uint32_t offset = rtl8139_device.rx_buffer_idx % RX_BUFFER_LENGTH;
+
+		uint32_t rx_status = *(uint32_t *)(rtl8139_device.rx_buffer + offset);
+		uint32_t rx_size = rx_status >> 16;
+		rx_status &= 0xFFFF;
+
+		if ((rx_status & (RX_BAD_SYMBOL | RX_RUNT | RX_TOO_LONG |
+			RX_CRC_ERR | RX_BAD_ALIGN)) ||
+			(rx_size < ETH_MIN_LENGTH) ||
+			(rx_size > ETH_FRAME_LEGTH))
+		{
+			printf("RTL8139 packet error.\n");
+			return;
+		}
+
+		packet = malloc(sizeof(rxpacket_t) - 1 + rx_size - 4);
+		if (packet == NULL || packet->length <= 0)
+			return;
+
+		// Discard FCS
+		packet->length = rx_size - 4;
+
+		if (offset + 4 + rx_size - 4 > RX_BUFFER_LENGTH)
+		{
+			uint32_t semi_count = RX_BUFFER_LENGTH - offset - 4;
+			memcpy(packet->data, rtl8139_device.rx_buffer + offset + 4, semi_count);
+			memcpy(packet->data + semi_count, rtl8139_device.rx_buffer, rx_size - 4 - semi_count);
+		}
+		else
+		{
+			memcpy(packet->data, rtl8139_device.rx_buffer + offset + 4, packet->length);
+		}
+
+		// Align on 4 bytes
+		rtl8139_device.rx_buffer_idx = (rtl8139_device.rx_buffer_idx + rx_size + 4 + 3) & ~ 3;
+		outw(rtl8139_device.io_base + RX_BUF_PTR, rtl8139_device.rx_buffer_idx - 0x10);
+
+		free(packet);
+	}
+}
+
+static void
+handle_tx(void)
+{
+	for (int i = 0; i < NB_TX_DESCRIPTORS; i++)
+	{
+		// Read the status of every descriptor when a Tx interrupt occurs
+		indw(rtl8139_device.io_base + TX_STATUS + (i * 4));
+	}
+}
+
+static void
 packet_handler(int number)
 {
 	(void)number;
@@ -53,22 +136,22 @@ packet_handler(int number)
 	if (!status)
 		return;
 
-	if (status & TX_OK)
-	{
-		printf("Packet sent.\n");
-	}
-	if (status & RX_OK)
+	// Acknowledge
+	outw(rtl8139_device.io_base + ISR, status);
+
+	if (status & (RX_OK | RX_ERR))
 	{
 		printf("Packet received.\n");
-
-		// Acknowledge
-		outw(rtl8139_device.io_base + ISR, RX_OK);
-
+		handle_rx();
 	}
-
+	else if (status & (TX_OK | TX_ERR))
+	{
+		printf("Packet sent.\n");
+		handle_tx();
+	}
 }
 
-void
+static void
 read_mac_address(void)
 {
 	uint32_t mac_part1 = indw(rtl8139_device.io_base + 0x00);
@@ -92,6 +175,52 @@ read_mac_address(void)
 			rtl8139_device.mac_addr[5]);
 }
 
+size_t
+send_packet(const void *data, size_t length)
+{
+	uint32_t flags;
+
+	X86_IRQs_DISABLE(flags);
+
+	if (indw(rtl8139_device.io_base + TX_STATUS + (rtl8139_device.tx_buffer_idx * 4)) & TX_HOST_OWNS)
+	{
+		// A free buffer was found.
+
+		// Copy data to TX buffer.
+		memcpy(rtl8139_device.tx_buffer + (TX_BUFFER_SIZE * rtl8139_device.tx_buffer_idx),
+				data, length);
+
+		// Padding
+		while (length < ETH_MIN_LENGTH)
+		{
+			(rtl8139_device.tx_buffer +
+			 (TX_BUFFER_SIZE * rtl8139_device.tx_buffer_idx))[length++] = '\0';
+		}
+
+		// Move TX buffer's content to the internal transmission FIFO
+		// and then to PCI bus.
+		outdw(rtl8139_device.io_base + TX_ADDRESS + rtl8139_device.tx_buffer_idx * 4,
+				(uint32_t)(rtl8139_device.tx_buffer +
+					(TX_BUFFER_SIZE * rtl8139_device.tx_buffer_idx)));
+
+		outdw(rtl8139_device.io_base + TX_STATUS + rtl8139_device.tx_buffer_idx * 4,
+				((TX_FIFO_THRESHOLD << 11) & 0x003F0000) | length);
+
+		// Select a new descriptor for future transmission.
+		rtl8139_device.tx_buffer_idx = (rtl8139_device.tx_buffer_idx + 1) % NB_TX_DESCRIPTORS;
+
+		X86_IRQs_ENABLE(flags);
+
+		return length;
+
+	}
+
+	X86_IRQs_ENABLE(flags);
+
+	// No available buffer!
+	return -1;
+}
+
 void
 rtl8139_setup(void)
 {
@@ -110,7 +239,7 @@ rtl8139_setup(void)
 			pci_rtl8139_device.func, 0x4, cmd_register);
 
 	// Set current TSAD
-	rtl8139_device.tx_cur = 0;
+	rtl8139_device.tx_buffer_idx = 0;
 
 	// 2. Get the I/O base address
 	uint32_t io_base = pci_config_read_dword(pci_rtl8139_device.bus,
@@ -131,17 +260,33 @@ rtl8139_setup(void)
 	}
 
 	// 5. Init the receive buffer
-	rtl8139_device.rx_buffer = malloc(8192 + 16 + 1500);
+	rtl8139_device.rx_buffer = malloc(RX_BUFFER_LENGTH);
 
 	if (!rtl8139_device.rx_buffer)
 	{
 		return;
 	}
 
-	memset(rtl8139_device.rx_buffer, 0x0, 8192 + 16 + 1500);
+	memset(rtl8139_device.rx_buffer, 0x0, RX_BUFFER_LENGTH);
 	outdw(rtl8139_device.io_base + RX_BUF, (uintptr_t)rtl8139_device.rx_buffer);
 	outdw(rtl8139_device.io_base + RX_BUF_PTR, 0);
 	outdw(rtl8139_device.io_base + RX_BUF_ADDR, 0);
+
+	rtl8139_device.rx_buffer_idx = 0;
+
+	// and Tx buffer DMA addresses
+	rtl8139_device.tx_buffer = malloc(TX_BUFFER_SIZE * NB_TX_DESCRIPTORS);
+
+	if (!rtl8139_device.tx_buffer)
+	{
+		return;
+	}
+
+	for (int i = 0; i < NB_TX_DESCRIPTORS; i++)
+	{
+		outdw(rtl8139_device.io_base + TX_ADDRESS + (i * 4),
+				(uint32_t)(rtl8139_device.tx_buffer + (TX_BUFFER_SIZE * i)));
+	}
 
 	// 6. Set IMR + ISR, enable some interrupts
 	outw(rtl8139_device.io_base + IMR, RX_OK | TX_OK | TX_ERR);
