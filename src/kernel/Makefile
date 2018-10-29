@@ -6,12 +6,12 @@ include messages.make
 CC      = gcc
 PWD    := $(shell pwd)
 CFLAGS  = -Wall -Wextra -fgnu89-inline -m32 -Wa,--32 -nostdlib -nostdinc \
-	  -ffreestanding -I$(PWD)
+	  -ffreestanding -I$(PWD) -I../extra
 LDFLAGS = --warn-common -melf_i386 --strip-all
 
 BOOTLOADER_PATH = arch/x86-pc/bootstrap
 INITRD_DST = arch/x86-pc/bootstrap/iso
-INITRD_SRC = ../../initrd
+INITRD_SRC = ../extra/initrd
 
 OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  arch/x86/gdt.o \
@@ -22,9 +22,9 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  arch/x86/irq-stubs.o \
 	  arch/x86/irq.o \
 	  arch/x86/pit.o \
-	  drivers/vbe.o \
-	  drivers/pci.o \
-	  drivers/rtl8139.o \
+	  ../extra/drivers/vbe.o \
+	  ../extra/drivers/pci.o \
+	  ../extra/drivers/rtl8139.o \
 	  lib/c/stdio.o \
 	  lib/c/string.o \
 	  memory/frame.o \
