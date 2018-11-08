@@ -35,7 +35,6 @@ node_ops_t tarfs_node_ops =
 };
 
 static struct file_system tarfs;
-static char *remaining_path;
 static paddr_t initrd_start, initrd_end;
 
 
@@ -97,11 +96,12 @@ checksum(const char *p)
  */
 
 static char *
-strip_slashes(char *path)
+strip_slashes(const char *path)
 {
 	int i = 0;
 	static char path_item[255]; // Limited to 255 characters
 	char *tmp;
+	static char *remaining_path;
 
 	if (path == NULL)
 		tmp = remaining_path;
@@ -141,14 +141,14 @@ resolve_node(char *path, struct node *root_node)
 	char *path_item;
 	bool found = false;
 
-	char *complete_path = malloc(strlen(path)+1);
+	char *absolute_path = malloc(strlen(path)+1);
 
-	if (!complete_path)
+	if (!absolute_path)
 		return NULL;
 
-	strzcpy(complete_path, path, strlen(path)+1);
+	strzcpy(absolute_path, path, strlen(path)+1);
 
-	path_item = strip_slashes(complete_path);
+	path_item = strip_slashes(absolute_path);
 	tmp_node = root_node;
 
 	while (path_item != NULL)
@@ -171,7 +171,7 @@ resolve_node(char *path, struct node *root_node)
 		path_item = strip_slashes(NULL);
 	}
 
-	//free(complete_path); FIXME
+	free(absolute_path);
 
 	return tmp_node;
 }
@@ -276,42 +276,42 @@ add_node(char *path, uint8_t type, int file_size, void *archive,
 static void
 untar(void *ramdisk_address, struct node *root_node)
 {
-	char buff[512];
+	char buffer[512];
 	int file_size;
 	status_t status;
 
 	while (1)
 	{
-		memcpy(buff, ramdisk_address, 512);
+		memcpy(buffer, ramdisk_address, 512);
 		ramdisk_address += 512;
 
-		if (is_end_of_archive(buff))
+		if (is_end_of_archive(buffer))
 			return;
 
-		if (!checksum(buff))
+		if (!checksum(buffer))
 		{
 			printf("Checksum failure\n");
 			return;
 		}
 
-		if (buff[156] == '0' || buff[156] == '7')
+		if (buffer[156] == '0' || buffer[156] == '7')
 		{
-			file_size = parseoct(buff + 124, 12);
+			file_size = parseoct(buffer + 124, 12);
 
 			if (file_size < 512)
 				file_size = 512;
 
 			ramdisk_address += file_size;
 
-			char *normalized_path = strchr(buff, '/');
+			char *normalized_path = strchr(buffer, '/');
 
 			status = add_node(normalized_path, TMPFS_FILE,
 					file_size, ramdisk_address, root_node);
 			assert(status == KERNEL_OK);
 		}
-		else if (buff[156] == '5')
+		else if (buffer[156] == '5')
 		{
-			char *normalized_path = strchr(buff, '/');
+			char *normalized_path = strchr(buffer, '/');
 
 			status = add_node(normalized_path, TMPFS_FOLDER, 0,
 					ramdisk_address, root_node);

@@ -42,7 +42,7 @@ typedef int32_t  block_count_t;
 typedef uint64_t time_t;
 typedef int16_t  fs_handle_t;
 typedef uint32_t fs_index_t;
-typedef sysarg_t block_device_id_t;
+typedef uint32_t block_device_id_t;
 
 /*
  * Lookup flags.
