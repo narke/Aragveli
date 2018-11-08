@@ -11,7 +11,7 @@
 #include "stdarg.h"
 
 static void
-itoa(int value, char *str, uint8_t base)
+itoa(int value, char *str, char base)
 {
 	uint8_t i = 0;
 	uint8_t j = 0;
@@ -92,6 +92,14 @@ vprintf(const char *fmt, va_list args)
 				for (i = 0; buffer[i] != '\0'; i++)
 					vbe_draw_character(buffer[i]);
 				break;
+
+			case 'u':
+				u = va_arg(args, unsigned int);
+				itoa(u, buffer, 'u');
+				for (i = 0; buffer[i] != '\0'; i++)
+					vbe_draw_character(buffer[i]);
+				break;
+
 
 			case 'x':
 				u = va_arg(args, unsigned int);

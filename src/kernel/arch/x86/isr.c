@@ -183,8 +183,6 @@ x86_isr_handler(struct registers *r)
 				printf("The Selector Index references a descriptor in the IDT.");
 				break;
 		}
-		uint32_t index = (r->error_code & 0x0000fff8) >> 3;
-		printf("TBL: %d, Index: %d\n", tbl, index);
 
 		while (1)
 		{

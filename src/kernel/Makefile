@@ -11,7 +11,7 @@ LDFLAGS = --warn-common -melf_i386 --strip-all
 
 BOOTLOADER_PATH = arch/x86-pc/bootstrap
 INITRD_DST = arch/x86-pc/bootstrap/iso
-INITRD_SRC = ../extra/initrd
+INITRD_PATH = ../extra/
 
 OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  arch/x86/gdt.o \
@@ -39,6 +39,7 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  ../extra/drivers/rtl8139.o \
 	  ../extra/fs/vfs.o \
 	  ../extra/fs/tarfs.o \
+	  test-suite/tarfs-test.o \
 	  arch/x86-pc/startup.o
 
 KERNEL          = aragveli.elf
@@ -62,7 +63,7 @@ $(KERNEL): $(OBJECTS)
 
 initrd:
 	$(generating) '$@'
-	tar cvf initrd.tar $(INITRD_SRC)
+	tar cvf initrd.tar -C $(INITRD_PATH) initrd/
 	mv initrd.tar $(INITRD_DST)
 
 cdrom:

@@ -72,8 +72,6 @@ rtl8139_dev_t rtl8139_device;
 static void
 handle_rx(void)
 {
-	rxpacket_t *packet;
-
 	while ((in8(rtl8139_device.io_base + CMD) & CMD_NOT_EMPTY) == 0)
 	{
 		uint32_t offset = rtl8139_device.rx_buffer_idx % RX_BUFFER_LENGTH;
@@ -91,12 +89,14 @@ handle_rx(void)
 			return;
 		}
 
-		packet = malloc(sizeof(rxpacket_t) - 1 + rx_size - 4);
-		if (packet == NULL || packet->length <= 0)
+		rxpacket_t *packet = malloc(sizeof(rxpacket_t) - 1 + rx_size - 4);
+		if (packet == NULL)
 			return;
 
 		// Discard FCS
 		packet->length = rx_size - 4;
+		if (packet->length <= 0)
+			return;
 
 		if (offset + 4 + rx_size - 4 > RX_BUFFER_LENGTH)
 		{

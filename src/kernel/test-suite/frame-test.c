@@ -81,7 +81,7 @@ void test_frame_allocator(void)
 
 	assert(nb_allocated_physical_pages == nb_free_physical_pages);
 
-	printf("Can allocate %d bytes and free %d bytes \n",
+	printf("Can allocate %u bytes and free %u bytes \n",
 		nb_allocated_physical_pages << PAGE_SHIFT,
 		nb_free_physical_pages << PAGE_SHIFT);
 }
