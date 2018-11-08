@@ -61,14 +61,14 @@ typedef sysarg_t block_device_id_t;
 #define L_FILE			1
 
 /**
- * Lookup will succeed only if the object is a directory. If L_CREATE is
- * specified, an empty directory will be created. This flag is mutually
+ * Lookup will succeed only if the object is a folder. If L_CREATE is
+ * specified, an empty folder will be created. This flag is mutually
  * exclusive with L_FILE.
  */
 #define L_DIRECTORY		2
 
 /**
- * Lookup will succeed only if the object is a root directory. The flag is
+ * Lookup will succeed only if the object is a root folder. The flag is
  * mutually exclusive with L_FILE and L_MP.
  */
 #define L_ROOT			4
@@ -138,10 +138,10 @@ struct dirent
 	uint32_t d_name[NAME_MAX + 1];
 };
 
-struct directory
+struct folder
 {
-	struct dentry *parent;
-	LIST_HEAD(, dentry) nodes;
+	struct node *parent;
+	LIST_HEAD(, node) nodes;
 };
 
 struct file
@@ -150,17 +150,17 @@ struct file
 	uint32_t size; // Limited to 4 GiB
 };
 
-struct dentry
+struct node
 {
 	uint8_t type;
 	uint8_t name_length;
 	char name[50];
 	union
 	{
-		struct directory dir;
-		struct file      file;
+		struct folder folder;
+		struct file   file;
 	} u;
-	LIST_ENTRY(dentry) next;
+	LIST_ENTRY(node) next;
 };
 
 struct file_system_ops
@@ -240,7 +240,7 @@ struct vfs_cache_node
 struct superblock
 {
 	struct file_system	*filesystem;
-	struct dentry		*root;
+	struct node		*root;
 
 	LIST_ENTRY(superblock)	next;
 };

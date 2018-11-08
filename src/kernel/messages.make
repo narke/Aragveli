@@ -7,7 +7,7 @@ endif
 
 
 ifeq ($(COLOR),on)
-cleaning=$(echo)	"  [01;34mcleaning[00m"
+cleaning=$(echo)	"  [01;33mcleaning[00m"
 assembling=$(echo)	"  [01;32massembling[00m"
 compiling=$(echo)	"  [01;32mcompiling[00m"
 generating=$(echo)	"  [01;32mgenerating[00m"

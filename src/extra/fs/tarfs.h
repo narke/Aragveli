@@ -20,11 +20,11 @@ typedef enum
 {
 	TMPFS_NONE,
 	TMPFS_FILE,
-	TMPFS_DIRECTORY
-} tarfs_dentry_type_t;
+	TMPFS_FOLDER
+} tarfs_node_type_t;
 
 /* forward declaration */
 struct tarfs_node;
 
 status_t tarfs_init(vaddr_t initrd_start, vaddr_t initrd_end);
-struct dentry *resolve_node(char *path, struct dentry *root_node);
+struct node *resolve_node(char *path, struct node *root_node);

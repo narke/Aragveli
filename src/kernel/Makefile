@@ -39,7 +39,7 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  ../extra/drivers/rtl8139.o \
 	  ../extra/fs/vfs.o \
 	  ../extra/fs/tarfs.o \
-	  test-suite/tarfs-test.o \
+	  ../extra/test-suite/tarfs-test.o \
 	  arch/x86-pc/startup.o
 
 KERNEL          = aragveli.elf
