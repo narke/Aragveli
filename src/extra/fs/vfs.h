@@ -25,6 +25,7 @@ struct mountpoint;
 
 #define PATH_MAX 1024
 #define NAME_MAX 255
+#define NODE_NAME_LENGTH 50
 
 #define VNODE_HOLD(x) atomic_inc(&(x)->refcount)
 #define VNODE_REL(x)  atomic_dec(&(x)->refcount)
@@ -154,7 +155,7 @@ struct node
 {
 	uint8_t type;
 	uint8_t name_length;
-	char name[50];
+	char name[NODE_NAME_LENGTH];
 	union
 	{
 		struct folder folder;

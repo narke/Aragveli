@@ -27,4 +27,4 @@ typedef enum
 struct tarfs_node;
 
 status_t tarfs_init(vaddr_t initrd_start, vaddr_t initrd_end);
-struct node *resolve_node(char *path, struct node *root_node);
+struct node *resolve_node(const char *path, struct node *root_node);

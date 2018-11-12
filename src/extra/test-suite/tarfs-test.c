@@ -5,27 +5,27 @@
 int
 cmd_ls(struct node *root, struct node *cwd, char *path)
 {
-	struct node *tmp_node = NULL, *start_root;
+	struct node *tmp_node = NULL, *folder_node;
 
 	if (!cwd && !root)
 		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
 
 	if (strlen(path) > 0 && path[0] == '/')
-		start_root = resolve_node(path, root);
+		folder_node = resolve_node(path, root);
 	else
-		start_root = resolve_node(path, cwd);
+		folder_node = resolve_node(path, cwd);
 
-	if (!start_root)
+	if (!folder_node)
 		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
 
-	if (start_root->type == TARFS_DIRECTORY)
+	if (folder_node->type == TARFS_DIRECTORY)
 	{
-		LIST_FOREACH(tmp_node, &start_root->u.folder.nodes, next)
+		LIST_FOREACH(tmp_node, &folder_node->u.folder.nodes, next)
 		{
 			printf("%s\n", tmp_node->name);
 		}
 	}
-	else if (start_root->type == TARFS_FILE)
+	else if (folder_node->type == TARFS_FILE)
 		printf("%s\n", tmp_node->name);
 	else
 		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
@@ -65,6 +65,6 @@ void
 tarfs_test(struct node *root)
 {
 	cmd_ls(root, root, "/");
-	cmd_pwd(root);
-	cmd_cd(root, "docs");
+	//cmd_pwd(root);
+	//cmd_cd(root, "docs");
 }

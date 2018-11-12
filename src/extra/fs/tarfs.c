@@ -37,6 +37,14 @@ node_ops_t tarfs_node_ops =
 static struct file_system tarfs;
 static paddr_t initrd_start, initrd_end;
 
+struct path_node
+{
+	char name[NODE_NAME_LENGTH];
+	STAILQ_ENTRY(path_node) next;
+};
+
+STAILQ_HEAD(, path_node) path_nodes;
+
 
 /*
  * TAR file decoding functions.
@@ -95,67 +103,96 @@ checksum(const char *p)
  * TARFS functions.
  */
 
-static char *
-strip_slashes(const char *path)
+static status_t
+path_nodes_to_list(const char *path)
 {
-	int i = 0;
-	static char path_item[255]; // Limited to 255 characters
-	char *tmp;
-	static char *remaining_path;
+	uint8_t i = 0;
+	char *name  = malloc(NODE_NAME_LENGTH);
+	if (!name)
+		return -KERNEL_NO_MEMORY;
 
-	if (path == NULL)
-		tmp = remaining_path;
-	else
-		tmp = path;
+	// Skip the first '/'
+	path++;
 
-	memset(path_item, 0, strlen(path_item));
-
-	while (*++tmp)
-		if (*tmp != '/')
-			break;
-	tmp--;
-
-	while (*++tmp)
-		if (*tmp == '/')
-			break;
-		else
-			path_item[i++] = *tmp;
-
-	remaining_path = tmp;
-
-	if (*tmp == '\0' && strlen(path_item) == 0)
+	while (*path)
 	{
-		remaining_path = NULL;
-		return NULL;
+		if (*path == '/')
+		{
+			name[i] = '\0'; // make a string
+
+			struct path_node *pnode = malloc(sizeof(struct path_node));
+			if (!pnode)
+				return -KERNEL_NO_MEMORY;
+
+			strzcpy(pnode->name, name, strlen(name)+1);
+			STAILQ_INSERT_TAIL(&path_nodes, pnode, next);
+
+			name = malloc(NODE_NAME_LENGTH);
+			if (!name)
+				return -KERNEL_NO_MEMORY;
+
+
+			// Reinitialize
+			i = 0;
+			path++;
+			continue;
+		}
+
+		name[i] = *path;
+		path++;
+		i++;
 	}
-	else
+
+	// There was a string after the last '/'
+	if (i > 0)
 	{
-		return path_item;
+		name[i] = '\0';
+		struct path_node *pnode = malloc(sizeof(struct path_node));
+		if (!pnode)
+			return -KERNEL_NO_MEMORY;
+
+		strzcpy(pnode->name, name, strlen(name)+1);
+
+		STAILQ_INSERT_TAIL(&path_nodes, pnode, next);
 	}
+
+	return KERNEL_OK;
+}
+
+static status_t
+path_nodes_list_delete(void)
+{
+	struct path_node *node = malloc(sizeof(struct path_node));
+	if (!node)
+		return -KERNEL_NO_MEMORY;
+
+	while (!STAILQ_EMPTY(&path_nodes))
+	{
+		node = STAILQ_FIRST(&path_nodes);
+		STAILQ_REMOVE(&path_nodes, node, path_node, next);
+		free(node);
+	}
+
+	return KERNEL_OK;
 }
 
 struct node *
-resolve_node(char *path, struct node *root_node)
+resolve_node(const char *path, struct node *root_node)
 {
 	struct node *tmp_node, *node;
-	char *path_item;
 	bool found = false;
 
-	char *absolute_path = malloc(strlen(path)+1);
+	// Create a list of node names separated by '/'
+	path_nodes_to_list(path);
 
-	if (!absolute_path)
-		return NULL;
-
-	strzcpy(absolute_path, path, strlen(path)+1);
-
-	path_item = strip_slashes(absolute_path);
 	tmp_node = root_node;
 
-	while (path_item != NULL)
+	struct path_node *pn;
+	STAILQ_FOREACH(pn, &path_nodes, next)
 	{
 		LIST_FOREACH(node, &tmp_node->u.folder.nodes, next)
 		{
-			if (strncmp(path_item, node->name, strlen(node->name)+1) == 0)
+			if (strncmp(pn->name, node->name, strlen(pn->name)+1) == 0)
 			{
 				tmp_node = node;
 				found = true;
@@ -167,108 +204,144 @@ resolve_node(char *path, struct node *root_node)
 			tmp_node = NULL;
 			break;
 		}
-
-		path_item = strip_slashes(NULL);
 	}
 
-	free(absolute_path);
+	path_nodes_list_delete();
 
 	return tmp_node;
 }
 
 static char *
-tarfs_base_name(char *path)
+tarfs_basename(const char *path)
 {
-	char *last_slash = strrchr(path, '/');
+	static char path_copy[NODE_NAME_LENGTH];
+	char *result;
 
-	if (!last_slash)
-		return NULL;
+	strzcpy(path_copy, path, strlen(path)+1);
 
-	if (!(strlen(last_slash) == 1 && last_slash[0] == '/'))
-		++last_slash; // Remove the leading slash by the way
+	if (strlen(path_copy) == 1 && path_copy[0] == '/')
+	{
+		path_copy[0] = '/';
+		path_copy[1] = '\0';
+		return path_copy;
+	}
 
-	return last_slash;
+	// Strip trailing '/' for no root folders
+	if (strlen(path_copy) > 1 && path_copy[strlen(path_copy) - 1] == '/')
+	{
+		path_copy[strlen(path_copy) - 1] = '\0';
+	}
+
+	result = strrchr(path_copy, '/');
+	return result ? result + 1 : (char *)path_copy;
 }
 
 static char *
-tarfs_folder_name(char *path)
+tarfs_dirname(const char *path)
 {
-	char *last_slash = strrchr(path, '/');
+	static char result[NODE_NAME_LENGTH];
+	char path_copy[NODE_NAME_LENGTH];
 
+	strzcpy(path_copy, path, strlen(path)+1);
+
+	if (strlen(path_copy) == 1 && path_copy[0] == '/')
+	{
+		result[0] = '/';
+		result[1] = '\0';
+		return result;
+	}
+
+	// Strip trailing '/' for no root folders
+	if (strlen(path_copy) > 1 && path_copy[strlen(path_copy) - 1] == '/')
+	{
+		path_copy[strlen(path_copy) - 1] = '\0';
+	}
+
+	char *last_slash = strrchr(path_copy, '/');
 	if (!last_slash)
 		return NULL;
 
-	int new_path_length = strlen(path) - strlen(last_slash) + 1;
-	char *new_path = malloc(new_path_length);
+	int new_path_length = strlen(path_copy) - (strlen(last_slash) - 1);
+	path_copy[new_path_length] = '\0';
 
-	if (!new_path)
-		return NULL;
+	// Strip a remaining '/' after a filename was removed.
+	if (new_path_length > 1 && path_copy[new_path_length - 1] == '/')
+	{
+		path_copy[new_path_length - 1] = '\0';
+	}
 
-	strzcpy(new_path, path, new_path_length+1);
+	strzcpy(result, path_copy, new_path_length+1);
 
-	return new_path;
+	return result;
 }
 
 static status_t
-add_node(char *path, uint8_t type, int file_size, void *archive,
+add_node(const char *path, uint8_t type, int file_size, void *archive,
 		struct node *root_node)
 {
+	// The root node was already added in init.
+	if (strlen(path) == 1 && path[0] == '/')
+		return KERNEL_OK;
+
+	char *filename = tarfs_basename(path);
+
+	// Create a new node
+	struct node *new_node = malloc(sizeof(struct node));
+	if (!new_node)
+		return -KERNEL_NO_MEMORY;
+
+	memset(new_node, 0, sizeof(struct node));
+	new_node->name_length = strlen(filename)+1;
+	strzcpy(new_node->name, filename, new_node->name_length);
+
 	if (type == TMPFS_FOLDER)
 	{
-		// Strip trailing '/' for no root folders
-		if (strlen(path) > 1 && path[strlen(path) - 1] == '/')
-			path[strlen(path) - 1] = '\0';
-	}
-
-	char *folder_name = tarfs_folder_name(path);
-	char *folder_basename = tarfs_base_name(path);
-
-	struct node *parent_node = resolve_node(folder_name, root_node);
-
-	if (!parent_node)
-		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
-
-	if (type == TMPFS_FOLDER)
-	{
-		struct node *folder_node = malloc(sizeof(struct node));
-
-		if (!folder_node)
-			return -KERNEL_NO_MEMORY;
-
-		memset(folder_node, 0, sizeof(struct node));
-
-		folder_node->type = TMPFS_FOLDER;
-		folder_node->name_length = strlen(folder_basename)+1;
-		strzcpy(folder_node->name,
-				folder_basename,
-				folder_node->name_length);
-
-		// Don't report '/'
-		if (!strncmp(parent_node->name, "/", strlen("/"))
-				&& !strncmp(folder_node->name, "/", strlen("/")))
-			return KERNEL_OK;
-
-		LIST_INSERT_HEAD(&(parent_node->u.folder.nodes), folder_node, next);
+		new_node->type = TMPFS_FOLDER;
 	}
 	else if (type == TMPFS_FILE)
 	{
-		struct node *file_node = malloc(sizeof(struct node));
-
-		if (!file_node)
-			return -KERNEL_NO_MEMORY;
-
-		memset(file_node, 0, sizeof(struct node));
-
-		file_node->type = TMPFS_FILE;
-		file_node->name_length = strlen(folder_basename)+1;
-		strzcpy(file_node->name,
-				folder_basename,
-				file_node->name_length);
-		file_node->u.file.size = file_size;
-		file_node->u.file.data = archive - 512;
-
-		LIST_INSERT_HEAD(&(parent_node->u.folder.nodes), file_node, next);
+		new_node->type = TMPFS_FILE;
+		new_node->u.file.size = file_size;
+		new_node->u.file.data = archive - 512;
 	}
+
+	// Create a list of node names separated by '/'
+	path_nodes_to_list(path);
+
+	struct node *tmp_node, *iter_node;
+	struct path_node *path_node_iter;
+
+	tmp_node = root_node;
+
+	STAILQ_FOREACH(path_node_iter, &path_nodes, next)
+	{
+		if (LIST_EMPTY(&tmp_node->u.folder.nodes))
+		{
+			LIST_INSERT_HEAD(&(tmp_node->u.folder.nodes), new_node, next);
+		}
+		else
+		{
+
+			LIST_FOREACH(iter_node, &tmp_node->u.folder.nodes, next)
+			{
+				if (strncmp(path_node_iter->name, iter_node->name,
+							strlen(path_node_iter->name)+1) == 0)
+				{
+					if (iter_node->type == TMPFS_FOLDER)
+					{
+						tmp_node = iter_node;
+						break;
+					}
+				}
+				else
+				{
+					LIST_INSERT_HEAD(&(tmp_node->u.folder.nodes), new_node, next);
+				}
+			}
+		}
+	}
+
+	path_nodes_list_delete();
 
 	return KERNEL_OK;
 }
@@ -339,6 +412,7 @@ tarfs_mount(const char *root_device, const char *mount_point,
 	strzcpy(root_node->name, "/", root_node->name_length);
 
 	LIST_INIT(&(root_node->u.folder.nodes));
+	STAILQ_INIT(&path_nodes);
 	untar(ramdisk_address, root_node);
 
 	struct superblock *tarfs_superblock = malloc(sizeof(struct superblock));
