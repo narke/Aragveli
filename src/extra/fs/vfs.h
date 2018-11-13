@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <lib/c/stdbool.h>
 #include <lib/queue.h>
 #include <lib/types.h>
 #include <lib/status.h>

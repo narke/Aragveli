@@ -6,6 +6,7 @@
  */
 
 #include <lib/c/stdlib.h>
+#include <lib/c/string.h>
 #include <arch/x86/irq.h>
 #include <process/scheduler.h>
 

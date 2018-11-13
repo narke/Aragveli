@@ -7,6 +7,7 @@
  * Handling interruptions descriptor table.
  */
 
+#include <lib/c/string.h>
 #include <arch/x86/segment.h>
 #include <lib/status.h>
 #include "idt.h"

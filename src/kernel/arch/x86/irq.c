@@ -5,6 +5,7 @@
  * found in the LICENSE file.
  */
 
+#include <lib/c/string.h>
 #include <lib/status.h>
 
 #include "idt.h"

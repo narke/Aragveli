@@ -6,7 +6,9 @@
  */
 
 #include <lib/types.h>
+#include <lib/c/string.h>
 #include <lib/c/assert.h>
+#include <lib/c/stdbool.h>
 
 #include "scheduler.h"
 
