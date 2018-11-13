@@ -1,9 +1,10 @@
 #include <lib/c/stdio.h>
 #include <lib/c/string.h>
+#include <lib/c/stdlib.h>
 #include "tarfs-test.h"
 
 int
-cmd_ls(struct node *root, struct node *cwd, char *path)
+cmd_ls(struct node *root, struct node *cwd, const char *path)
 {
 	struct node *tmp_node = NULL, *folder_node;
 
@@ -25,10 +26,8 @@ cmd_ls(struct node *root, struct node *cwd, char *path)
 			printf("%s\n", tmp_node->name);
 		}
 	}
-	else if (folder_node->type == TARFS_FILE)
-		printf("%s\n", tmp_node->name);
 	else
-		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+		printf("%s\n", tmp_node->name);
 
 	return KERNEL_OK;
 }
@@ -42,18 +41,110 @@ cmd_pwd(struct node *cwd)
 }
 
 int
-cmd_cd(struct node *cwd, const char *dst_folder_name)
+cmd_cd(struct node *cwd, const char *path)
 {
-	struct node *iter = NULL;
-
 	if (cwd->type == TARFS_FILE)
 		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
 
-	LIST_FOREACH(iter, &cwd->u.folder.nodes, next)
+	struct node *folder_node = resolve_node(path, cwd);
+	if (!folder_node)
 	{
-		if (strncmp(iter->name, dst_folder_name, strlen(dst_folder_name)))
+		printf("cd error\n");
+	}
+	printf("cd: %s\n", folder_node->name);
+	// TODO update cwd
+
+	return KERNEL_OK;
+}
+
+int
+cmd_mkdir(struct node *root, struct node *cwd, const char *path, const char *folder_name)
+{
+	struct node *folder_node;
+
+	if (!cwd && !root)
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+
+	if (strlen(path) > 0 && path[0] == '/')
+		folder_node = resolve_node(path, root);
+	else
+		folder_node = resolve_node(path, cwd);
+
+	if (!folder_node)
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+
+	// Create a new node
+	struct node *new_node = malloc(sizeof(struct node));
+	if (!new_node)
+		return -KERNEL_NO_MEMORY;
+
+	memset(new_node, 0, sizeof(struct node));
+	new_node->name_length = strlen(folder_name)+1;
+	strzcpy(new_node->name, folder_name, new_node->name_length);
+	new_node->type = TMPFS_FOLDER;
+
+	LIST_INSERT_HEAD(&(folder_node->u.folder.nodes), new_node, next);
+
+	return KERNEL_OK;
+}
+
+int
+cmd_touch(struct node *root, struct node *cwd, const char *path, const char *filename)
+{
+	struct node *folder_node;
+
+	if (!cwd && !root)
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+
+	if (strlen(path) > 0 && path[0] == '/')
+		folder_node = resolve_node(path, root);
+	else
+		folder_node = resolve_node(path, cwd);
+
+	if (!folder_node)
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+
+	// Create a new node
+	struct node *new_node = malloc(sizeof(struct node));
+	if (!new_node)
+		return -KERNEL_NO_MEMORY;
+
+	memset(new_node, 0, sizeof(struct node));
+	new_node->name_length = strlen(filename)+1;
+	strzcpy(new_node->name, filename, new_node->name_length);
+	new_node->type = TMPFS_FILE;
+	new_node->u.file.size = 0;
+	//new_node->u.file.data = 0;
+
+	LIST_INSERT_HEAD(&(folder_node->u.folder.nodes), new_node, next);
+
+	return KERNEL_OK;
+}
+
+int
+cmd_rm(struct node *root, struct node *cwd, const char *path, const char *filename)
+{
+	struct node *folder_node;
+
+	if (!cwd && !root)
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+
+	if (strlen(path) > 0 && path[0] == '/')
+		folder_node = resolve_node(path, root);
+	else
+		folder_node = resolve_node(path, cwd);
+
+	if (!folder_node)
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+
+	struct node* tmp_node;
+	LIST_FOREACH(tmp_node, &(folder_node->u.folder.nodes), next)
+	{
+		if (!strncmp(tmp_node->name, filename, strlen(filename))
+				&& tmp_node->type == TMPFS_FILE)
 		{
-			printf("FIXME: cd matched!\n");
+			LIST_REMOVE(tmp_node, next);
+			free(tmp_node);
 			return KERNEL_OK;
 		}
 	}
@@ -61,10 +152,236 @@ cmd_cd(struct node *cwd, const char *dst_folder_name)
 	return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
 }
 
+int
+cmd_rmdir(struct node *root, struct node *cwd, const char *path, const char *folder_name)
+{
+	struct node *folder_node;
+
+	if (!cwd && !root)
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+
+	if (strlen(path) > 0 && path[0] == '/')
+		folder_node = resolve_node(path, root);
+	else
+		folder_node = resolve_node(path, cwd);
+
+	if (!folder_node)
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+
+	struct node* tmp_node;
+	LIST_FOREACH(tmp_node, &(folder_node->u.folder.nodes), next)
+	{
+		if (!strncmp(tmp_node->name, folder_name, strlen(folder_name))
+				&& tmp_node->type == TMPFS_FOLDER)
+		{
+			LIST_REMOVE(tmp_node, next);
+			free(tmp_node);
+			return KERNEL_OK;
+		}
+	}
+
+	return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+
+}
+
+int
+cmd_cat(struct node *root, struct node *cwd, const char *path, const char *filename)
+{
+	struct node *folder_node;
+
+	if (!cwd && !root)
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+
+	if (strlen(path) > 0 && path[0] == '/')
+		folder_node = resolve_node(path, root);
+	else
+		folder_node = resolve_node(path, cwd);
+
+	if (!folder_node)
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+
+	struct node* tmp_node;
+	LIST_FOREACH(tmp_node, &(folder_node->u.folder.nodes), next)
+	{
+		if (!strncmp(tmp_node->name, filename, strlen(filename))
+				&& tmp_node->type == TMPFS_FILE)
+		{
+			printf("%s\n", tmp_node->u.file.data);
+			return KERNEL_OK;
+		}
+	}
+
+	return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+}
+
+int
+cmd_file(struct node *root, struct node *cwd, const char *path, const char *nodename)
+{
+	struct node *folder_node;
+
+	if (!cwd && !root)
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+
+	if (strlen(path) > 0 && path[0] == '/')
+		folder_node = resolve_node(path, root);
+	else
+		folder_node = resolve_node(path, cwd);
+
+	if (!folder_node)
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+
+	struct node* tmp_node;
+	LIST_FOREACH(tmp_node, &(folder_node->u.folder.nodes), next)
+	{
+		if (!strncmp(tmp_node->name, nodename, strlen(nodename)))
+		{
+			if (tmp_node->type == TMPFS_FILE)
+				printf("%s: file\n", tmp_node->name);
+			else
+				printf("%s: folder\n", tmp_node->name);
+			return KERNEL_OK;
+		}
+	}
+
+	return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+}
+
+static int
+mv_cp_internal(struct node *root, struct node *cwd,
+		const char *src_path,
+		const char *src_node_name,
+		const char *dst_path,
+		const char *dst_node_name,
+		bool is_mv)
+{
+	struct node *folder_node;
+	bool src_node_found = false;
+
+	if (!cwd && !root)
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+
+	// Source
+	if (strlen(src_path) > 0 && src_path[0] == '/')
+		folder_node = resolve_node(src_path, root);
+	else
+		folder_node = resolve_node(src_path, cwd);
+
+	if (!folder_node)
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+
+	struct node* src_node;
+	LIST_FOREACH(src_node, &(folder_node->u.folder.nodes), next)
+	{
+		if (!strncmp(src_node->name, src_node_name, strlen(src_node_name)))
+		{
+			src_node_found = true;
+			break;
+		}
+	}
+
+	if (!src_node_found)
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+
+	// New node
+	struct node *new_node = malloc(sizeof(struct node));
+	if (!new_node)
+		return -KERNEL_NO_MEMORY;
+
+	if (!is_mv)
+	{
+		memset(new_node, 0, sizeof(struct node));
+		new_node->type = src_node->type;
+
+		if (dst_node_name)
+		{
+			new_node->name_length = strlen(dst_node_name)+1;
+			strzcpy(new_node->name, dst_node_name, strlen(dst_node_name)+1);
+		}
+		else
+		{
+			new_node->name_length = strlen(src_node_name)+1;
+			strzcpy(new_node->name, src_node_name, strlen(src_node_name)+1);
+		}
+	}
+
+	// Destination
+	if (strlen(dst_path) > 0 && dst_path[0] == '/')
+		folder_node = resolve_node(dst_path, root);
+	else
+		folder_node = resolve_node(dst_path, cwd);
+
+	if (!folder_node)
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+
+	if (dst_node_name)
+	{
+		struct node* dst_node;
+		LIST_FOREACH(dst_node, &(folder_node->u.folder.nodes), next)
+		{
+			if (!strncmp(dst_node->name, dst_node_name, strlen(dst_node_name)))
+			{
+				return -KERNEL_FILE_ALREADY_EXISTS;
+			}
+		}
+	}
+
+	if (is_mv && dst_node_name)
+		strzcpy(src_node->name, dst_node_name, strlen(dst_node_name)+1);
+
+	if (is_mv)
+	{
+		// Remove the source node
+		LIST_REMOVE(src_node, next);
+		// And insert into the destination node
+		LIST_INSERT_HEAD(&(folder_node->u.folder.nodes), src_node, next);
+	}
+	else
+	{
+		LIST_INSERT_HEAD(&(folder_node->u.folder.nodes), new_node, next);
+	}
+
+	return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+}
+
+int
+cmd_mv(struct node *root, struct node *cwd,
+		const char *src_path,
+		const char *src_node_name,
+		const char *dst_path,
+		const char *dst_node_name)
+{
+	return mv_cp_internal(root, cwd, src_path, src_node_name,
+			dst_path, dst_node_name, true);
+}
+
+int
+cmd_cp(struct node *root, struct node *cwd,
+		const char *src_path,
+		const char *src_node_name,
+		const char *dst_path,
+		const char *dst_node_name)
+{
+	return mv_cp_internal(root, cwd, src_path, src_node_name,
+			dst_path, dst_node_name, false);
+}
+
 void
 tarfs_test(struct node *root)
 {
-	cmd_ls(root, root, "/");
+	//cmd_ls(root, root, "/");
 	//cmd_pwd(root);
 	//cmd_cd(root, "docs");
+	//cmd_mkdir(root, root, "/", "newfolder");
+	//cmd_touch(root, root, "/", "newfile");
+	//cmd_rm(root, root, "/", "newfile");
+	//cmd_rmdir(root, root, "/", "newfolder");
+	//cmd_cat(root, root, "/", "test.txt");
+	//cmd_file(root, root, "/", "test.txt");
+	//cmd_mv(root, root, "/", "test.txt", "/", "newmv.txt");
+	//cmd_cp(root, root, "/", "test.txt", "/", "newcp.txt");
+	//cmd_ls(root, root, "/");
+
+	/*cmd_mv(root, root, "/", "test.txt", "/docs", NULL);
+	cmd_ls(root, root, "/docs");
+	cmd_ls(root, root, "/");*/
 }

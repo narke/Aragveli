@@ -112,7 +112,8 @@ path_nodes_to_list(const char *path)
 		return -KERNEL_NO_MEMORY;
 
 	// Skip the first '/'
-	path++;
+	if (path[0] == '/')
+		path++;
 
 	while (*path)
 	{
@@ -236,6 +237,7 @@ tarfs_basename(const char *path)
 	return result ? result + 1 : (char *)path_copy;
 }
 
+#if 0
 static char *
 tarfs_dirname(const char *path)
 {
@@ -274,6 +276,7 @@ tarfs_dirname(const char *path)
 
 	return result;
 }
+#endif
 
 static status_t
 add_node(const char *path, uint8_t type, int file_size, void *archive,
