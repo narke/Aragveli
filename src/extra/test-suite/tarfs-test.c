@@ -172,7 +172,9 @@ cmd_cat(struct node *root, struct node *cwd, const char *path, const char *filen
 		if (!strncmp(tmp_node->name, filename, strlen(filename))
 				&& tmp_node->type == TMPFS_FILE)
 		{
-			printf("%s\n", tmp_node->u.file.data);
+			for (uint64_t i = 0; i < tmp_node->u.file.size; i++)
+				printf("%c", tmp_node->u.file.data[i]);
+			printf("\n");
 			return KERNEL_OK;
 		}
 	}
@@ -320,13 +322,13 @@ tarfs_test(struct node *root)
 	//cmd_touch(root, root, "/", "newfile");
 	//cmd_rm(root, root, "/", "newfile");
 	//cmd_rmdir(root, root, "/", "newfolder");
-	//cmd_cat(root, root, "/", "test.txt");
+	cmd_cat(root, root, "/", "test.txt");
 	//cmd_file(root, root, "/", "test.txt");
 	//cmd_mv(root, root, "/", "test.txt", "/", "newmv.txt");
 	//cmd_cp(root, root, "/", "test.txt", "/", "newcp.txt");
 	//cmd_ls(root, root, "/");
 
-	cmd_mv(root, root, "/", "test.txt", "/docs", NULL);
+	/*cmd_mv(root, root, "/", "test.txt", "/docs", NULL);
 	cmd_ls(root, root, "/docs");
-	cmd_ls(root, root, "/");
+	cmd_ls(root, root, "/");*/
 }
