@@ -3,19 +3,30 @@
 #include <lib/c/stdlib.h>
 #include "tarfs-test.h"
 
-int
-cmd_ls(struct node *root, struct node *cwd, const char *path)
+static struct node *
+resolve_node_wrapper(const char *path, struct node *root, struct node *cwd)
 {
-	struct node *tmp_node = NULL, *folder_node;
+	struct node *folder_node;
 
 	if (!cwd && !root)
-		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+		return NULL;
 
 	if (strlen(path) > 0 && path[0] == '/')
 		folder_node = resolve_node(path, root);
 	else
 		folder_node = resolve_node(path, cwd);
 
+	if (!folder_node)
+		return NULL;
+
+	return folder_node;
+}
+
+int
+cmd_ls(struct node *root, struct node *cwd, const char *path)
+{
+	struct node *tmp_node = NULL;
+	struct node *folder_node = resolve_node_wrapper(path, root, cwd);
 	if (!folder_node)
 		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
 
@@ -60,16 +71,7 @@ cmd_cd(struct node *cwd, const char *path)
 int
 cmd_mkdir(struct node *root, struct node *cwd, const char *path, const char *folder_name)
 {
-	struct node *folder_node;
-
-	if (!cwd && !root)
-		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
-
-	if (strlen(path) > 0 && path[0] == '/')
-		folder_node = resolve_node(path, root);
-	else
-		folder_node = resolve_node(path, cwd);
-
+	struct node *folder_node = resolve_node_wrapper(path, root, cwd);
 	if (!folder_node)
 		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
 
@@ -91,16 +93,7 @@ cmd_mkdir(struct node *root, struct node *cwd, const char *path, const char *fol
 int
 cmd_touch(struct node *root, struct node *cwd, const char *path, const char *filename)
 {
-	struct node *folder_node;
-
-	if (!cwd && !root)
-		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
-
-	if (strlen(path) > 0 && path[0] == '/')
-		folder_node = resolve_node(path, root);
-	else
-		folder_node = resolve_node(path, cwd);
-
+	struct node *folder_node = resolve_node_wrapper(path, root, cwd);
 	if (!folder_node)
 		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
 
@@ -124,16 +117,7 @@ cmd_touch(struct node *root, struct node *cwd, const char *path, const char *fil
 int
 cmd_rm(struct node *root, struct node *cwd, const char *path, const char *filename)
 {
-	struct node *folder_node;
-
-	if (!cwd && !root)
-		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
-
-	if (strlen(path) > 0 && path[0] == '/')
-		folder_node = resolve_node(path, root);
-	else
-		folder_node = resolve_node(path, cwd);
-
+	struct node *folder_node = resolve_node_wrapper(path, root, cwd);
 	if (!folder_node)
 		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
 
@@ -155,16 +139,7 @@ cmd_rm(struct node *root, struct node *cwd, const char *path, const char *filena
 int
 cmd_rmdir(struct node *root, struct node *cwd, const char *path, const char *folder_name)
 {
-	struct node *folder_node;
-
-	if (!cwd && !root)
-		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
-
-	if (strlen(path) > 0 && path[0] == '/')
-		folder_node = resolve_node(path, root);
-	else
-		folder_node = resolve_node(path, cwd);
-
+	struct node *folder_node = resolve_node_wrapper(path, root, cwd);
 	if (!folder_node)
 		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
 
@@ -187,16 +162,7 @@ cmd_rmdir(struct node *root, struct node *cwd, const char *path, const char *fol
 int
 cmd_cat(struct node *root, struct node *cwd, const char *path, const char *filename)
 {
-	struct node *folder_node;
-
-	if (!cwd && !root)
-		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
-
-	if (strlen(path) > 0 && path[0] == '/')
-		folder_node = resolve_node(path, root);
-	else
-		folder_node = resolve_node(path, cwd);
-
+	struct node *folder_node = resolve_node_wrapper(path, root, cwd);
 	if (!folder_node)
 		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
 
@@ -217,16 +183,7 @@ cmd_cat(struct node *root, struct node *cwd, const char *path, const char *filen
 int
 cmd_file(struct node *root, struct node *cwd, const char *path, const char *nodename)
 {
-	struct node *folder_node;
-
-	if (!cwd && !root)
-		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
-
-	if (strlen(path) > 0 && path[0] == '/')
-		folder_node = resolve_node(path, root);
-	else
-		folder_node = resolve_node(path, cwd);
-
+	struct node *folder_node = resolve_node_wrapper(path, root, cwd);
 	if (!folder_node)
 		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
 
@@ -254,18 +211,10 @@ mv_cp_internal(struct node *root, struct node *cwd,
 		const char *dst_node_name,
 		bool is_mv)
 {
-	struct node *folder_node;
 	bool src_node_found = false;
 
-	if (!cwd && !root)
-		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
-
 	// Source
-	if (strlen(src_path) > 0 && src_path[0] == '/')
-		folder_node = resolve_node(src_path, root);
-	else
-		folder_node = resolve_node(src_path, cwd);
-
+	struct node *folder_node = resolve_node_wrapper(src_path, root, cwd);
 	if (!folder_node)
 		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
 
@@ -305,11 +254,7 @@ mv_cp_internal(struct node *root, struct node *cwd,
 	}
 
 	// Destination
-	if (strlen(dst_path) > 0 && dst_path[0] == '/')
-		folder_node = resolve_node(dst_path, root);
-	else
-		folder_node = resolve_node(dst_path, cwd);
-
+	folder_node = resolve_node_wrapper(dst_path, root, cwd);
 	if (!folder_node)
 		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
 
@@ -381,7 +326,7 @@ tarfs_test(struct node *root)
 	//cmd_cp(root, root, "/", "test.txt", "/", "newcp.txt");
 	//cmd_ls(root, root, "/");
 
-	/*cmd_mv(root, root, "/", "test.txt", "/docs", NULL);
+	cmd_mv(root, root, "/", "test.txt", "/docs", NULL);
 	cmd_ls(root, root, "/docs");
-	cmd_ls(root, root, "/");*/
+	cmd_ls(root, root, "/");
 }
