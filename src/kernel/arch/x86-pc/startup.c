@@ -15,6 +15,8 @@
 #include <arch/x86/isr.h>
 #include <arch/x86/irq.h>
 #include <arch/x86/pit.h>
+#include <arch/x86/ioapic.h>
+#include <arch/x86/lapic.h>
 #include <arch/x86/acpi.h>
 #include <arch/x86/smp.h>
 #include <memory/frame.h>
@@ -68,6 +70,8 @@ aragveli_main(uint32_t magic, uint32_t address)
 	vbe_setup(vbe_mode_info);
 
 	// ACPI
+	LocalApicInit();
+	IoApicInit();
 	AcpiInit();
 
 	// Initrd
