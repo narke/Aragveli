@@ -70,9 +70,6 @@ aragveli_main(uint32_t magic, uint32_t address)
 	// ACPI
 	AcpiInit();
 
-	// SMP
-	SmpInit();
-
 	// Initrd
 	uint32_t initrd_start = *((uint32_t *)mbi->mods_addr);
 	uint32_t initrd_end   = *(uint32_t *)(mbi->mods_addr + 4);
@@ -114,6 +111,9 @@ aragveli_main(uint32_t magic, uint32_t address)
 
 	// Enable interrupts
 	asm volatile("sti");
+
+	// SMP
+	SmpInit();
 
 	tarfs_test(root_fs->root);
 

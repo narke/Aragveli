@@ -28,3 +28,4 @@ status_t x86_pit_set_frequency(uint32_t frequency);
  */
 void timer_interrupt_handler(int number);
 
+void PitWait(uint32_t ms);

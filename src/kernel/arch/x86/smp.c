@@ -22,9 +22,10 @@
  */
 
 #include <lib/c/stdio.h>
-#include "smp.h"
 #include "acpi.h"
 #include "lapic.h"
+#include "pit.h"
+#include "smp.h"
 
 // ------------------------------------------------------------------------------------------------
 void SmpInit()
@@ -45,7 +46,7 @@ void SmpInit()
     }
 
     // wait
-    //PitWait(10);
+    PitWait(10);
 
     // Send Startup to all cpus except self
     for (uint32_t i = 0; i < g_acpiCpuCount; ++i)
@@ -58,11 +59,11 @@ void SmpInit()
     }
 
     // Wait for all cpus to be active
-    //PitWait(1);
+    PitWait(1);
     while (g_activeCpuCount != g_acpiCpuCount)
     {
         printf("Waiting... %d\n", g_activeCpuCount);
-        //PitWait(1);
+        PitWait(1);
     }
 
     printf("All CPUs activated\n");

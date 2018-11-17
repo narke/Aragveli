@@ -15,6 +15,7 @@
 #include "pit.h"
 
 extern uintptr_t g_localApicAddr;
+volatile int ticks = 0;
 
 /** 82C54's clock's maximal frequency */
 #define MAX_FREQUENCY 1193180
@@ -73,7 +74,6 @@ x86_pit_set_frequency(uint32_t frequency)
 void
 timer_interrupt_handler(int number)
 {
-	static int ticks = 0;
 	static int seconds = 0;
 	uint32_t flags;
 
@@ -90,4 +90,15 @@ timer_interrupt_handler(int number)
 	X86_IRQs_DISABLE(flags);
 	schedule();
 	X86_IRQs_ENABLE(flags);
+}
+
+void PitWait(uint32_t ms)
+{
+    uint32_t now = ticks;
+    ++ms;
+
+    while (ticks - now < ms)
+    {
+        ;
+    }
 }
