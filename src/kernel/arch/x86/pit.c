@@ -14,6 +14,8 @@
 
 #include "pit.h"
 
+extern uintptr_t g_localApicAddr;
+
 /** 82C54's clock's maximal frequency */
 #define MAX_FREQUENCY 1193180
 

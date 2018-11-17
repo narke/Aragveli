@@ -22,6 +22,10 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  arch/x86/irq-stubs.o \
 	  arch/x86/irq.o \
 	  arch/x86/pit.o \
+	  arch/x86/acpi.o \
+	  arch/x86/ioapic.o \
+	  arch/x86/lapic.o \
+	  arch/x86/smp.o \
 	  lib/c/stdio.o \
 	  lib/c/string.o \
 	  memory/frame.o \

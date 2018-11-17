@@ -15,6 +15,8 @@
 #include <arch/x86/isr.h>
 #include <arch/x86/irq.h>
 #include <arch/x86/pit.h>
+#include <arch/x86/acpi.h>
+#include <arch/x86/smp.h>
 #include <memory/frame.h>
 #include <memory/heap.h>
 #include <process/thread.h>
@@ -64,6 +66,12 @@ aragveli_main(uint32_t magic, uint32_t address)
 			* vbe_mode_info->y_res;
 
 	vbe_setup(vbe_mode_info);
+
+	// ACPI
+	AcpiInit();
+
+	// SMP
+	SmpInit();
 
 	// Initrd
 	uint32_t initrd_start = *((uint32_t *)mbi->mods_addr);
