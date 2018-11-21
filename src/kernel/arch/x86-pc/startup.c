@@ -70,9 +70,9 @@ aragveli_main(uint32_t magic, uint32_t address)
 	vbe_setup(vbe_mode_info);
 
 	// ACPI
+	AcpiInit();
 	LocalApicInit();
 	IoApicInit();
-	AcpiInit();
 
 	// Initrd
 	uint32_t initrd_start = *((uint32_t *)mbi->mods_addr);

@@ -3,7 +3,7 @@ ENTRY (multiboot_entry)
 SECTIONS
 {
 	g_localApicAddr = 0x00006000;
-	g_activeCpuCount = 0x00006008;
+	g_activeCpuCount = 0x00006004;
 
 	/* Load the kernel at 0x00100000.
 	 * A multi-boot compatible kernel cannot be loaded before the 1MB mark,

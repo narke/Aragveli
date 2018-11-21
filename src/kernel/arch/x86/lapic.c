@@ -138,6 +138,7 @@ void LocalApicSendInit(uint32_t apic_id)
 void LocalApicSendStartup(uint32_t apic_id, uint32_t vector)
 {
     LocalApicOut(LAPIC_ICRHI, apic_id << ICR_DESTINATION_SHIFT);
+
     LocalApicOut(LAPIC_ICRLO, vector | ICR_STARTUP
         | ICR_PHYSICAL | ICR_ASSERT | ICR_EDGE | ICR_NO_SHORTHAND);
 

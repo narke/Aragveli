@@ -79,6 +79,7 @@ run:
 	qemu-system-i386 -m 8 -vga std \
 		-netdev user,id=net0 \
 		-device rtl8139,netdev=net0 \
+		-smp cores=4,threads=2 \
 		-cdrom $(MULTIBOOT_IMAGE)
 
 clean:

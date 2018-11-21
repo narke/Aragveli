@@ -24,9 +24,15 @@
 #include <lib/c/stdio.h>
 #include <lib/c/stdbool.h>
 #include <lib/c/string.h>
+#include "io-ports.h"
 #include "lapic.h"
 #include "ioapic.h"
 #include "acpi.h"
+
+#define RSD_PTR_SIGNATURE 0x2052545020445352	// 'RSD PTR '
+#define APIC_SIGNATURE 0x43495041
+#define FACS_SIGNATURE 0x50434146
+#define RSDT_SIGNATURE 0x54445352
 
 uint32_t g_acpiCpuCount;
 uint8_t g_acpiCpuIds[MAX_CPU_COUNT];
@@ -43,7 +49,7 @@ typedef struct AcpiHeader
     uint32_t oemRevision;
     uint32_t creatorId;
     uint32_t creatorRevision;
-} __attribute__((__packed__)) AcpiHeader;
+} __attribute__((packed)) AcpiHeader;
 
 // ------------------------------------------------------------------------------------------------
 typedef struct AcpiFadt
@@ -58,7 +64,7 @@ typedef struct AcpiFadt
     uint8_t acpiEnable;
     uint8_t acpiDisable;
     // TODO - fill in rest of data
-} __attribute__((__packed__)) AcpiFadt;
+} __attribute__((packed)) AcpiFadt;
 
 // ------------------------------------------------------------------------------------------------
 typedef struct AcpiMadt
@@ -66,14 +72,14 @@ typedef struct AcpiMadt
     AcpiHeader header;
     uint32_t localApicAddr;
     uint32_t flags;
-} __attribute__((__packed__)) AcpiMadt;
+} __attribute__((packed)) AcpiMadt;
 
 // ------------------------------------------------------------------------------------------------
 typedef struct ApicHeader
 {
     uint8_t type;
     uint8_t length;
-} __attribute__((__packed__)) ApicHeader;
+} __attribute__((packed)) ApicHeader;
 
 // APIC structure types
 #define APIC_TYPE_LOCAL_APIC            0
@@ -87,7 +93,7 @@ typedef struct ApicLocalApic
     uint8_t acpiProcessorId;
     uint8_t apicId;
     uint32_t flags;
-} __attribute__((__packed__)) ApicLocalApic;
+} __attribute__((packed)) ApicLocalApic;
 
 // ------------------------------------------------------------------------------------------------
 typedef struct ApicIoApic
@@ -97,7 +103,7 @@ typedef struct ApicIoApic
     uint8_t reserved;
     uint32_t ioApicAddress;
     uint32_t globalSystemInterruptBase;
-} __attribute__((__packed__)) ApicIoApic;
+} __attribute__((packed)) ApicIoApic;
 
 // ------------------------------------------------------------------------------------------------
 typedef struct ApicInterruptOverride
@@ -107,17 +113,25 @@ typedef struct ApicInterruptOverride
     uint8_t source;
     uint32_t interrupt;
     uint16_t flags;
-} __attribute__((__packed__)) ApicInterruptOverride;
+} __attribute__((packed)) ApicInterruptOverride;
+
+typedef struct RSDPDescriptor {
+	char signature[8];
+	uint8_t checksum;
+	char oemid[6];
+	uint8_t revision;
+	uint32_t rsdt_address;
+} __attribute__((packed)) AcpiRSDP;
 
 // ------------------------------------------------------------------------------------------------
-static AcpiMadt *s_madt;
 
-static void AcpiParseFacp(AcpiFadt *facp)
+static void
+AcpiParseFacp(AcpiFadt *facp)
 {
     if (facp->smiCommandPort)
     {
-        //printf("Enabling ACPI\n");
-        //out8(facp->smiCommandPort, facp->acpiEnable);
+        printf("Enabling ACPI\n");
+        out8(facp->smiCommandPort, facp->acpiEnable);
 
         // TODO - wait for SCI_EN bit
     }
@@ -128,9 +142,19 @@ static void AcpiParseFacp(AcpiFadt *facp)
 }
 
 // ------------------------------------------------------------------------------------------------
-static void AcpiParseApic(AcpiMadt *madt)
+static void
+AcpiParseApic(AcpiMadt *madt)
 {
-    s_madt = madt;
+	if (madt->header.signature != APIC_SIGNATURE)
+	{
+		printf("ACPI: APIC signature not found.\n");
+		return;
+	}
+	if (madt->localApicAddr == -18874368)
+		return;
+	printf("Local APIC Address = %d\n", madt->localApicAddr);
+
+
 
     printf("Local APIC Address = 0x%08x\n", madt->localApicAddr);
     g_localApicAddr = (uint8_t *)(uintptr_t)madt->localApicAddr;
@@ -177,21 +201,32 @@ static void AcpiParseApic(AcpiMadt *madt)
     }
 }
 
+static bool
+doChecksum(AcpiHeader *header)
+{
+	unsigned char sum = 0;
+
+	for (uint32_t i = 0; i < header->length; i++)
+	{
+		sum += ((char *)header)[i];
+	}
+
+	return sum == 0;
+}
+
 static void
 AcpiParseDT(AcpiHeader *header)
 {
-    uint32_t signature = header->signature;
+    char descriptor_name[5];
+    memcpy(descriptor_name, &header->signature, 4);
+    descriptor_name[4] = 0;
+    printf("Descriptor Table: %s, signature: 0x%x\n", descriptor_name, header->signature);
 
-    char sigStr[5];
-    memcpy(sigStr, &signature, 4);
-    sigStr[4] = 0;
-    printf("%s 0x%x\n", sigStr, signature);
-
-    if (signature == 0x50434146)
+    if (header->signature == FACS_SIGNATURE)
     {
         AcpiParseFacp((AcpiFadt *)header);
     }
-    else if (signature == 0x43495041)
+    else if (header->signature == APIC_SIGNATURE)
     {
         AcpiParseApic((AcpiMadt *)header);
     }
@@ -200,85 +235,67 @@ AcpiParseDT(AcpiHeader *header)
 static void
 AcpiParseRsdt(AcpiHeader *rsdt)
 {
-    uint32_t *p = (uint32_t *)(rsdt + 1);
-    uint32_t *end = (uint32_t *)((uint8_t*)rsdt + rsdt->length);
+	if (rsdt->signature != RSDT_SIGNATURE)
+	{
+		printf("ACPI: RSDT signature not found.\n");
+		return;
+	}
 
-    while (p < end)
-    {
-        uint32_t address = *p++;
-        AcpiParseDT((AcpiHeader *)(uintptr_t)address);
-    }
-}
+	if (!doChecksum(rsdt))
+	{
+		printf("ACPI RSDT checksum failed.\n");
+		return;
+	}
 
-static void
-AcpiParseXsdt(AcpiHeader *xsdt)
-{
-    uint64_t *p = (uint64_t *)(xsdt + 1);
-    uint64_t *end = (uint64_t *)((uint8_t*)xsdt + xsdt->length);
+	// Additional descriptor entries
+	uint8_t entries = (rsdt->length - sizeof(AcpiHeader)) / 4;
+	uint32_t *otherDT = (uint32_t *)(rsdt + 1);
 
-    while (p < end)
-    {
-        uint64_t address = *p++;
-        AcpiParseDT((AcpiHeader *)(uintptr_t)address);
-    }
+	for (uint8_t i = 0; i < entries; i++)
+	{
+		AcpiParseDT((AcpiHeader *)otherDT[i]);
+
+	}
 }
 
 static bool
 AcpiParseRsdp(uint8_t *p)
 {
-    // Parse Root System Description Pointer
-    printf("RSDP found\n");
+	// Parse Root System Description Pointer
+	printf("ACPI: RSDP found\n");
 
-    // Verify checksum
-    uint8_t sum = 0;
-    for (uint32_t i = 0; i < 20; ++i)
-    {
-        sum += p[i];
-    }
+	// RSDP checksum, AcpiRSDP's size is 20.
+	uint8_t sum;
+	for (uint8_t i = 0; i < 20; i++)
+	{
+		sum += p[i];
+	}
 
-    if (sum)
-    {
-        printf("Checksum failed\n");
-        return false;
-    }
+	if (sum)
+	{
+		printf("Checksum failed\n");
+		return false;
+	}
 
-    // Print OEM
-    char oem[7];
-    memcpy(oem, p + 9, 6);
-    oem[6] = '\0';
-    printf("OEM = %s\n", oem);
+	AcpiRSDP *rsdp = (AcpiRSDP *)p;
 
-    // Check version
-    uint8_t revision = p[15];
-    if (revision == 0)
-    {
-        printf("Version 1\n");
+	printf("ACPI OEM: %s\n", rsdp->oemid);
 
-        uint32_t rsdtAddr = *(uint32_t *)(p + 16);
-        AcpiParseRsdt((AcpiHeader *)(uintptr_t)rsdtAddr);
-    }
-    else if (revision == 2)
-    {
-        printf("Version 2\n");
+	if (rsdp->revision == 0)
+	{
+		printf("ACPI version: 1\n");
+		AcpiParseRsdt((AcpiHeader *)rsdp->rsdt_address);
+	}
+	else if (rsdp->revision == 2)
+	{
+		printf("ACPI version: 2\n");
+	}
+	else
+	{
+		printf("Unsupported ACPI version %d\n", rsdp->revision);
+	}
 
-        uint32_t rsdtAddr = *(uint32_t *)(p + 16);
-        uint64_t xsdtAddr = *(uint64_t *)(p + 24);
-
-        if (xsdtAddr)
-        {
-            AcpiParseXsdt((AcpiHeader *)(uintptr_t)xsdtAddr);
-        }
-        else
-        {
-            AcpiParseRsdt((AcpiHeader *)(uintptr_t)rsdtAddr);
-        }
-    }
-    else
-    {
-        printf("Unsupported ACPI version %d\n", revision);
-    }
-
-    return true;
+	return true;
 }
 
 
@@ -292,7 +309,7 @@ AcpiInit(void)
 	{
 		uint64_t signature = *(uint64_t *)p;
 
-		if (signature == 0x2052545020445352) // 'RSD PTR '
+		if (signature == RSD_PTR_SIGNATURE)
 		{
 			if (AcpiParseRsdp(p))
 			{
