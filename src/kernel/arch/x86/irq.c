@@ -20,12 +20,6 @@ extern uint32_t x86_irq_wrapper_array[X86_IRQ_NUM];
 /* arrays of IRQ handlers, shared with irq_wrappers.S */
 x86_irq_handler_t x86_irq_handler_array[X86_IRQ_NUM] = { NULL, };
 
-void
-x86_irq_setup(void)
-{
-	x86_pic_setup();
-}
-
 status_t
 x86_irq_set_routine(uint32_t irq_level, x86_irq_handler_t routine)
 {

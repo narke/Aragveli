@@ -13,6 +13,11 @@ section .text
 ; The address of the table of wrappers (defined below, and shared with irq.c)
 [global x86_irq_wrapper_array]
 
+;
+[extern g_localApicAddr]
+[global general_interrupt]
+[global spurious_interrupt_handler]
+
 %macro SAVE_REGISTERS 0
 	push edi
 	push esi
@@ -125,6 +130,24 @@ X86_IRQ_WRAPPER_SLAVE  12
 X86_IRQ_WRAPPER_SLAVE  13
 X86_IRQ_WRAPPER_SLAVE  14
 X86_IRQ_WRAPPER_SLAVE  15
+
+; General interrupt
+general_interrupt:
+	push eax
+	push edi
+
+	mov edi, [g_localApicAddr]
+	add edi, 0xb0 ; Write to the register with offset 0xB0...
+	xor eax, eax  ; ...using the value 0 to signal an end of interrupt.
+	stosd
+
+	pop eax
+	pop edi
+	iret
+
+; Spurious interrupt
+spurious_interrupt_handler:
+	iret
 
 section .rodata
 

@@ -9,109 +9,163 @@
 #include <lib/types.h>
 #include "stdio.h"
 #include "stdarg.h"
-
-static void
-itoa(int value, char *str, char base)
-{
-	uint8_t i = 0;
-	uint8_t j = 0;
-	uint8_t divisor = 10;
-	uint8_t is_negative = 0;
-
-	// Convert 0
-	if (value == 0)
-		str[i++] = '0';
-
-	// Handle negative decimal values
-	if (base == 'd' && value < 0)
-	{
-		is_negative = 1;
-		value = -value;
-	}
-	else if (base == 'x') // Handle hex values
-		divisor = 16;
-
-	// Convert the value into the corresponding base
-	while (value > 0)
-	{
-		uint8_t remainder = value % divisor;
-		str[i++] = (remainder < 10) ? remainder + '0' : remainder + 'a' - 10;
-		value = value / divisor;
-	}
-
-	// Add '-' to negative numbers now, to reverse that later
-	if (base == 'd' && is_negative)
-		str[i++] = '-';
-
-	// Handle hex values
-	if (base == 'p')
-	{
-		str[i++] = 'x';
-		str[i++] = '0';
-	}
-
-	// Finalizing by ending the string and reversing it
-	str[i] = '\0';
-	for (i = i-1, j = 0; j < i; i--, j++)
-	{
-		char tmp = str[j];
-		str[j] = str[i];
-		str[i] = tmp;
-	}
-}
+#include "stdbool.h"
 
 static void
 vprintf(const char *fmt, va_list args)
 {
-	int d;
-	unsigned int u;
-	char *s;
-	char buffer[20];
-	int i;
+	bool format_modifiers = false;
+	bool prefix_long = false;
 
 	while (*fmt)
 	{
-		if (*fmt != '%')
+		if (*fmt != '%' && !format_modifiers)
 		{
 			vbe_draw_character(*fmt++);
 			continue;
 		}
-
-		fmt++; // skip '%'
+		else if (*fmt == '%')
+		{
+			fmt++; // skip '%'
+			prefix_long = false;
+		}
 
 		switch(*fmt++)
 		{
 			case 'c':
-				d = va_arg(args, int);
-				vbe_draw_character(d);
+				{
+					int c = va_arg(args, int);
+					vbe_draw_character(c);
+				}
+				break;
+
+			case 'l':
+				prefix_long = true;
+				format_modifiers = true;
 				break;
 
 			case 'd':
-				d = va_arg(args, int);
-				itoa(d, buffer, 'd');
-				for (i = 0; buffer[i] != '\0'; i++)
-					vbe_draw_character(buffer[i]);
+				if (prefix_long)
+				{
+					long int integer = va_arg(args, long int);
+					int i = 0;
+					char buffer_int[32];
+
+					if (integer < 0)
+						vbe_draw_character('-');
+
+					do
+					{
+						int modulo10 = integer % 10;
+						modulo10 = (modulo10 < 0) ? -modulo10 : modulo10;
+						buffer_int[i++] = (char)('0' + modulo10);
+						integer /= 10;
+					} while (integer != 0);
+
+					for (i = i - 1; i >= 0; i--)
+						vbe_draw_character(buffer_int[i]);
+				}
+				else
+				{
+					int integer = va_arg(args, int);
+					int i = 0;
+					char buffer_int[16];
+
+					if (integer < 0)
+						vbe_draw_character('-');
+
+					do
+					{
+						int modulo10 = integer % 10;
+						modulo10 = (modulo10 < 0) ? -modulo10 : modulo10;
+						buffer_int[i++] = (char)('0' + modulo10);
+						integer /= 10;
+					} while (integer != 0);
+
+					for (i = i - 1; i >= 0; i--)
+						vbe_draw_character(buffer_int[i]);
+				}
+				format_modifiers = false;
 				break;
 
 			case 'u':
-				u = va_arg(args, unsigned int);
-				itoa(u, buffer, 'u');
-				for (i = 0; buffer[i] != '\0'; i++)
-					vbe_draw_character(buffer[i]);
+				if (prefix_long)
+				{
+					unsigned long int integer =
+						va_arg(args, unsigned long int);
+					int i = 0;
+					char buffer_long[32];
+
+					do
+					{
+						int modulo10 = integer % 10;
+						buffer_long[i++] = (char)('0' + modulo10);
+						integer /= 10;
+					} while (integer != 0);
+
+					for (i = i - 1; i >= 0; i--)
+						vbe_draw_character(buffer_long[i]);
+				}
+				else
+				{
+					unsigned int integer =
+						va_arg(args, unsigned int);
+					int i = 0;
+					char buffer_long[16];
+
+					do
+					{
+						int modulo10 = integer % 10;
+						buffer_long[i++] = (char)('0' + modulo10);
+						integer /= 10;
+					} while (integer != 0);
+
+					for (i = i - 1; i >= 0; i--)
+						vbe_draw_character(buffer_long[i]);
+				}
+				format_modifiers = false;
 				break;
 
+			case 'p':
+				vbe_draw_character('0');
+				vbe_draw_character('x');
 
 			case 'x':
-				u = va_arg(args, unsigned int);
-				itoa(u, buffer, 'x');
-				for (i = 0; buffer[i] != '\0'; i++)
-					vbe_draw_character(buffer[i]);
+				{
+					unsigned long int number;
+					char buffer[16];
+
+					if (prefix_long)
+						number = va_arg(args, unsigned long int);
+					else
+						number = va_arg(args, unsigned int);
+
+					int i = 0;
+					while (number != 0)
+					{
+						int n = 0;
+						n = number % 16;
+
+						if (n < 10)
+							buffer[i++] = n + 48; // to ascii number from 0 to 9
+						else
+							buffer[i++] = n + 87; // to lower hex ascii from 'a' to 'f'
+
+						number /= 16;
+					}
+
+					for (i = i - 1; i >= 0; i--)
+						vbe_draw_character(buffer[i]);
+				}
+				format_modifiers = false;
 				break;
 
 			case 's':
-				s = va_arg(args, char *);
-				while (*s)
-					vbe_draw_character(*s++);
+				{
+					char *s = va_arg(args, char *);
+					while (*s)
+						vbe_draw_character(*s++);
+				}
 				break;
 
 			case '%':

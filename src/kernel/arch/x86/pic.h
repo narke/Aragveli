@@ -14,7 +14,7 @@
 #include "irq.h"
 
 // Setup PIC and Disable all IRQ lines.
-void x86_pic_setup(void);
+void x86_pic_disable(void);
 
 void x86_pic_enable_irq_line(uint32_t irq_number);
 

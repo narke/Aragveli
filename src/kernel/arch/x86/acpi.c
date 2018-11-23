@@ -150,13 +150,10 @@ AcpiParseApic(AcpiMadt *madt)
 		printf("ACPI: APIC signature not found.\n");
 		return;
 	}
-	if (madt->localApicAddr == -18874368)
-		return;
-	printf("Local APIC Address = %d\n", madt->localApicAddr);
+
+	printf("Local APIC Address: 0x%lx\n", madt->localApicAddr);
 
 
-
-    printf("Local APIC Address = 0x%08x\n", madt->localApicAddr);
     g_localApicAddr = (uint8_t *)(uintptr_t)madt->localApicAddr;
 
     uint8_t *p = (uint8_t *)(madt + 1);
@@ -183,14 +180,14 @@ AcpiParseApic(AcpiMadt *madt)
         {
             ApicIoApic *s = (ApicIoApic *)p;
 
-            printf("Found I/O APIC: %d 0x%08x %d\n", s->ioApicId, s->ioApicAddress, s->globalSystemInterruptBase);
+            printf("Found I/O APIC: %d 0x%x %d\n", s->ioApicId, s->ioApicAddress, s->globalSystemInterruptBase);
             g_ioApicAddr = (uint8_t *)(uintptr_t)s->ioApicAddress;
         }
         else if (type == APIC_TYPE_INTERRUPT_OVERRIDE)
         {
             ApicInterruptOverride *s = (ApicInterruptOverride *)p;
 
-            printf("Found Interrupt Override: %d %d %d 0x%04x\n", s->bus, s->source, s->interrupt, s->flags);
+            printf("Found Interrupt Override: %d %d %d 0x%x\n", s->bus, s->source, s->interrupt, s->flags);
         }
         else
         {

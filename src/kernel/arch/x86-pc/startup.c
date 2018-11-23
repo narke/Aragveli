@@ -5,15 +5,17 @@
  * found in the LICENSE file.
  */
 
-#include <arch/x86-pc/bootstrap/multiboot.h>
 #include <lib/types.h>
 #include <lib/status.h>
 #include <lib/c/assert.h>
 #include <lib/c/stdio.h>
+#include <lib/c/string.h>
+#include <arch/x86-pc/bootstrap/multiboot.h>
 #include <arch/x86/gdt.h>
 #include <arch/x86/idt.h>
 #include <arch/x86/isr.h>
 #include <arch/x86/irq.h>
+#include <arch/x86/pic.h>
 #include <arch/x86/pit.h>
 #include <arch/x86/ioapic.h>
 #include <arch/x86/lapic.h>
@@ -24,11 +26,15 @@
 #include <process/thread.h>
 #include <process/scheduler.h>
 #include <fs/tarfs.h>
-#include <lib/c/string.h>
 #include <drivers/vbe.h>
 #include <drivers/pci.h>
 #include <drivers/rtl8139.h>
 #include <test-suite/tarfs-test.h>
+
+#define TIMER_INTERRUPT    0x20
+#define SPURIOUS_INTERRUPT 0xff
+
+extern void spurious_interrupt_handler();
 
 
 // The kernel entry point. All starts from here!
@@ -49,15 +55,19 @@ aragveli_main(uint32_t magic, uint32_t address)
 	// ISRs
 	x86_isr_setup();
 
-	// IRQs
-	x86_irq_setup();
-
 	// Timer: Raise IRQ0 at 100 HZ rate.
 	status = x86_pit_set_frequency(100);
 	assert(status == KERNEL_OK);
 
+	// Spurious interrupt
+	x86_idt_set_handler(TIMER_INTERRUPT, (uint32_t)timer_interrupt_handler);
+	x86_idt_set_handler(SPURIOUS_INTERRUPT, (uint32_t)spurious_interrupt_handler);
+
+	// Disable PIC to use Local APIC
+	x86_pic_disable();
+
 	// Timer interrupt
-	x86_irq_set_routine(IRQ_TIMER, timer_interrupt_handler);
+	//x86_irq_set_routine(IRQ_TIMER, timer_interrupt_handler);
 
 	// VBE
 	struct vbe_mode_info *vbe_mode_info =
