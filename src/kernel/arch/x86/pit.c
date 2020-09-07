@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Konstantin Tcholokachvili.
+ * Copyright (c) 2017, 2020 Konstantin Tcholokachvili.
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
@@ -15,10 +15,10 @@
 #include "pit.h"
 
 extern uintptr_t g_localApicAddr;
-volatile int ticks = 0;
+volatile int g_pit_ticks = 0;
 
 /** 82C54's clock's maximal frequency */
-#define MAX_FREQUENCY 1193180
+#define MAX_FREQUENCY 1193182
 
 /* 82C54's ports */
 #define CHANNEL0  0x40	/* Raise an IRQ periodically */
@@ -71,7 +71,7 @@ x86_pit_set_frequency(uint32_t frequency)
 	return KERNEL_OK;
 }
 
-void
+/*void
 timer_interrupt_handler(int number)
 {
 	static int seconds = 0;
@@ -79,25 +79,27 @@ timer_interrupt_handler(int number)
 
 	(void)number; // Avoid a useless warning ;-)
 
-	ticks++;
+	g_pit_ticks++;
 
-	if (ticks % 100 == 0)
+	if (g_pit_ticks % 100 == 0)
 	{
 		seconds++;
-		ticks = 0;
+		g_pit_ticks = 0;
 	}
 
 	X86_IRQs_DISABLE(flags);
 	schedule();
 	X86_IRQs_ENABLE(flags);
-}
+}*/
 
-void PitWait(uint32_t ms)
+void
+PitWait(uint32_t ms)
 {
-    uint32_t now = ticks;
+    uint32_t now = g_pit_ticks;
+    //printf("PitWait: now = %d, ms = %d\n", now, ms);
     ++ms;
 
-    while (ticks - now < ms)
+    while (g_pit_ticks - now < ms)
     {
         ;
     }

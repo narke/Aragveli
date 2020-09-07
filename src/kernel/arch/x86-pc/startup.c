@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Konstantin Tcholokachvili.
+ * Copyright (c) 2017, 2020 Konstantin Tcholokachvili.
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
@@ -34,7 +34,30 @@
 #define TIMER_INTERRUPT    0x20
 #define SPURIOUS_INTERRUPT 0xff
 
+extern void pit_interrupt();
 extern void spurious_interrupt_handler();
+
+void
+interrupts_setup(void)
+{
+	// Spurious interrupt
+	x86_idt_set_handler(TIMER_INTERRUPT, (uint32_t)pit_interrupt);
+	x86_idt_set_handler(SPURIOUS_INTERRUPT, (uint32_t)spurious_interrupt_handler);
+
+	// Disable PIC to use Local APIC
+	x86_pic_disable();
+
+	// ACPI
+	AcpiInit();
+	LocalApicInit();
+	IoApicInit();
+	// Timer: Raise IRQ0 at 100 HZ rate.
+	status_t status = x86_pit_set_frequency(100);
+	assert(status == KERNEL_OK);
+
+	// Enable IO APIC entries
+	IoApicSetEntry(g_ioApicAddr, AcpiRemapIrq(IRQ_TIMER), TIMER_INTERRUPT);
+}
 
 
 // The kernel entry point. All starts from here!
@@ -55,20 +78,6 @@ aragveli_main(uint32_t magic, uint32_t address)
 	// ISRs
 	x86_isr_setup();
 
-	// Timer: Raise IRQ0 at 100 HZ rate.
-	status = x86_pit_set_frequency(100);
-	assert(status == KERNEL_OK);
-
-	// Spurious interrupt
-	x86_idt_set_handler(TIMER_INTERRUPT, (uint32_t)timer_interrupt_handler);
-	x86_idt_set_handler(SPURIOUS_INTERRUPT, (uint32_t)spurious_interrupt_handler);
-
-	// Disable PIC to use Local APIC
-	x86_pic_disable();
-
-	// Timer interrupt
-	//x86_irq_set_routine(IRQ_TIMER, timer_interrupt_handler);
-
 	// VBE
 	struct vbe_mode_info *vbe_mode_info =
 		(struct vbe_mode_info *)mbi->vbe_mode_info;
@@ -79,10 +88,8 @@ aragveli_main(uint32_t magic, uint32_t address)
 
 	vbe_setup(vbe_mode_info);
 
-	// ACPI
-	AcpiInit();
-	LocalApicInit();
-	IoApicInit();
+	// Interrupts
+	interrupts_setup();
 
 	// Initrd
 	uint32_t initrd_start = *((uint32_t *)mbi->mods_addr);
@@ -127,7 +134,7 @@ aragveli_main(uint32_t magic, uint32_t address)
 	asm volatile("sti");
 
 	// SMP
-	SmpInit();
+	//SmpInit();
 
 	tarfs_test(root_fs->root);
 

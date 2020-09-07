@@ -1,4 +1,4 @@
-; Copyright (c) 2017 Konstantin Tcholokachvili.
+; Copyright (c) 2017, 2020 Konstantin Tcholokachvili.
 ; All rights reserved.
 ; Use of this source code is governed by a MIT license that can be
 ; found in the LICENSE file.
@@ -14,8 +14,9 @@ section .text
 [global x86_irq_wrapper_array]
 
 ;
+[extern g_pit_ticks]
 [extern g_localApicAddr]
-[global general_interrupt]
+[global pit_interrupt]
 [global spurious_interrupt_handler]
 
 %macro SAVE_REGISTERS 0
@@ -131,10 +132,14 @@ X86_IRQ_WRAPPER_SLAVE  13
 X86_IRQ_WRAPPER_SLAVE  14
 X86_IRQ_WRAPPER_SLAVE  15
 
-; General interrupt
-general_interrupt:
+; PIT interrupt
+pit_interrupt:
 	push eax
 	push edi
+
+	mov eax, dword [g_pit_ticks]
+	inc eax
+	mov dword [g_pit_ticks], eax
 
 	mov edi, [g_localApicAddr]
 	add edi, 0xb0 ; Write to the register with offset 0xB0...

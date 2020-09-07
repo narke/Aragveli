@@ -123,6 +123,8 @@ typedef struct RSDPDescriptor {
 	uint32_t rsdt_address;
 } __attribute__((packed)) AcpiRSDP;
 
+static AcpiMadt *g_madt;
+
 // ------------------------------------------------------------------------------------------------
 
 static void
@@ -150,6 +152,8 @@ AcpiParseApic(AcpiMadt *madt)
 		printf("ACPI: APIC signature not found.\n");
 		return;
 	}
+
+	g_madt = madt;
 
 	printf("Local APIC Address: 0x%lx\n", madt->localApicAddr);
 
@@ -316,4 +320,34 @@ AcpiInit(void)
 
 		p += 16;
 	}
+}
+
+uint16_t
+AcpiRemapIrq(uint16_t irq)
+{
+    AcpiMadt *madt = g_madt;
+
+    uint8_t *p = (uint8_t *)(madt + 1);
+    uint8_t *end = (uint8_t *)madt + madt->header.length;
+
+    while (p < end)
+    {
+        ApicHeader *header = (ApicHeader *)p;
+        uint8_t type = header->type;
+        uint8_t length = header->length;
+
+        if (type == APIC_TYPE_INTERRUPT_OVERRIDE)
+        {
+            ApicInterruptOverride *s = (ApicInterruptOverride *)p;
+
+            if (s->source == irq)
+            {
+                return s->interrupt;
+            }
+        }
+
+        p += length;
+    }
+
+    return irq;
 }
