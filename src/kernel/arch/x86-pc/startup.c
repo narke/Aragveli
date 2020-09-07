@@ -59,6 +59,29 @@ interrupts_setup(void)
 	IoApicSetEntry(g_ioApicAddr, AcpiRemapIrq(IRQ_TIMER), TIMER_INTERRUPT);
 }
 
+void
+extra_kernel(uint32_t initrd_start, uint32_t initrd_end)
+{
+	// File system
+	vfs_list_init();
+
+	status_t status = tarfs_init(initrd_start, initrd_end);
+	assert(status == KERNEL_OK);
+
+	struct superblock *root_fs;
+	status = vfs_init("initrd", "tarfs", "/", NULL, &root_fs);
+	assert(status == KERNEL_OK);
+
+	tarfs_test(root_fs->root);
+
+	// PCI devices
+	pci_scan();
+	pci_devices_print();
+
+	// RTL8139 network card
+	rtl8139_setup();
+}
+
 
 // The kernel entry point. All starts from here!
 void
@@ -118,16 +141,6 @@ aragveli_main(uint32_t magic, uint32_t address)
 	// Theading
 	threading_setup();
 
-	// File system
-	vfs_list_init();
-
-	status = tarfs_init(initrd_start, initrd_end);
-	assert(status == KERNEL_OK);
-
-	struct superblock *root_fs;
-	status = vfs_init("initrd", "tarfs", "/", NULL, &root_fs);
-	assert(status == KERNEL_OK);
-
 	printf("Aragveli\n");
 
 	// Enable interrupts
@@ -136,12 +149,5 @@ aragveli_main(uint32_t magic, uint32_t address)
 	// SMP
 	//SmpInit();
 
-	tarfs_test(root_fs->root);
-
-	// PCI devices
-	pci_scan();
-	pci_devices_print();
-
-	// RTL8139 network card
-	rtl8139_setup();
+	extra_kernel(initrd_start, initrd_end);
 }
