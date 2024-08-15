@@ -8,13 +8,20 @@ resolve_node_wrapper(const char *path, struct node *root, struct node *cwd)
 {
 	struct node *folder_node;
 
-	if (!cwd && !root)
-		return NULL;
-
 	if (strlen(path) > 0 && path[0] == '/')
+	{
+		if (!root)
+			return NULL;
+
 		folder_node = resolve_node(path, root);
+	}
 	else
+	{
+		if (!cwd)
+			return NULL;
+
 		folder_node = resolve_node(path, cwd);
+	}
 
 	if (!folder_node)
 		return NULL;
