@@ -113,11 +113,11 @@ thread_exit(void)
 
 	TAILQ_REMOVE(&kernel_threads, g_current_thread, next);
 
+	scheduler_remove_thread((thread_t *)g_current_thread);
 	free((void *)g_current_thread->stack_base_address);
 	memset((void *)g_current_thread, 0, sizeof(thread_t));
 	free((void *)g_current_thread);
 
-	scheduler_remove_thread((thread_t *)g_current_thread);
 	thread_t *new_current_thread = scheduler_elect_new_current_thread();
 	thread_set_current(new_current_thread);
 
