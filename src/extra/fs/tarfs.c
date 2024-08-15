@@ -432,7 +432,10 @@ tarfs_mount(const char *root_device, const char *mount_point,
 	struct superblock *tarfs_superblock = malloc(sizeof(struct superblock));
 
 	if (!tarfs_superblock)
+	{
+		free(root_node);
 		return -KERNEL_NO_MEMORY;
+	}
 
 	tarfs_superblock->root = root_node;
 	*result_rootfs = tarfs_superblock;
