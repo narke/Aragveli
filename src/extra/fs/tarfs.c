@@ -123,14 +123,20 @@ path_nodes_to_list(const char *path)
 
 			struct path_node *pnode = malloc(sizeof(struct path_node));
 			if (!pnode)
+			{
+				free(name);
 				return -KERNEL_NO_MEMORY;
+			}
 
 			strzcpy(pnode->name, name, strlen(name)+1);
 			STAILQ_INSERT_TAIL(&path_nodes, pnode, next);
 
+			free(name);
 			name = malloc(NODE_NAME_LENGTH);
 			if (!name)
+			{
 				return -KERNEL_NO_MEMORY;
+			}
 
 
 			// Reinitialize
@@ -150,12 +156,17 @@ path_nodes_to_list(const char *path)
 		name[i] = '\0';
 		struct path_node *pnode = malloc(sizeof(struct path_node));
 		if (!pnode)
+		{
+			free(name);
 			return -KERNEL_NO_MEMORY;
+		}
 
 		strzcpy(pnode->name, name, strlen(name)+1);
 
 		STAILQ_INSERT_TAIL(&path_nodes, pnode, next);
 	}
+
+	free(name);
 
 	return KERNEL_OK;
 }

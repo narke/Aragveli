@@ -266,7 +266,7 @@ AcpiParseRsdp(uint8_t *p)
 	printf("ACPI: RSDP found\n");
 
 	// RSDP checksum, AcpiRSDP's size is 20.
-	uint8_t sum;
+	uint8_t sum = 0;
 	for (uint8_t i = 0; i < 20; i++)
 	{
 		sum += p[i];
