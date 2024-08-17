@@ -21,13 +21,17 @@ memset(void *dst, int c, size_t length)
 void *
 memcpy(void *dst, const void *src, size_t size)
 {
-	char *destination;
-	const char *_src;
+	char *_dst       = (char *)dst;
+	const char *_src = (const char *)src;
 
-	for (destination = (char*)dst, _src = (const char*)src;
-			size > 0 ;
-			destination++, _src++, size--)
-		*destination = *_src;
+	while (size > 0)
+	{
+		*_dst = *_src;
+
+		_dst++;
+		_src++;
+		size--;
+	}
 
 	return dst;
 }
