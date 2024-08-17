@@ -128,7 +128,7 @@ path_nodes_to_list(const char *path)
 				return -KERNEL_NO_MEMORY;
 			}
 
-			strzcpy(pnode->name, name, strlen(name)+1);
+			strzcpy(pnode->name, name, strnlen(name, NODE_NAME_LENGTH)+1);
 			STAILQ_INSERT_TAIL(&path_nodes, pnode, next);
 
 			free(name);
@@ -161,7 +161,7 @@ path_nodes_to_list(const char *path)
 			return -KERNEL_NO_MEMORY;
 		}
 
-		strzcpy(pnode->name, name, strlen(name)+1);
+		strzcpy(pnode->name, name, strnlen(name, NODE_NAME_LENGTH)+1);
 
 		STAILQ_INSERT_TAIL(&path_nodes, pnode, next);
 	}
@@ -204,7 +204,7 @@ resolve_node(const char *path, struct node *root_node)
 	{
 		LIST_FOREACH(node, &tmp_node->u.folder.nodes, next)
 		{
-			if (strncmp(pn->name, node->name, strlen(pn->name)+1) == 0)
+			if (strncmp(pn->name, node->name, strnlen(pn->name, NODE_NAME_LENGTH)+1) == 0)
 			{
 				tmp_node = node;
 				found = true;
@@ -229,9 +229,9 @@ tarfs_basename(const char *path)
 	static char path_copy[NODE_NAME_LENGTH];
 	char *result;
 
-	strzcpy(path_copy, path, strlen(path)+1);
+	strzcpy(path_copy, path, strnlen(path, NODE_NAME_LENGTH)+1);
 
-	if (strlen(path_copy) == 1 && path_copy[0] == '/')
+	if (strnlen(path_copy, NODE_NAME_LENGTH) == 1 && path_copy[0] == '/')
 	{
 		path_copy[0] = '/';
 		path_copy[1] = '\0';
@@ -239,9 +239,9 @@ tarfs_basename(const char *path)
 	}
 
 	// Strip trailing '/' for no root folders
-	if (strlen(path_copy) > 1 && path_copy[strlen(path_copy) - 1] == '/')
+	if (strnlen(path_copy, NODE_NAME_LENGTH) > 1 && path_copy[strnlen(path_copy, NODE_NAME_LENGTH) - 1] == '/')
 	{
-		path_copy[strlen(path_copy) - 1] = '\0';
+		path_copy[strnlen(path_copy, NODE_NAME_LENGTH) - 1] = '\0';
 	}
 
 	result = strrchr(path_copy, '/');
@@ -294,7 +294,7 @@ add_node(const char *path, uint8_t type, int file_size, void *archive,
 		struct node *root_node)
 {
 	// The root node was already added in init.
-	if (strlen(path) == 1 && path[0] == '/')
+	if (strnlen(path, NODE_NAME_LENGTH) == 1 && path[0] == '/')
 		return KERNEL_OK;
 
 	char *filename = tarfs_basename(path);
@@ -305,7 +305,7 @@ add_node(const char *path, uint8_t type, int file_size, void *archive,
 		return -KERNEL_NO_MEMORY;
 
 	memset(new_node, 0, sizeof(struct node));
-	new_node->name_length = strlen(filename)+1;
+	new_node->name_length = strnlen(filename, NODE_NAME_LENGTH)+1;
 	strzcpy(new_node->name, filename, new_node->name_length);
 
 	if (type == TMPFS_FOLDER)
@@ -339,7 +339,7 @@ add_node(const char *path, uint8_t type, int file_size, void *archive,
 			LIST_FOREACH(iter_node, &tmp_node->u.folder.nodes, next)
 			{
 				if (strncmp(path_node_iter->name, iter_node->name,
-							strlen(path_node_iter->name)+1) == 0)
+							strnlen(path_node_iter->name, NODE_NAME_LENGTH)+1) == 0)
 				{
 					if (iter_node->type == TMPFS_FOLDER)
 					{
@@ -422,7 +422,7 @@ tarfs_mount(const char *root_device, const char *mount_point,
 		return -KERNEL_NO_MEMORY;
 
 	root_node->type = TMPFS_FOLDER;
-	root_node->name_length = strlen("/")+1;
+	root_node->name_length = strnlen("/", NODE_NAME_LENGTH)+1;
 	strzcpy(root_node->name, "/", root_node->name_length);
 
 	LIST_INIT(&(root_node->u.folder.nodes));
@@ -452,7 +452,7 @@ tarfs_umount(void)
 status_t
 tarfs_init(paddr_t start, paddr_t end)
 {
-	strzcpy(tarfs.name, "tarfs", strlen("tarfs")+1);
+	strzcpy(tarfs.name, "tarfs", strnlen("tarfs", FS_NAME_MAXLEN)+1);
 	tarfs.mount  = tarfs_mount;
 	tarfs.umount = tarfs_umount;
 

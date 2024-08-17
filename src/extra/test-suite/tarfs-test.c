@@ -8,7 +8,7 @@ resolve_node_wrapper(const char *path, struct node *root, struct node *cwd)
 {
 	struct node *folder_node;
 
-	if (strlen(path) > 0 && path[0] == '/')
+	if (strnlen(path, NODE_NAME_LENGTH) > 0 && path[0] == '/')
 	{
 		if (!root)
 			return NULL;
@@ -88,7 +88,7 @@ cmd_mkdir(struct node *root, struct node *cwd, const char *path, const char *fol
 		return -KERNEL_NO_MEMORY;
 
 	memset(new_node, 0, sizeof(struct node));
-	new_node->name_length = strlen(folder_name)+1;
+	new_node->name_length = strnlen(folder_name, NODE_NAME_LENGTH)+1;
 	strzcpy(new_node->name, folder_name, new_node->name_length);
 	new_node->type = TMPFS_FOLDER;
 
@@ -110,7 +110,7 @@ cmd_touch(struct node *root, struct node *cwd, const char *path, const char *fil
 		return -KERNEL_NO_MEMORY;
 
 	memset(new_node, 0, sizeof(struct node));
-	new_node->name_length = strlen(filename)+1;
+	new_node->name_length = strnlen(filename, NODE_NAME_LENGTH)+1;
 	strzcpy(new_node->name, filename, new_node->name_length);
 	new_node->type = TMPFS_FILE;
 	new_node->u.file.size = 0;
@@ -131,7 +131,7 @@ cmd_rm(struct node *root, struct node *cwd, const char *path, const char *filena
 	struct node* tmp_node;
 	LIST_FOREACH(tmp_node, &(folder_node->u.folder.nodes), next)
 	{
-		if (!strncmp(tmp_node->name, filename, strlen(filename))
+		if (!strncmp(tmp_node->name, filename, strnlen(filename, NODE_NAME_LENGTH))
 				&& tmp_node->type == TMPFS_FILE)
 		{
 			LIST_REMOVE(tmp_node, next);
@@ -153,7 +153,7 @@ cmd_rmdir(struct node *root, struct node *cwd, const char *path, const char *fol
 	struct node* tmp_node;
 	LIST_FOREACH(tmp_node, &(folder_node->u.folder.nodes), next)
 	{
-		if (!strncmp(tmp_node->name, folder_name, strlen(folder_name))
+		if (!strncmp(tmp_node->name, folder_name, strnlen(folder_name, NODE_NAME_LENGTH))
 				&& tmp_node->type == TMPFS_FOLDER)
 		{
 			LIST_REMOVE(tmp_node, next);
@@ -176,7 +176,7 @@ cmd_cat(struct node *root, struct node *cwd, const char *path, const char *filen
 	struct node* tmp_node;
 	LIST_FOREACH(tmp_node, &(folder_node->u.folder.nodes), next)
 	{
-		if (!strncmp(tmp_node->name, filename, strlen(filename))
+		if (!strncmp(tmp_node->name, filename, strnlen(filename, NODE_NAME_LENGTH))
 				&& tmp_node->type == TMPFS_FILE)
 		{
 			for (uint64_t i = 0; i < tmp_node->u.file.size; i++)
@@ -199,7 +199,7 @@ cmd_file(struct node *root, struct node *cwd, const char *path, const char *node
 	struct node* tmp_node;
 	LIST_FOREACH(tmp_node, &(folder_node->u.folder.nodes), next)
 	{
-		if (!strncmp(tmp_node->name, nodename, strlen(nodename)))
+		if (!strncmp(tmp_node->name, nodename, strnlen(nodename, NODE_NAME_LENGTH)))
 		{
 			if (tmp_node->type == TMPFS_FILE)
 				printf("%s: file\n", tmp_node->name);
@@ -230,7 +230,7 @@ mv_cp_internal(struct node *root, struct node *cwd,
 	struct node* src_node;
 	LIST_FOREACH(src_node, &(folder_node->u.folder.nodes), next)
 	{
-		if (!strncmp(src_node->name, src_node_name, strlen(src_node_name)))
+		if (!strncmp(src_node->name, src_node_name, strnlen(src_node_name, NODE_NAME_LENGTH)))
 		{
 			src_node_found = true;
 			break;
@@ -252,13 +252,13 @@ mv_cp_internal(struct node *root, struct node *cwd,
 
 		if (dst_node_name)
 		{
-			new_node->name_length = strlen(dst_node_name)+1;
-			strzcpy(new_node->name, dst_node_name, strlen(dst_node_name)+1);
+			new_node->name_length = strnlen(dst_node_name, NODE_NAME_LENGTH)+1;
+			strzcpy(new_node->name, dst_node_name, strnlen(dst_node_name, NODE_NAME_LENGTH)+1);
 		}
 		else
 		{
-			new_node->name_length = strlen(src_node_name)+1;
-			strzcpy(new_node->name, src_node_name, strlen(src_node_name)+1);
+			new_node->name_length = strnlen(src_node_name, NODE_NAME_LENGTH)+1;
+			strzcpy(new_node->name, src_node_name, strnlen(src_node_name, NODE_NAME_LENGTH)+1);
 		}
 	}
 
@@ -272,7 +272,7 @@ mv_cp_internal(struct node *root, struct node *cwd,
 		struct node* dst_node;
 		LIST_FOREACH(dst_node, &(folder_node->u.folder.nodes), next)
 		{
-			if (!strncmp(dst_node->name, dst_node_name, strlen(dst_node_name)))
+			if (!strncmp(dst_node->name, dst_node_name, strnlen(dst_node_name, NODE_NAME_LENGTH)))
 			{
 				return -KERNEL_FILE_ALREADY_EXISTS;
 			}
@@ -280,7 +280,7 @@ mv_cp_internal(struct node *root, struct node *cwd,
 	}
 
 	if (is_mv && dst_node_name)
-		strzcpy(src_node->name, dst_node_name, strlen(dst_node_name)+1);
+		strzcpy(src_node->name, dst_node_name, strnlen(dst_node_name, NODE_NAME_LENGTH)+1);
 
 	if (is_mv)
 	{

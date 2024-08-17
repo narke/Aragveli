@@ -54,11 +54,11 @@ strzcpy(char *dst, const char *src, size_t len)
 }
 
 size_t
-strlen(const char *s)
+strnlen(const char *s, size_t max_length)
 {
 	size_t length = 0;
 
-	while (*s++)
+	while (*s++ && length < max_length)
 		length++;
 
 	return length;
