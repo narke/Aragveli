@@ -255,9 +255,9 @@ tarfs_dirname(const char *path)
 	static char result[NODE_NAME_LENGTH];
 	char path_copy[NODE_NAME_LENGTH];
 
-	strzcpy(path_copy, path, strlen(path)+1);
+	strzcpy(path_copy, path, strnlen(path, NODE_NAME_LENGTH)+1);
 
-	if (strlen(path_copy) == 1 && path_copy[0] == '/')
+	if (strnlen(path_copy, NODE_NAME_LENGTH) == 1 && path_copy[0] == '/')
 	{
 		result[0] = '/';
 		result[1] = '\0';
@@ -265,16 +265,16 @@ tarfs_dirname(const char *path)
 	}
 
 	// Strip trailing '/' for no root folders
-	if (strlen(path_copy) > 1 && path_copy[strlen(path_copy) - 1] == '/')
+	if (strnlen(path_copy, NODE_NAME_LENGTH) > 1 && path_copy[strnlen(path_copy, NODE_NAME_LENGTH) - 1] == '/')
 	{
-		path_copy[strlen(path_copy) - 1] = '\0';
+		path_copy[strnlen(path_copy, NODE_NAME_LENGTH) - 1] = '\0';
 	}
 
 	char *last_slash = strrchr(path_copy, '/');
 	if (!last_slash)
 		return NULL;
 
-	int new_path_length = strlen(path_copy) - (strlen(last_slash) - 1);
+	int new_path_length = strnlen(path_copy, NODE_NAME_LENGTH) - (strnlen(last_slash, NODE_NAME_LENGTH) - 1);
 	path_copy[new_path_length] = '\0';
 
 	// Strip a remaining '/' after a filename was removed.
