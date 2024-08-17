@@ -36,6 +36,18 @@ memcpy(void *dst, const void *src, size_t size)
 	return dst;
 }
 
+void *
+memcpy_s(void *dst, size_t dst_size, const void *src, size_t src_size)
+{
+	if (dst == NULL || src == NULL)
+		return NULL;
+
+	if (dst_size < src_size)
+		return NULL;
+
+	return memcpy(dst, src, src_size);
+}
+
 char *
 strzcpy(char *dst, const char *src, size_t len)
 {
