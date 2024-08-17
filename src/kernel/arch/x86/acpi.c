@@ -24,6 +24,7 @@
 #include <lib/c/stdio.h>
 #include <lib/c/stdbool.h>
 #include <lib/c/string.h>
+#include <lib/c/assert.h>
 #include "io-ports.h"
 #include "lapic.h"
 #include "ioapic.h"
@@ -219,8 +220,13 @@ static void
 AcpiParseDT(AcpiHeader *header)
 {
     char descriptor_name[5];
-    memcpy(descriptor_name, &header->signature, 4);
-    descriptor_name[4] = 0;
+    const unsigned int signature_size = 4;
+
+    assert(sizeof(descriptor_name) >= signature_size);
+    memcpy(descriptor_name, &header->signature, signature_size);
+
+    descriptor_name[signature_size] = 0; // Make a string
+
     printf("Descriptor Table: %s, signature: 0x%x\n", descriptor_name, header->signature);
 
     if (header->signature == FACS_SIGNATURE)
