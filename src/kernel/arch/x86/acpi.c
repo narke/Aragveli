@@ -222,7 +222,7 @@ AcpiParseDT(AcpiHeader *header)
     char descriptor_name[5];
     const unsigned int signature_size = 4;
 
-    assert(sizeof(descriptor_name) >= signature_size);
+    assert(sizeof(descriptor_name) >= sizeof(&header->signature));
     memcpy(descriptor_name, &header->signature, signature_size);
 
     descriptor_name[signature_size] = 0; // Make a string
