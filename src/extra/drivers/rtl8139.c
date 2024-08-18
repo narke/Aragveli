@@ -102,12 +102,12 @@ handle_rx(void)
 		if (offset + 4 + rx_size - 4 > RX_BUFFER_LENGTH)
 		{
 			uint32_t semi_count = RX_BUFFER_LENGTH - offset - 4;
-			memcpy(packet->data, rtl8139_device.rx_buffer + offset + 4, semi_count);
-			memcpy(packet->data + semi_count, rtl8139_device.rx_buffer, rx_size - 4 - semi_count);
+			memcpy_s(packet->data, semi_count, rtl8139_device.rx_buffer + offset + 4, semi_count);
+			memcpy_s(packet->data + semi_count, rx_size - 4 - semi_count, rtl8139_device.rx_buffer, rx_size - 4 - semi_count);
 		}
 		else
 		{
-			memcpy(packet->data, rtl8139_device.rx_buffer + offset + 4, packet->length);
+			memcpy_s(packet->data, packet->length, rtl8139_device.rx_buffer + offset + 4, packet->length);
 		}
 
 		// Align on 4 bytes
@@ -188,8 +188,10 @@ send_packet(const void *data, size_t length)
 		// A free buffer was found.
 
 		// Copy data to TX buffer.
-		memcpy(rtl8139_device.tx_buffer + (TX_BUFFER_SIZE * rtl8139_device.tx_buffer_idx),
-				data, length);
+		memcpy_s(rtl8139_device.tx_buffer + (TX_BUFFER_SIZE * rtl8139_device.tx_buffer_idx),
+			length,
+			data,
+			length);
 
 		// Padding
 		while (length < ETH_MIN_LENGTH)

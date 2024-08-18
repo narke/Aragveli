@@ -369,7 +369,7 @@ untar(void *ramdisk_address, struct node *root_node)
 
 	while (1)
 	{
-		memcpy(buffer, ramdisk_address, 512);
+		memcpy_s(buffer, 512, ramdisk_address, 512);
 		ramdisk_address += 512;
 
 		if (is_end_of_archive(buffer))
