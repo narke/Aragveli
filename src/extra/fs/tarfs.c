@@ -174,14 +174,12 @@ path_nodes_to_list(const char *path)
 static status_t
 path_nodes_list_delete(void)
 {
-	struct path_node *node = malloc(sizeof(struct path_node));
-	if (!node)
-		return -KERNEL_NO_MEMORY;
+	struct path_node *node;
 
 	while (!STAILQ_EMPTY(&path_nodes))
 	{
 		node = STAILQ_FIRST(&path_nodes);
-		STAILQ_REMOVE(&path_nodes, node, path_node, next);
+		STAILQ_REMOVE_HEAD(&path_nodes, next);
 		free(node);
 	}
 
