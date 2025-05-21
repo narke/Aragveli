@@ -101,7 +101,7 @@ x86_idt_set_handler(uint32_t index, uint32_t handler_address)
 	{
 		// Enabling IDT entry.
 		idt_entry->offset_low  = handler_address & 0xffff;
-		idt_entry->offset_high = (handler_address >> 16) & 0xffff;
+		idt_entry->offset_high = (uint16_t)(handler_address >> 16) & 0xffff;
 		idt_entry->descriptor_privilege_level = 0;
 		idt_entry->present     = 1;	// Yes, there is a handler.
 	}

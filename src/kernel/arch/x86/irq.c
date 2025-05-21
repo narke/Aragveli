@@ -23,7 +23,7 @@ x86_irq_handler_t x86_irq_handler_array[X86_IRQ_NUM] = { NULL, };
 status_t
 x86_irq_set_routine(uint32_t irq_level, x86_irq_handler_t routine)
 {
-	uint16_t ret;
+	status_t ret;
 	uint32_t flags;
 
 	if (irq_level >= X86_IRQ_NUM)

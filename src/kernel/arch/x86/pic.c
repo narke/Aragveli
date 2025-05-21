@@ -48,11 +48,11 @@ x86_pic_enable_irq_line(uint32_t irq_number)
 	if( irq_number < 8 )
 		// IRQ on master PIC.
 		out8(PIC_MASTER_DATA,
-			(in8(PIC_MASTER_DATA) & ~(1 << irq_number)));
+			(uint8_t)(in8(PIC_MASTER_DATA) & ~(1 << irq_number)));
 	else
 		//  IRQ on slave PIC.
 		out8(PIC_SLAVE_DATA,
-			(in8(PIC_SLAVE_DATA) & ~(1 << (irq_number-8))));
+			(uint8_t)(in8(PIC_SLAVE_DATA) & ~(1 << (irq_number-8))));
 }
 
 void

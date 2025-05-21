@@ -58,8 +58,8 @@ static uint32_t IoApicIn(uint8_t *base, uint8_t reg)
 // ------------------------------------------------------------------------------------------------
 void IoApicSetEntry(uint8_t *base, uint8_t index, uint64_t data)
 {
-    IoApicOut(base, IOREDTBL + index * 2, (uint32_t)data);
-    IoApicOut(base, IOREDTBL + index * 2 + 1, (uint32_t)(data >> 32));
+    IoApicOut(base, (uint8_t)(IOREDTBL + index * 2), (uint32_t)data);
+    IoApicOut(base, (uint8_t)(IOREDTBL + index * 2 + 1), (uint32_t)(data >> 32));
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -72,7 +72,7 @@ void IoApicInit()
     printf("I/O APIC pins = %d\n", count);
 
     // Disable all entries
-    for (uint32_t i = 0; i < count; ++i)
+    for (uint8_t i = 0; i < count; ++i)
     {
         IoApicSetEntry(g_ioApicAddr, i, 1 << 16);
     }

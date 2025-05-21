@@ -155,7 +155,7 @@ struct file
 struct node
 {
 	uint8_t type;
-	uint8_t name_length;
+	size_t name_length;
 	char name[NODE_NAME_LENGTH];
 	union
 	{

@@ -18,7 +18,7 @@
 #define PAGE_MASK ((1<<12) - 1)
 
 #define PAGE_ALIGN_DOWN(value) \
-	(((unsigned)(value)) & (~((PAGE_SIZE)-1)))
+	(((unsigned)(value)) & (~((unsigned)(PAGE_SIZE)-1)))
 
 #define PAGE_ALIGN_UP(value) \
 	({ unsigned int __boundary = (PAGE_SIZE); \

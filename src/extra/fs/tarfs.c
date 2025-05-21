@@ -288,7 +288,7 @@ tarfs_dirname(const char *path)
 #endif
 
 static status_t
-add_node(const char *path, uint8_t type, int file_size, void *archive,
+add_node(const char *path, uint8_t type, size_t file_size, void *archive,
 		struct node *root_node)
 {
 	// The root node was already added in init.
@@ -362,7 +362,7 @@ static void
 untar(void *ramdisk_address, struct node *root_node)
 {
 	char buffer[512];
-	int file_size;
+	size_t file_size;
 	status_t status;
 
 	while (1)
@@ -381,7 +381,7 @@ untar(void *ramdisk_address, struct node *root_node)
 
 		if (buffer[156] == '0' || buffer[156] == '7')
 		{
-			file_size = parseoct(buffer + 124, 12);
+			file_size = (size_t)parseoct(buffer + 124, 12);
 
 			if (file_size < 512)
 				file_size = 512;

@@ -35,7 +35,7 @@ vprintf(const char *fmt, va_list args)
 			case 'c':
 				{
 					int c = va_arg(args, int);
-					vbe_draw_character(c);
+					vbe_draw_character((char)c);
 				}
 				break;
 
@@ -98,7 +98,7 @@ vprintf(const char *fmt, va_list args)
 
 					do
 					{
-						int modulo10 = integer % 10;
+						unsigned int modulo10 = integer % 10;
 						buffer_long[i++] = (char)('0' + modulo10);
 						integer /= 10;
 					} while (integer != 0);
@@ -115,7 +115,7 @@ vprintf(const char *fmt, va_list args)
 
 					do
 					{
-						int modulo10 = integer % 10;
+						unsigned int modulo10 = integer % 10;
 						buffer_long[i++] = (char)('0' + modulo10);
 						integer /= 10;
 					} while (integer != 0);
@@ -143,13 +143,12 @@ vprintf(const char *fmt, va_list args)
 					int i = 0;
 					while (number != 0)
 					{
-						int n = 0;
-						n = number % 16;
+						int n = number % 16;
 
 						if (n < 10)
-							buffer[i++] = n + 48; // to ascii number from 0 to 9
+							buffer[i++] = (char)n + 48; // to ascii number from 0 to 9
 						else
-							buffer[i++] = n + 87; // to lower hex ascii from 'a' to 'f'
+							buffer[i++] = (char)n + 87; // to lower hex ascii from 'a' to 'f'
 
 						number /= 16;
 					}

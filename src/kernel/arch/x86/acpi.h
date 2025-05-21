@@ -32,4 +32,4 @@ extern uint32_t g_acpiCpuCount;
 extern uint8_t g_acpiCpuIds[MAX_CPU_COUNT];
 
 void AcpiInit(void);
-uint16_t AcpiRemapIrq(uint16_t irq);
+uint8_t AcpiRemapIrq(uint8_t irq);

@@ -32,4 +32,4 @@ typedef struct rxpacket
 } rxpacket_t;
 
 void rtl8139_setup(void);
-size_t send_packet(const void *data, size_t length);
+ssize_t send_packet(const void *data, size_t length);

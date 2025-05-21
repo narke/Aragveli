@@ -5,7 +5,7 @@ include messages.make
 
 CC      = gcc
 PWD    := $(shell pwd)
-CFLAGS  = -Wall -Wextra -fgnu89-inline -m32 -Wa,--32 -nostdlib -nostdinc \
+CFLAGS  = -Wall -Wextra -Wconversion -fgnu89-inline -m32 -Wa,--32 -nostdlib -nostdinc \
 	  -ffreestanding -Wimplicit-fallthrough=0 -I$(PWD) -I../extra
 LDFLAGS = --warn-common -melf_i386 --strip-all
 

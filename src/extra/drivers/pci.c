@@ -100,7 +100,7 @@ pci_get_device_id(uint8_t bus, uint8_t slot, uint8_t function)
 uint16_t
 pci_get_device_class_id(uint8_t bus, uint8_t slot, uint8_t function)
 {
-	uint32_t class_id_seg;
+	uint16_t class_id_seg;
 	class_id_seg = pci_config_read_word(bus, slot, function, 0xA);
 
 	return (class_id_seg & ~0x00ff) >> 8;
@@ -123,11 +123,11 @@ pci_device_add(uint8_t bus, uint8_t slot, uint16_t vendor_id,
 void
 pci_scan(void)
 {
-	for (uint16_t bus = 0; bus < 256; bus++)
+	for (uint8_t bus = 0; bus < 255; bus++)
 	{
-		for (uint16_t slot = 0; slot < 32; slot++)
+		for (uint8_t slot = 0; slot < 32; slot++)
 		{
-			for (uint16_t function = 0; function < 8; function++)
+			for (uint8_t function = 0; function < 8; function++)
 			{
 				if (pci_devices_idx > 15)
 				{

@@ -61,7 +61,7 @@ typedef struct AcpiFadt
     uint8_t reserved;
     uint8_t preferredPMProfile;
     uint16_t sciInterrupt;
-    uint32_t smiCommandPort;
+    uint16_t smiCommandPort;
     uint8_t acpiEnable;
     uint8_t acpiDisable;
     // TODO - fill in rest of data
@@ -210,7 +210,7 @@ doChecksum(AcpiHeader *header)
 
 	for (uint32_t i = 0; i < header->length; i++)
 	{
-		sum += ((char *)header)[i];
+		sum += ((unsigned char *)header)[i];
 	}
 
 	return sum == 0;
@@ -254,7 +254,7 @@ AcpiParseRsdt(AcpiHeader *rsdt)
 	}
 
 	// Additional descriptor entries
-	uint8_t entries = (rsdt->length - sizeof(AcpiHeader)) / 4;
+	uint8_t entries = (uint8_t)(rsdt->length - sizeof(AcpiHeader)) / 4;
 	uint32_t *otherDT = (uint32_t *)(rsdt + 1);
 
 	for (uint8_t i = 0; i < entries; i++)
@@ -327,8 +327,8 @@ AcpiInit(void)
 	}
 }
 
-uint16_t
-AcpiRemapIrq(uint16_t irq)
+uint8_t
+AcpiRemapIrq(uint8_t irq)
 {
     AcpiMadt *madt = g_madt;
 
@@ -347,7 +347,7 @@ AcpiRemapIrq(uint16_t irq)
 
             if (s->source == irq)
             {
-                return s->interrupt;
+                return (uint8_t)s->interrupt;
             }
         }
 

@@ -46,7 +46,7 @@ box_fill(int x0, int y0, int x1, int y1)
 }
 
 void
-vbe_draw_character(unsigned char c)
+vbe_draw_character(const char c)
 {
 	int i, j;
 
@@ -56,7 +56,7 @@ vbe_draw_character(unsigned char c)
 		return;
 	}
 
-	vbe_set_position(y, x + 8 * scale);
+	vbe_set_position(y, (uint16_t)(x + 8 * scale));
 
 	for (i = 0; i < 16; i++)
 	{

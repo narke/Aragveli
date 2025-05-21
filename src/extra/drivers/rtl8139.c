@@ -111,8 +111,8 @@ handle_rx(void)
 		}
 
 		// Align on 4 bytes
-		rtl8139_device.rx_buffer_idx = (rtl8139_device.rx_buffer_idx + rx_size + 4 + 3) & ~ 3;
-		out16(rtl8139_device.io_base + RX_BUF_PTR, rtl8139_device.rx_buffer_idx - 0x10);
+		rtl8139_device.rx_buffer_idx = ((uint32_t)rtl8139_device.rx_buffer_idx + (uint32_t)rx_size + 4 + 3) & ~ 3UL;
+		out16(rtl8139_device.io_base + RX_BUF_PTR, (uint16_t)((uint32_t)rtl8139_device.rx_buffer_idx - 0x10i));
 
 		free(packet);
 	}
@@ -124,7 +124,7 @@ handle_tx(void)
 	for (int i = 0; i < NB_TX_DESCRIPTORS; i++)
 	{
 		// Read the status of every descriptor when a Tx interrupt occurs
-		in32(rtl8139_device.io_base + TX_STATUS + (i * 4));
+		in32((uint16_t)(rtl8139_device.io_base + TX_STATUS + (i * 4)));
 	}
 }
 
@@ -158,13 +158,13 @@ read_mac_address(void)
 	uint32_t mac_part1 = in32(rtl8139_device.io_base + 0x00);
 	uint16_t mac_part2 = in16(rtl8139_device.io_base + 0x04);
 
-	rtl8139_device.mac_addr[0] = mac_part1 >> 0;
-	rtl8139_device.mac_addr[1] = mac_part1 >> 8;
-	rtl8139_device.mac_addr[2] = mac_part1 >> 16;
-	rtl8139_device.mac_addr[3] = mac_part1 >> 24;
+	rtl8139_device.mac_addr[0] = (uint8_t)(mac_part1 >> 0);
+	rtl8139_device.mac_addr[1] = (uint8_t)(mac_part1 >> 8);
+	rtl8139_device.mac_addr[2] = (uint8_t)(mac_part1 >> 16);
+	rtl8139_device.mac_addr[3] = (uint8_t)(mac_part1 >> 24);
 
-	rtl8139_device.mac_addr[4] = mac_part2 >> 0;
-	rtl8139_device.mac_addr[5] = mac_part2 >> 8;
+	rtl8139_device.mac_addr[4] = (uint8_t)(mac_part2 >> 0);
+	rtl8139_device.mac_addr[5] = (uint8_t)(mac_part2 >> 8);
 
 	vbe_set_color(NORMAL_YELLOW);
 	printf("MAC address: %x:%x:%x:%x:%x:%x\n",
@@ -176,14 +176,15 @@ read_mac_address(void)
 			rtl8139_device.mac_addr[5]);
 }
 
-size_t
+ssize_t
 send_packet(const void *data, size_t length)
 {
 	uint32_t flags;
+	bool is_available = false;
 
 	X86_IRQs_DISABLE(flags);
 
-	if (in32(rtl8139_device.io_base + TX_STATUS + (rtl8139_device.tx_buffer_idx * 4)) & TX_HOST_OWNS)
+	if (in32((uint16_t)(rtl8139_device.io_base + TX_STATUS + (rtl8139_device.tx_buffer_idx * 4))) & TX_HOST_OWNS)
 	{
 		// A free buffer was found.
 
@@ -202,26 +203,28 @@ send_packet(const void *data, size_t length)
 
 		// Move TX buffer's content to the internal transmission FIFO
 		// and then to PCI bus.
-		out32(rtl8139_device.io_base + TX_ADDRESS + rtl8139_device.tx_buffer_idx * 4,
+		out32((uint16_t)(rtl8139_device.io_base + TX_ADDRESS + rtl8139_device.tx_buffer_idx * 4),
 				(uint32_t)(rtl8139_device.tx_buffer +
 					(TX_BUFFER_SIZE * rtl8139_device.tx_buffer_idx)));
 
-		out32(rtl8139_device.io_base + TX_STATUS + rtl8139_device.tx_buffer_idx * 4,
+		out32((uint16_t)(rtl8139_device.io_base + TX_STATUS + rtl8139_device.tx_buffer_idx * 4),
 				((TX_FIFO_THRESHOLD << 11) & 0x003F0000) | length);
 
 		// Select a new descriptor for future transmission.
 		rtl8139_device.tx_buffer_idx = (rtl8139_device.tx_buffer_idx + 1) % NB_TX_DESCRIPTORS;
-
-		X86_IRQs_ENABLE(flags);
-
-		return length;
-
 	}
 
 	X86_IRQs_ENABLE(flags);
 
-	// No available buffer!
-	return -1;
+	if (is_available)
+	{
+		return (ssize_t)length;
+	}
+	else
+	{
+		// No available buffer!
+		return -1;
+	}
 }
 
 void
@@ -245,11 +248,14 @@ rtl8139_setup(void)
 	rtl8139_device.tx_buffer_idx = 0;
 
 	// 2. Get the I/O base address
-	uint32_t io_base = pci_config_read_dword(pci_rtl8139_device.bus,
+	uint32_t io_base = pci_config_read_dword(
+			pci_rtl8139_device.bus,
 			pci_rtl8139_device.slot,
-			pci_rtl8139_device.func, 0x10);
+			pci_rtl8139_device.func,
+			0x10
+	);
 
-	rtl8139_device.io_base = io_base & (~0x3);
+	rtl8139_device.io_base = (uint16_t)(io_base & (~0x3UL));
 
 	// 3. Power on the device
 	out8(rtl8139_device.io_base + CONFIG_1, 0x0);
@@ -285,9 +291,9 @@ rtl8139_setup(void)
 		return;
 	}
 
-	for (int i = 0; i < NB_TX_DESCRIPTORS; i++)
+	for (uint16_t i = 0; i < NB_TX_DESCRIPTORS; i++)
 	{
-		out32(rtl8139_device.io_base + TX_ADDRESS + (i * 4),
+		out32((uint16_t)(rtl8139_device.io_base + TX_ADDRESS + (i * 4)),
 				(uint32_t)(rtl8139_device.tx_buffer + (TX_BUFFER_SIZE * i)));
 	}
 
