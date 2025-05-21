@@ -212,6 +212,8 @@ send_packet(const void *data, size_t length)
 
 		// Select a new descriptor for future transmission.
 		rtl8139_device.tx_buffer_idx = (rtl8139_device.tx_buffer_idx + 1) % NB_TX_DESCRIPTORS;
+
+		is_available = true;
 	}
 
 	X86_IRQs_ENABLE(flags);
