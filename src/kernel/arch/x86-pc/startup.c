@@ -115,7 +115,7 @@ aragveli_main(uint32_t magic, uint32_t address)
 	interrupts_setup();
 
 	// Initrd
-	uint32_t initrd_start = *((uint32_t *)mbi->mods_addr);
+	uint32_t initrd_start = *(uint32_t *)mbi->mods_addr;
 	uint32_t initrd_end   = *(uint32_t *)(mbi->mods_addr + 4);
 
 	// Physical memory
