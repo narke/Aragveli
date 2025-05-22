@@ -92,3 +92,5 @@ ISR_NO_ERROR_CODE 28 ; Reserved
 ISR_NO_ERROR_CODE 29 ; Reserved
 ISR_NO_ERROR_CODE 30 ; Reserved
 ISR_NO_ERROR_CODE 31 ; Reserved
+
+section .note.GNU-stack noalloc noexec nowrite noread

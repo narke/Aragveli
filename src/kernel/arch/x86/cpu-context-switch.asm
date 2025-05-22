@@ -60,3 +60,5 @@ resume_pc:
 	; esp+4	arg1 = source context
 	; esp	caller ip
 	ret
+
+section .note.GNU-stack noalloc noexec nowrite noread

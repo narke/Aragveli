@@ -175,3 +175,5 @@ x86_irq_wrapper_array:
 	dd x86_irq_wrapper_13
 	dd x86_irq_wrapper_14
 	dd x86_irq_wrapper_15
+
+section .note.GNU-stack noalloc noexec nowrite noread
