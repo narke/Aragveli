@@ -23,6 +23,7 @@
 #include <arch/x86/smp.h>
 #include <memory/frame.h>
 #include <memory/heap.h>
+#include <arch/x86/paging.h>
 #include <process/thread.h>
 #include <process/scheduler.h>
 #include <fs/tarfs.h>
@@ -134,6 +135,9 @@ aragveli_main(uint32_t magic, uint32_t address)
 			identity_mapping_end,
 			framebuffer_start,
 			framebuffer_end);
+
+	// Paging
+	paging_setup();
 
 	// Scheduler
 	scheduler_setup();

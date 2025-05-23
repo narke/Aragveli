@@ -26,6 +26,8 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  arch/x86/acpi.o \
 	  arch/x86/ioapic.o \
 	  arch/x86/lapic.o \
+	  arch/x86/paging-stubs.o \
+	  arch/x86/paging.o \
 	  arch/x86/smp.o \
 	  lib/c/stdio.o \
 	  lib/c/string.o \
