@@ -137,7 +137,7 @@ aragveli_main(uint32_t magic, uint32_t address)
 			framebuffer_end);
 
 	// Paging
-	paging_setup();
+	x86_paging_setup();
 
 	// Scheduler
 	scheduler_setup();
