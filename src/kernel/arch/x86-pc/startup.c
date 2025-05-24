@@ -139,6 +139,9 @@ aragveli_main(uint32_t magic, uint32_t address)
 	// Paging
 	x86_paging_setup();
 
+	// TSS
+	tss_setup();
+
 	// Scheduler
 	scheduler_setup();
 

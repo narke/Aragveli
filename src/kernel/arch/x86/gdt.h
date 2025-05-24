@@ -9,3 +9,4 @@
 
 // Setup GDT by initializing the GDTR register.
 void x86_gdt_setup(void);
+void tss_setup(void);

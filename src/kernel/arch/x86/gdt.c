@@ -6,6 +6,8 @@
  */
 
 #include <lib/types.h>
+#include <lib/c/string.h>
+#include <lib/c/stdbool.h>
 #include "gdt.h"
 #include "segment.h"
 
@@ -59,6 +61,67 @@ struct x86_gdtr
 } __attribute__((packed, aligned(8)));
 
 
+struct x86_tss
+{
+	uint16_t back_link;
+	uint16_t reserved1;
+	vaddr_t	 esp0;
+	uint16_t ss0;
+	uint16_t reserved2;
+	vaddr_t  esp1;
+	uint16_t ss1;
+	uint32_t reserved3;
+	vaddr_t  esp2;
+	uint16_t ss2;
+	uint16_t reserved4;
+
+	vaddr_t cr3;
+	vaddr_t eip;
+	uint32_t eflags;
+	uint32_t eax;
+	uint32_t ecx;
+	uint32_t edx;
+	uint32_t ebx;
+	uint32_t esp;
+	uint32_t ebp;
+	uint32_t esi;
+	uint32_t edi;
+
+	// +72
+	uint16_t es;
+	uint16_t reserved5;
+
+	// +76
+	uint16_t cs;
+	uint16_t reserved6;
+
+	// +80
+	uint16_t ss;
+	uint16_t reserved7;
+
+	// +84
+	uint16_t ds;
+	uint16_t reserved8;
+
+	// +88
+	uint16_t fs;
+	uint16_t reserved9;
+
+	// +92
+	uint16_t gs;
+	uint16_t reserved10;
+
+	// +96
+	uint16_t ldtr;
+	uint16_t reserved11;
+
+	// +100
+	uint16_t debug_trap_flag :1;
+	uint16_t reserved12      :15;
+	uint16_t iomap_base_addr;
+} __attribute__((packed, aligned(128)));;
+
+
 static struct x86_gdt_entry gdt[] = {
 	[NULL_SEGMENT]  = (struct x86_gdt_entry){ 0, },
 	[KERNEL_CODE_SEGMENT] = (struct x86_gdt_entry){
@@ -90,12 +153,81 @@ static struct x86_gdt_entry gdt[] = {
 		.operand_size			= 1,	// 32-bit
 		.granularity			= 1,	// 4KB pages
 		.base_paged_address_31_24	= 0
+	},
+	[USER_CODE_SEGMENT] = (struct x86_gdt_entry){
+		.segment_limit_15_0		= 0xffff,
+		.base_paged_address_15_0	= 0,
+		.base_paged_address_23_16	= 0,
+		.segment_type			= 0xb,	// Code segment
+		.descriptor_type		= 1,	// Code/data
+		.descriptor_privilege_level	= 3,	// User privilege
+		.segment_present		= 1,
+		.segment_limit_19_16		= 0xf,
+		.available			= 0,
+		.zero				= 0,
+		.operand_size			= 1,	// 32-bit
+		.granularity			= 1,	// 4KB pages
+		.base_paged_address_31_24	= 0
+	},
+	[USER_DATA_SEGMENT] = (struct x86_gdt_entry){
+		.segment_limit_15_0		= 0x67,	// Intel x86 manual vol 3 section 6.2.2
+		.base_paged_address_15_0	= 0,
+		.base_paged_address_23_16	= 0,
+		.segment_type			= 0x3,	// Data segment
+		.descriptor_type		= 1,	// Code/data
+		.descriptor_privilege_level	= 3,	// User privilege
+		.segment_present		= 1,
+		.segment_limit_19_16		= 0xf,
+		.available			= 0,
+		.zero				= 0,
+		.operand_size			= 1,	// 32-bit
+		.granularity			= 1,	// 4KB pages
+		.base_paged_address_31_24	= 0
+	},
+	[TSS_SEGMENT] = (struct x86_gdt_entry){
+		0,
 	}
-
 };
 
 
-void x86_gdt_setup(void)
+static struct x86_tss kernel_tss;
+
+void
+gdt_register_tss(vaddr_t tss_vadd)
+{
+	gdt[TSS_SEGMENT] = (struct x86_gdt_entry){
+		.segment_limit_15_0		= 0x67,
+		.base_paged_address_15_0	= tss_vadd & 0xffff,
+		.base_paged_address_23_16	= (tss_vadd >> 16) & 0xff,
+		.segment_type			= 0x9,
+		.descriptor_type		= 0,
+		.descriptor_privilege_level	= 3,
+		.segment_present		= 1,
+		.segment_limit_19_16		= 0,
+		.available			= 0,
+		.zero				= 0,
+		.operand_size			= 0,
+		.granularity			= 1,
+		.base_paged_address_31_24	= (uint8_t)((tss_vadd >> 24) & 0xff)
+	};
+
+	uint16_t tss_register_value = X86_BUILD_SEGMENT_REGISTER_VALUE(0, false, TSS_SEGMENT);
+
+	asm ("ltr %0"::"r"(tss_register_value));
+}
+
+void
+tss_setup(void)
+{
+	memset(&kernel_tss, 0x0, sizeof(kernel_tss));
+
+	kernel_tss.ss0 = X86_BUILD_SEGMENT_REGISTER_VALUE(0, false, KERNEL_DATA_SEGMENT);
+
+	gdt_register_tss((vaddr_t)&kernel_tss);
+}
+
+void
+x86_gdt_setup(void)
 {
 	struct x86_gdtr gdtr;
 
@@ -122,7 +254,7 @@ void x86_gdt_setup(void)
                  movw %%ax,  %%gs"
 		:
 		:"m"(gdtr),
-		 "i"(X86_BUILD_SEGMENT_REGISTER_VALUE(KERNEL_CODE_SEGMENT)),
-		 "i"(X86_BUILD_SEGMENT_REGISTER_VALUE(KERNEL_DATA_SEGMENT))
+		 "i"(X86_BUILD_SEGMENT_REGISTER_VALUE(0, false, KERNEL_CODE_SEGMENT)),
+		 "i"(X86_BUILD_SEGMENT_REGISTER_VALUE(0, false, KERNEL_DATA_SEGMENT))
 		 :"memory","eax");
 }
