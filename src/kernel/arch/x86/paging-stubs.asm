@@ -20,3 +20,5 @@ x86_enable_paging:
     mov esp, ebp
     pop ebp
     ret
+
+section .note.GNU-stack noalloc noexec nowrite
