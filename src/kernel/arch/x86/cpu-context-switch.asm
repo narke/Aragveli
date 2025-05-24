@@ -61,4 +61,4 @@ resume_pc:
 	; esp	caller ip
 	ret
 
-section .note.GNU-stack noalloc noexec nowrite noread
+section .note.GNU-stack noalloc noexec nowrite

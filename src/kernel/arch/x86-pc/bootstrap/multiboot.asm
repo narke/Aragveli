@@ -66,4 +66,4 @@ stack:          resb STACK_SIZE ; reserve 16 KiB stack
 multiboot_info: resd 1          ; we will use this in kernel's main
 magic:          resd 1          ; we will use this in kernel's main
 
-section .note.GNU-stack noalloc noexec nowrite noread
+section .note.GNU-stack noalloc noexec nowrite
