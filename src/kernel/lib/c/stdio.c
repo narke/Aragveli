@@ -201,7 +201,7 @@ __vprintf(const char *fmt, va_list args)
 }
 
 void
-__printf(const char *fmt, ...)
+vbe_console_format(const char *fmt, ...)
 {
 	va_list args;
 
