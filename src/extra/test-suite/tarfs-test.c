@@ -41,11 +41,11 @@ cmd_ls(struct node *root, struct node *cwd, const char *path)
 	{
 		LIST_FOREACH(tmp_node, &folder_node->u.folder.nodes, next)
 		{
-			printf("%s\n", tmp_node->name);
+			kprintf("%s\n", tmp_node->name);
 		}
 	}
 	else
-		printf("%s\n", tmp_node->name);
+		kprintf("%s\n", tmp_node->name);
 
 	return KERNEL_OK;
 }
@@ -53,7 +53,7 @@ cmd_ls(struct node *root, struct node *cwd, const char *path)
 int
 cmd_pwd(struct node *cwd)
 {
-	printf("%s\n", cwd->name);
+	kprintf("%s\n", cwd->name);
 
 	return KERNEL_OK;
 }
@@ -67,10 +67,10 @@ cmd_cd(struct node *cwd, const char *path)
 	struct node *folder_node = resolve_node(path, cwd);
 	if (!folder_node)
 	{
-		printf("cd error\n");
+		kprintf("cd error\n");
 		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
 	}
-	printf("cd: %s\n", folder_node->name);
+	kprintf("cd: %s\n", folder_node->name);
 	// TODO update cwd
 
 	return KERNEL_OK;
@@ -181,8 +181,8 @@ cmd_cat(struct node *root, struct node *cwd, const char *path, const char *filen
 				&& tmp_node->type == TMPFS_FILE)
 		{
 			for (uint64_t i = 0; i < tmp_node->u.file.size; i++)
-				printf("%c", tmp_node->u.file.data[i]);
-			printf("\n");
+				kprintf("%c", tmp_node->u.file.data[i]);
+			kprintf("\n");
 			return KERNEL_OK;
 		}
 	}
@@ -203,9 +203,9 @@ cmd_file(struct node *root, struct node *cwd, const char *path, const char *node
 		if (!strncmp(tmp_node->name, nodename, strnlen(nodename, NODE_NAME_LENGTH)))
 		{
 			if (tmp_node->type == TMPFS_FILE)
-				printf("%s: file\n", tmp_node->name);
+				kprintf("%s: file\n", tmp_node->name);
 			else
-				printf("%s: folder\n", tmp_node->name);
+				kprintf("%s: folder\n", tmp_node->name);
 			return KERNEL_OK;
 		}
 	}

@@ -36,7 +36,7 @@ void test_frame_allocator(void)
 	SLIST_INIT(&physical_pages);
 
 	vbe_set_position(5, 0);
-	printf("++ Physical memory allocaion/deallocation test! ++\n");
+	kprintf("++ Physical memory allocaion/deallocation test! ++\n");
 
 	// Test the allocation
 	while ((physical_page = (physical_page_t *)frame_alloc()) != NULL)
@@ -63,14 +63,14 @@ void test_frame_allocator(void)
 			if ((physical_page->before[i] !=  (uint32_t)physical_page)
 				|| (physical_page->after[i] !=  (uint32_t)physical_page))
 			{
-				printf("Page overwritten\n");
+				kprintf("Page overwritten\n");
 				return;
 			}
 		}
 
 		if (frame_free((uint32_t)physical_page) < 0)
 		{
-			printf("Cannot dealloc page\n");
+			kprintf("Cannot dealloc page\n");
 			return;
 		}
 
@@ -81,7 +81,7 @@ void test_frame_allocator(void)
 
 	assert(nb_allocated_physical_pages == nb_free_physical_pages);
 
-	printf("Can allocate %u bytes and free %u bytes \n",
+	kprintf("Can allocate %u bytes and free %u bytes \n",
 		nb_allocated_physical_pages << PAGE_SHIFT,
 		nb_free_physical_pages << PAGE_SHIFT);
 }

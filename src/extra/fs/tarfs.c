@@ -375,7 +375,7 @@ untar(void *ramdisk_address, struct node *root_node)
 
 		if (!checksum(buffer))
 		{
-			printf("Checksum failure\n");
+			kprintf("Checksum failure\n");
 			return;
 		}
 

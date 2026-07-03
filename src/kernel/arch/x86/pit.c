@@ -96,7 +96,7 @@ void
 PitWait(uint32_t ms)
 {
     uint32_t now = g_pit_ticks;
-    //printf("PitWait: now = %d, ms = %d\n", now, ms);
+    //kprintf("PitWait: now = %d, ms = %d\n", now, ms);
     ++ms;
 
     while (g_pit_ticks - now < ms)

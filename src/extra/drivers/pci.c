@@ -131,7 +131,7 @@ pci_scan(void)
 			{
 				if (pci_devices_idx > 15)
 				{
-					printf("PCI device not added... Limit reached!\n");
+					kprintf("PCI device not added... Limit reached!\n");
 					return;
 				}
 
@@ -176,7 +176,7 @@ pci_devices_print(void)
 			return;
 		}
 
-		printf("PCI Vendor ID:%x Device ID:%x Class:%s\n",
+		kprintf("PCI Vendor ID:%x Device ID:%x Class:%s\n",
 				pci_devices[i].vendor_id,
 				pci_devices[i].device_id,
 				PCI_CLASS_IDS[pci_devices[i].class_id]);

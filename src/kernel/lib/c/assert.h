@@ -23,7 +23,7 @@
 			/* Disable interrupts on x86 */	\
 			asm("cli\n");			\
 			vbe_set_color(NORMAL_RED);	\
-			printf("Asserted: %s:%d", __FILE__, __LINE__);	\
+			kprintf("Asserted: %s:%d", __FILE__, __LINE__);	\
 			/* Infinite loop and x86 processor halting */	\
 			while (1) asm("hlt");				\
 		}							\

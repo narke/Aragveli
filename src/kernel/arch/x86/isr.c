@@ -151,19 +151,19 @@ x86_isr_handler(struct registers *r)
 	}
 	else
 	{
-		printf("Unhandled exception: [%d] - %s.\n",
+		kprintf("Unhandled exception: [%d] - %s.\n",
 			r->interrupt_number,
 			exception_messages[r->interrupt_number]);
 
 		// https://wiki.osdev.org/Exceptions#Selector_Error_Code
-		printf("Error code: [%x]\n", r->error_code);
+		kprintf("Error code: [%x]\n", r->error_code);
 		if (r->error_code & (1 << 0))
 		{
-			printf("Type: Exception originated externally to the processor.\n");
+			kprintf("Type: Exception originated externally to the processor.\n");
 		}
 		else
 		{
-			printf("Type: Exception originated internally to the processor.\n");
+			kprintf("Type: Exception originated internally to the processor.\n");
 		}
 
 		uint32_t tbl = (r->error_code & 0x00000006) >> 1;
@@ -171,16 +171,16 @@ x86_isr_handler(struct registers *r)
 		switch(tbl)
 		{
 			case 0:
-				printf("The Selector Index references a descriptor in the GDT.");
+				kprintf("The Selector Index references a descriptor in the GDT.");
 				break;
 			case 1:
-				printf("The Selector Index references a descriptor in the IDT.");
+				kprintf("The Selector Index references a descriptor in the IDT.");
 				break;
 			case 2:
-				printf("The Selector Index references a descriptor in the LDT.");
+				kprintf("The Selector Index references a descriptor in the LDT.");
 				break;
 			case 3:
-				printf("The Selector Index references a descriptor in the IDT.");
+				kprintf("The Selector Index references a descriptor in the IDT.");
 				break;
 		}
 

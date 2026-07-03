@@ -30,7 +30,7 @@
 // ------------------------------------------------------------------------------------------------
 void SmpInit()
 {
-    printf("Waking up all CPUs\n");
+    kprintf("Waking up all CPUs\n");
 
     g_activeCpuCount = 1;
     uint32_t localId = LocalApicGetId();
@@ -62,9 +62,9 @@ void SmpInit()
     PitWait(1);
     while (g_activeCpuCount != g_acpiCpuCount)
     {
-        printf("Waiting... %d\n", g_activeCpuCount);
+        kprintf("Waiting... %d\n", g_activeCpuCount);
         PitWait(1);
     }
 
-    printf("All CPUs activated\n");
+    kprintf("All CPUs activated\n");
 }

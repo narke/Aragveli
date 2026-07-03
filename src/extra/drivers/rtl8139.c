@@ -86,7 +86,7 @@ handle_rx(void)
 			(rx_size < ETH_MIN_LENGTH) ||
 			(rx_size > ETH_FRAME_LEGTH))
 		{
-			printf("RTL8139 packet error.\n");
+			kprintf("RTL8139 packet error.\n");
 			return;
 		}
 
@@ -142,12 +142,12 @@ packet_handler(int number)
 
 	if (status & (RX_OK | RX_ERR))
 	{
-		printf("Packet received.\n");
+		kprintf("Packet received.\n");
 		handle_rx();
 	}
 	else if (status & (TX_OK | TX_ERR))
 	{
-		printf("Packet sent.\n");
+		kprintf("Packet sent.\n");
 		handle_tx();
 	}
 }
@@ -167,7 +167,7 @@ read_mac_address(void)
 	rtl8139_device.mac_addr[5] = (uint8_t)(mac_part2 >> 8);
 
 	vbe_set_color(NORMAL_YELLOW);
-	printf("MAC address: %x:%x:%x:%x:%x:%x\n",
+	kprintf("MAC address: %x:%x:%x:%x:%x:%x\n",
 			rtl8139_device.mac_addr[0],
 			rtl8139_device.mac_addr[1],
 			rtl8139_device.mac_addr[2],

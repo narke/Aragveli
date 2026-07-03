@@ -201,7 +201,7 @@ heap_alloc(size_t size)
 			}
 		}
 	}
-	printf("alloc failed\n");
+	kprintf("alloc failed\n");
 
 	return NULL;
 }
@@ -229,11 +229,11 @@ heap_free(void *address)
 	{
 		if (range->base_address == (uint32_t)address)
 		{
-			printf("heap_free: double free %p\n", address);
+			kprintf("heap_free: double free %p\n", address);
 			assert(0);
 		}
 	}
 
-	printf("heap_free: invalid pointer %p\n", address);
+	kprintf("heap_free: invalid pointer %p\n", address);
 	assert(0);
 }

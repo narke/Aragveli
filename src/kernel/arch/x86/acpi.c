@@ -133,14 +133,14 @@ AcpiParseFacp(AcpiFadt *facp)
 {
     if (facp->smiCommandPort)
     {
-        printf("Enabling ACPI\n");
+        kprintf("Enabling ACPI\n");
         out8(facp->smiCommandPort, facp->acpiEnable);
 
         // TODO - wait for SCI_EN bit
     }
     else
     {
-        printf("ACPI already enabled\n");
+        kprintf("ACPI already enabled\n");
     }
 }
 
@@ -150,13 +150,13 @@ AcpiParseApic(AcpiMadt *madt)
 {
 	if (madt->header.signature != APIC_SIGNATURE)
 	{
-		printf("ACPI: APIC signature not found.\n");
+		kprintf("ACPI: APIC signature not found.\n");
 		return;
 	}
 
 	g_madt = madt;
 
-	printf("Local APIC Address: 0x%x\n", (unsigned int)madt->localApicAddr);
+	kprintf("Local APIC Address: 0x%x\n", (unsigned int)madt->localApicAddr);
 
 
     g_localApicAddr = (uint8_t *)(uintptr_t)madt->localApicAddr;
@@ -174,7 +174,7 @@ AcpiParseApic(AcpiMadt *madt)
         {
             ApicLocalApic *s = (ApicLocalApic *)p;
 
-            printf("Found CPU: %d %d %x\n", s->acpiProcessorId, s->apicId, (unsigned int)s->flags);
+            kprintf("Found CPU: %d %d %x\n", s->acpiProcessorId, s->apicId, (unsigned int)s->flags);
             if (g_acpiCpuCount < MAX_CPU_COUNT)
             {
                 g_acpiCpuIds[g_acpiCpuCount] = s->apicId;
@@ -185,18 +185,18 @@ AcpiParseApic(AcpiMadt *madt)
         {
             ApicIoApic *s = (ApicIoApic *)p;
 
-            printf("Found I/O APIC: %d 0x%x %u\n", s->ioApicId, (unsigned int)s->ioApicAddress, (unsigned int)s->globalSystemInterruptBase);
+            kprintf("Found I/O APIC: %d 0x%x %u\n", s->ioApicId, (unsigned int)s->ioApicAddress, (unsigned int)s->globalSystemInterruptBase);
             g_ioApicAddr = (uint8_t *)(uintptr_t)s->ioApicAddress;
         }
         else if (type == APIC_TYPE_INTERRUPT_OVERRIDE)
         {
             ApicInterruptOverride *s = (ApicInterruptOverride *)p;
 
-            printf("Found Interrupt Override: %d %d %u 0x%x\n", s->bus, s->source, (unsigned int)s->interrupt, s->flags);
+            kprintf("Found Interrupt Override: %d %d %u 0x%x\n", s->bus, s->source, (unsigned int)s->interrupt, s->flags);
         }
         else
         {
-            printf("Unknown APIC structure %d\n", type);
+            kprintf("Unknown APIC structure %d\n", type);
         }
 
         p += length;
@@ -226,7 +226,7 @@ AcpiParseDT(AcpiHeader *header)
 
     descriptor_name[signature_size] = 0; // Make a string
 
-    printf("Descriptor Table: %s, signature: 0x%x\n", descriptor_name, (unsigned int)header->signature);
+    kprintf("Descriptor Table: %s, signature: 0x%x\n", descriptor_name, (unsigned int)header->signature);
 
     if (header->signature == FACS_SIGNATURE)
     {
@@ -243,13 +243,13 @@ AcpiParseRsdt(AcpiHeader *rsdt)
 {
 	if (rsdt->signature != RSDT_SIGNATURE)
 	{
-		printf("ACPI: RSDT signature not found.\n");
+		kprintf("ACPI: RSDT signature not found.\n");
 		return;
 	}
 
 	if (!doChecksum(rsdt))
 	{
-		printf("ACPI RSDT checksum failed.\n");
+		kprintf("ACPI RSDT checksum failed.\n");
 		return;
 	}
 
@@ -268,7 +268,7 @@ static bool
 AcpiParseRsdp(uint8_t *p)
 {
 	// Parse Root System Description Pointer
-	printf("ACPI: RSDP found\n");
+	kprintf("ACPI: RSDP found\n");
 
 	// RSDP checksum, AcpiRSDP's size is 20.
 	uint8_t sum = 0;
@@ -279,26 +279,26 @@ AcpiParseRsdp(uint8_t *p)
 
 	if (sum)
 	{
-		printf("Checksum failed\n");
+		kprintf("Checksum failed\n");
 		return false;
 	}
 
 	AcpiRSDP *rsdp = (AcpiRSDP *)p;
 
-	printf("ACPI OEM: %s\n", rsdp->oemid);
+	kprintf("ACPI OEM: %s\n", rsdp->oemid);
 
 	if (rsdp->revision == 0)
 	{
-		printf("ACPI version: 1\n");
+		kprintf("ACPI version: 1\n");
 		AcpiParseRsdt((AcpiHeader *)rsdp->rsdt_address);
 	}
 	else if (rsdp->revision == 2)
 	{
-		printf("ACPI version: 2\n");
+		kprintf("ACPI version: 2\n");
 	}
 	else
 	{
-		printf("Unsupported ACPI version %d\n", rsdp->revision);
+		kprintf("Unsupported ACPI version %d\n", rsdp->revision);
 	}
 
 	return true;

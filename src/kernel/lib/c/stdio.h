@@ -10,11 +10,10 @@
 #define EOF  (-1)
 
 void vbe_console_format(const char *fmt, ...)
-	__attribute__((format(printf, 1, 2)));
+	__attribute__((format(__printf__, 1, 2)));
 
-#define printf(fmt, ...) \
+#define kprintf(fmt, ...) \
 	do { \
 		(void)sizeof(char[1 - 2 * !__builtin_constant_p(fmt)]); \
-		static const char __pf_fmt[] = fmt; \
-		vbe_console_format(__pf_fmt, ##__VA_ARGS__); \
+		vbe_console_format("" fmt "", ##__VA_ARGS__); \
 	} while (0)

@@ -145,7 +145,7 @@ aragveli_main(uint32_t magic, uint32_t address)
 	// Theading
 	threading_setup();
 
-	printf("Aragveli\n");
+	kprintf("Aragveli\n");
 
 	// Enable interrupts
 	asm volatile("sti");
