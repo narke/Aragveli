@@ -39,13 +39,28 @@ memcpy(void *dst, const void *src, size_t size)
 void *
 memcpy_s(void *dst, size_t dst_size, const void *src, size_t src_size)
 {
+	char *_dst;
+	const char *_src;
+
 	if (dst == NULL || src == NULL)
 		return NULL;
 
 	if (dst_size < src_size)
 		return NULL;
 
-	return memcpy(dst, src, src_size);
+	_dst = (char *)dst;
+	_src = (const char *)src;
+
+	while (src_size > 0)
+	{
+		*_dst = *_src;
+
+		_dst++;
+		_src++;
+		src_size--;
+	}
+
+	return dst;
 }
 
 char *

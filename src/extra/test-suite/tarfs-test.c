@@ -68,6 +68,7 @@ cmd_cd(struct node *cwd, const char *path)
 	if (!folder_node)
 	{
 		printf("cd error\n");
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
 	}
 	printf("cd: %s\n", folder_node->name);
 	// TODO update cwd

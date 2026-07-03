@@ -9,4 +9,8 @@
 
 #define EOF  (-1)
 
-void printf(const char *format, ...);
+void __printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+
+#define printf(fmt, ...) \
+	((void)sizeof(char[1 - 2 * !__builtin_constant_p(fmt)]), \
+	 __printf((fmt), ##__VA_ARGS__))

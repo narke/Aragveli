@@ -8,11 +8,12 @@
 #include <drivers/vbe.h>
 #include <lib/types.h>
 #include "stdio.h"
+#include "string.h"
 #include "stdarg.h"
 #include "stdbool.h"
 
 static void
-vprintf(const char *fmt, va_list args)
+__vprintf(const char *fmt, va_list args)
 {
 	bool format_modifiers = false;
 	bool prefix_long = false;
@@ -162,9 +163,27 @@ vprintf(const char *fmt, va_list args)
 			case 's':
 				{
 					char *s = va_arg(args, char *);
-					while (*s)
-						vbe_draw_character(*s++);
+
+					if (s == NULL)
+					{
+						vbe_draw_character('(');
+						vbe_draw_character('n');
+						vbe_draw_character('u');
+						vbe_draw_character('l');
+						vbe_draw_character('l');
+						vbe_draw_character(')');
+					}
+					else
+					{
+						while (*s)
+							vbe_draw_character(*s++);
+					}
 				}
+				break;
+
+			case 'n':
+				vbe_draw_character('%');
+				vbe_draw_character('n');
 				break;
 
 			case '%':
@@ -172,18 +191,21 @@ vprintf(const char *fmt, va_list args)
 				break;
 
 			default:
-				;
+				vbe_draw_character('%');
+				vbe_draw_character(*(fmt - 1));
+				format_modifiers = false;
+				break;
 
 		}
 	}
 }
 
 void
-printf(const char *fmt, ...)
+__printf(const char *fmt, ...)
 {
 	va_list args;
 
 	va_start(args, fmt);
-	vprintf(fmt, args);
+	__vprintf(fmt, args);
 	va_end(args);
 }

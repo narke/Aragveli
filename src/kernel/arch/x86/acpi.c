@@ -174,7 +174,7 @@ AcpiParseApic(AcpiMadt *madt)
         {
             ApicLocalApic *s = (ApicLocalApic *)p;
 
-            printf("Found CPU: %d %d %x\n", s->acpiProcessorId, s->apicId, s->flags);
+            printf("Found CPU: %d %d %lx\n", s->acpiProcessorId, s->apicId, s->flags);
             if (g_acpiCpuCount < MAX_CPU_COUNT)
             {
                 g_acpiCpuIds[g_acpiCpuCount] = s->apicId;
@@ -185,14 +185,14 @@ AcpiParseApic(AcpiMadt *madt)
         {
             ApicIoApic *s = (ApicIoApic *)p;
 
-            printf("Found I/O APIC: %d 0x%x %d\n", s->ioApicId, s->ioApicAddress, s->globalSystemInterruptBase);
+            printf("Found I/O APIC: %d 0x%lx %lu\n", s->ioApicId, s->ioApicAddress, s->globalSystemInterruptBase);
             g_ioApicAddr = (uint8_t *)(uintptr_t)s->ioApicAddress;
         }
         else if (type == APIC_TYPE_INTERRUPT_OVERRIDE)
         {
             ApicInterruptOverride *s = (ApicInterruptOverride *)p;
 
-            printf("Found Interrupt Override: %d %d %d 0x%x\n", s->bus, s->source, s->interrupt, s->flags);
+            printf("Found Interrupt Override: %d %d %lu 0x%x\n", s->bus, s->source, s->interrupt, s->flags);
         }
         else
         {
@@ -226,7 +226,7 @@ AcpiParseDT(AcpiHeader *header)
 
     descriptor_name[signature_size] = 0; // Make a string
 
-    printf("Descriptor Table: %s, signature: 0x%x\n", descriptor_name, header->signature);
+    printf("Descriptor Table: %s, signature: 0x%lx\n", descriptor_name, header->signature);
 
     if (header->signature == FACS_SIGNATURE)
     {
