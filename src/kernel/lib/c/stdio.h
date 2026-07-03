@@ -11,7 +11,9 @@
 
 void __printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
-#define __printf_first(first, ...) first
-#define printf(...) \
-	((void)sizeof(char[1 - 2 * !__builtin_constant_p(__printf_first(__VA_ARGS__, ""))]), \
-	 __printf(__VA_ARGS__))
+#define printf(fmt, ...) \
+	do { \
+		(void)sizeof(char[1 - 2 * !__builtin_constant_p(fmt)]); \
+		static const char __pf_fmt[] = fmt; \
+		__printf(__pf_fmt, ##__VA_ARGS__); \
+	} while (0)
