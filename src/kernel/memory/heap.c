@@ -170,7 +170,7 @@ heap_alloc(size_t size)
 	if (SLIST_EMPTY(&free_ranges))
 		return NULL;
 
-	nb_requested_pages = size < PAGE_SIZE ? 1 : size / PAGE_SIZE;
+	nb_requested_pages = size == 0 ? 1 : (size + PAGE_SIZE - 1) / PAGE_SIZE;
 
 	SLIST_FOREACH(range, &free_ranges, next)
 	{
