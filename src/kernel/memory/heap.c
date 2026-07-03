@@ -19,6 +19,9 @@ uint32_t heap = 0;
 
 SLIST_HEAD(, memory_range) free_ranges;
 SLIST_HEAD(, memory_range) used_ranges;
+SLIST_HEAD(, memory_range) metadata_pool;
+
+static vaddr_t metadata_end;
 
 struct memory_range
 {
@@ -26,6 +29,72 @@ struct memory_range
 	uint32_t nb_pages;
 	SLIST_ENTRY(memory_range) next;
 };
+
+static struct memory_range *
+range_metadata_alloc(void)
+{
+	struct memory_range *range;
+
+	if (!SLIST_EMPTY(&metadata_pool))
+	{
+		range = SLIST_FIRST(&metadata_pool);
+		SLIST_REMOVE_HEAD(&metadata_pool, next);
+		return range;
+	}
+
+	range = (struct memory_range *)heap;
+	heap += sizeof(struct memory_range);
+	assert(heap <= metadata_end);
+
+	return range;
+}
+
+static void
+range_metadata_free(struct memory_range *range)
+{
+	SLIST_INSERT_HEAD(&metadata_pool, range, next);
+}
+
+static void
+coalesce_free_range(struct memory_range *range)
+{
+	struct memory_range *other;
+	bool merged;
+
+	do
+	{
+		merged = false;
+
+		SLIST_FOREACH(other, &free_ranges, next)
+		{
+			if (other == range)
+				continue;
+
+			if (other->base_address + other->nb_pages * PAGE_SIZE
+					== range->base_address)
+			{
+				other->nb_pages += range->nb_pages;
+				SLIST_REMOVE(&free_ranges, range,
+						memory_range, next);
+				range_metadata_free(range);
+				range = other;
+				merged = true;
+				break;
+			}
+
+			if (range->base_address + range->nb_pages * PAGE_SIZE
+					== other->base_address)
+			{
+				range->nb_pages += other->nb_pages;
+				SLIST_REMOVE(&free_ranges, other,
+						memory_range, next);
+				range_metadata_free(other);
+				merged = true;
+				break;
+			}
+		}
+	} while (merged);
+}
 
 static void
 create_range(bool is_free, vaddr_t start_address, vaddr_t end_address)
@@ -36,10 +105,7 @@ create_range(bool is_free, vaddr_t start_address, vaddr_t end_address)
 	if ((end_address - start_address) < PAGE_SIZE)
 		return;
 
-	struct memory_range *range = (struct memory_range *)heap;
-	heap += sizeof(struct memory_range);
-
-	assert(range != NULL);
+	struct memory_range *range = range_metadata_alloc();
 
 	range->base_address = start_address;
 	range->nb_pages = (end_address - start_address) / PAGE_SIZE;
@@ -59,8 +125,10 @@ heap_setup(size_t ram_size,
 {
 	SLIST_INIT(&free_ranges);
 	SLIST_INIT(&used_ranges);
+	SLIST_INIT(&metadata_pool);
 
 	heap = PAGE_ALIGN_UP(identity_mapping_end);
+	metadata_end = PAGE_ALIGN_UP(identity_mapping_end) + PAGE_SIZE;
 
 	// Free: 16 Kb - Framebuffer
 	create_range(true,
@@ -113,11 +181,8 @@ heap_alloc(size_t size)
 			{
 				range->nb_pages -= nb_requested_pages;
 
-				// New range
 				struct memory_range *new_range =
-					(struct memory_range *)heap;
-
-				heap += sizeof(struct memory_range);
+					range_metadata_alloc();
 
 				new_range->base_address = range->base_address
 					+ range->nb_pages * PAGE_SIZE;
@@ -155,6 +220,8 @@ heap_free(void *address)
 		{
 			SLIST_REMOVE(&used_ranges, range, memory_range, next);
 			SLIST_INSERT_HEAD(&free_ranges, range, next);
+			coalesce_free_range(range);
+			return;
 		}
 	}
 }
