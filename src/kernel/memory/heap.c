@@ -224,4 +224,16 @@ heap_free(void *address)
 			return;
 		}
 	}
+
+	SLIST_FOREACH(range, &free_ranges, next)
+	{
+		if (range->base_address == (uint32_t)address)
+		{
+			printf("heap_free: double free %p\n", address);
+			assert(0);
+		}
+	}
+
+	printf("heap_free: invalid pointer %p\n", address);
+	assert(0);
 }
