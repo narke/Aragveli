@@ -90,7 +90,7 @@ heap_setup(size_t ram_size,
 	// Free: Heap's allocation zone - Kernel end
 	create_range(true,
 			PAGE_ALIGN_UP(identity_mapping_end + PAGE_SIZE),
-			ram_size - PAGE_ALIGN_UP(identity_mapping_end + PAGE_SIZE));
+			PAGE_ALIGN_DOWN(ram_size));
 }
 
 void *
