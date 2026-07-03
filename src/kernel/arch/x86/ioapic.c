@@ -69,7 +69,7 @@ void IoApicInit()
     uint32_t x = IoApicIn(g_ioApicAddr, IOAPICVER);
     uint32_t count = ((x >> 16) & 0xff) + 1;    // maximum redirection entry
 
-    printf("I/O APIC pins = %lu\n", count);
+    printf("I/O APIC pins = %u\n", (unsigned int)count);
 
     // Disable all entries
     for (uint8_t i = 0; i < count; ++i)
