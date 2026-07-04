@@ -337,6 +337,8 @@ add_node(const char *path, uint8_t type, size_t file_size, void *archive,
 
 	tmp_node = root_node;
 
+	bool inserted = false;
+
 	STAILQ_FOREACH(path_node_iter, &path_nodes, next)
 	{
 		if (STAILQ_NEXT(path_node_iter, next) != NULL)
@@ -379,9 +381,13 @@ add_node(const char *path, uint8_t type, size_t file_size, void *archive,
 		}
 
 		LIST_INSERT_HEAD(&(tmp_node->u.folder.nodes), new_node, next);
+		inserted = true;
 	}
 
 	path_nodes_list_delete();
+
+	if (!inserted)
+		free(new_node);
 
 	return KERNEL_OK;
 }
