@@ -36,6 +36,7 @@ node_ops_t tarfs_node_ops =
 
 static struct file_system tarfs;
 static paddr_t initrd_start, initrd_end;
+static struct superblock *mounted_superblock;
 
 struct path_node
 {
@@ -44,6 +45,8 @@ struct path_node
 };
 
 STAILQ_HEAD(, path_node) path_nodes;
+
+static status_t path_nodes_list_delete(void);
 
 
 /*
@@ -125,6 +128,7 @@ path_nodes_to_list(const char *path)
 			if (!pnode)
 			{
 				free(name);
+				path_nodes_list_delete();
 				return -KERNEL_NO_MEMORY;
 			}
 
@@ -135,6 +139,7 @@ path_nodes_to_list(const char *path)
 			name = malloc(NODE_NAME_LENGTH);
 			if (!name)
 			{
+				path_nodes_list_delete();
 				return -KERNEL_NO_MEMORY;
 			}
 
@@ -158,6 +163,7 @@ path_nodes_to_list(const char *path)
 		if (!pnode)
 		{
 			free(name);
+			path_nodes_list_delete();
 			return -KERNEL_NO_MEMORY;
 		}
 
@@ -318,7 +324,12 @@ add_node(const char *path, uint8_t type, size_t file_size, void *archive,
 	}
 
 	// Create a list of node names separated by '/'
-	path_nodes_to_list(path);
+	status_t status = path_nodes_to_list(path);
+	if (status != KERNEL_OK)
+	{
+		free(new_node);
+		return status;
+	}
 
 	struct node *tmp_node, *iter_node;
 	struct path_node *path_node_iter;
@@ -437,13 +448,41 @@ tarfs_mount(const char *root_device, const char *mount_point,
 
 	tarfs_superblock->root = root_node;
 	*result_rootfs = tarfs_superblock;
+	mounted_superblock = tarfs_superblock;
 
 	return KERNEL_OK;
+}
+
+static void
+free_node_tree(struct node *node)
+{
+	if (!node)
+		return;
+
+	if (node->type == TMPFS_FOLDER)
+	{
+		struct node *child;
+		while (!LIST_EMPTY(&node->u.folder.nodes))
+		{
+			child = LIST_FIRST(&node->u.folder.nodes);
+			LIST_REMOVE(child, next);
+			free_node_tree(child);
+		}
+	}
+
+	free(node);
 }
 
 static status_t
 tarfs_umount(void)
 {
+	if (mounted_superblock)
+	{
+		free_node_tree(mounted_superblock->root);
+		free(mounted_superblock);
+		mounted_superblock = NULL;
+	}
+
 	return KERNEL_OK;
 }
 

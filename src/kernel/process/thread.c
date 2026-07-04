@@ -105,6 +105,23 @@ thread_create(const char *name,
 }
 
 void
+thread_destroy(thread_t *thread)
+{
+	uint32_t flags;
+
+	if (!thread || thread == g_current_thread)
+		return;
+
+	X86_IRQs_DISABLE(flags);
+	TAILQ_REMOVE(&kernel_threads, thread, next);
+	scheduler_remove_thread(thread);
+	X86_IRQs_ENABLE(flags);
+
+	free((void *)thread->stack_base_address);
+	free(thread);
+}
+
+void
 thread_exit(void)
 {
 	uint32_t flags;

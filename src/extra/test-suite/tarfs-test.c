@@ -242,12 +242,14 @@ mv_cp_internal(struct node *root, struct node *cwd,
 		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
 
 	// New node
-	struct node *new_node = malloc(sizeof(struct node));
-	if (!new_node)
-		return -KERNEL_NO_MEMORY;
+	struct node *new_node = NULL;
 
 	if (!is_mv)
 	{
+		new_node = malloc(sizeof(struct node));
+		if (!new_node)
+			return -KERNEL_NO_MEMORY;
+
 		memset(new_node, 0, sizeof(struct node));
 		new_node->type = src_node->type;
 
@@ -266,7 +268,10 @@ mv_cp_internal(struct node *root, struct node *cwd,
 	// Destination
 	folder_node = resolve_node_wrapper(dst_path, root, cwd);
 	if (!folder_node)
+	{
+		free(new_node);
 		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+	}
 
 	if (dst_node_name)
 	{
@@ -275,6 +280,7 @@ mv_cp_internal(struct node *root, struct node *cwd,
 		{
 			if (!strncmp(dst_node->name, dst_node_name, strnlen(dst_node_name, NODE_NAME_LENGTH)))
 			{
+				free(new_node);
 				return -KERNEL_FILE_ALREADY_EXISTS;
 			}
 		}

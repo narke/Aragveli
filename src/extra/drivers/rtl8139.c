@@ -97,7 +97,10 @@ handle_rx(void)
 		// Discard FCS
 		packet->length = rx_size - 4;
 		if (packet->length <= 0)
+		{
+			free(packet);
 			return;
+		}
 
 		if (offset + 4 + rx_size - 4 > RX_BUFFER_LENGTH)
 		{
@@ -290,6 +293,8 @@ rtl8139_setup(void)
 
 	if (!rtl8139_device.tx_buffer)
 	{
+		free(rtl8139_device.rx_buffer);
+		rtl8139_device.rx_buffer = NULL;
 		return;
 	}
 

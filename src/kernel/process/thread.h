@@ -56,5 +56,6 @@ thread_t *thread_create(const char *name,
 		void *start_arg,
 		uint8_t priority);
 void thread_exit(void);
+void thread_destroy(thread_t *thread);
 inline void thread_set_current(thread_t *current_thread);
 thread_t *thread_get_current(void);
