@@ -315,6 +315,7 @@ add_node(const char *path, uint8_t type, size_t file_size, void *archive,
 	if (type == TMPFS_FOLDER)
 	{
 		new_node->type = TMPFS_FOLDER;
+		LIST_INIT(&(new_node->u.folder.nodes));
 	}
 	else if (type == TMPFS_FILE)
 	{
@@ -338,30 +339,46 @@ add_node(const char *path, uint8_t type, size_t file_size, void *archive,
 
 	STAILQ_FOREACH(path_node_iter, &path_nodes, next)
 	{
-		if (LIST_EMPTY(&tmp_node->u.folder.nodes))
+		if (STAILQ_NEXT(path_node_iter, next) != NULL)
 		{
-			LIST_INSERT_HEAD(&(tmp_node->u.folder.nodes), new_node, next);
-		}
-		else
-		{
+			struct node *child = NULL;
 
 			LIST_FOREACH(iter_node, &tmp_node->u.folder.nodes, next)
 			{
 				if (strncmp(path_node_iter->name, iter_node->name,
-							strnlen(path_node_iter->name, NODE_NAME_LENGTH)+1) == 0)
+						strnlen(path_node_iter->name,
+							NODE_NAME_LENGTH)+1) == 0)
 				{
 					if (iter_node->type == TMPFS_FOLDER)
-					{
-						tmp_node = iter_node;
-						break;
-					}
-				}
-				else
-				{
-					LIST_INSERT_HEAD(&(tmp_node->u.folder.nodes), new_node, next);
+						child = iter_node;
+					break;
 				}
 			}
+
+			if (!child)
+			{
+				path_nodes_list_delete();
+				free(new_node);
+				return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+			}
+
+			tmp_node = child;
+			continue;
 		}
+
+		LIST_FOREACH(iter_node, &tmp_node->u.folder.nodes, next)
+		{
+			if (strncmp(path_node_iter->name, iter_node->name,
+					strnlen(path_node_iter->name,
+						NODE_NAME_LENGTH)+1) == 0)
+			{
+				path_nodes_list_delete();
+				free(new_node);
+				return KERNEL_OK;
+			}
+		}
+
+		LIST_INSERT_HEAD(&(tmp_node->u.folder.nodes), new_node, next);
 	}
 
 	path_nodes_list_delete();
