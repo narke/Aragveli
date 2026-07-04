@@ -13,6 +13,23 @@
 #include "stdbool.h"
 
 static void
+print_hex(unsigned long int number)
+{
+	char buffer[16];
+	int i = 0;
+
+	while (number != 0)
+	{
+		int n = number % 16;
+		buffer[i++] = (char)(n < 10 ? n + '0' : n + 87);
+		number /= 16;
+	}
+
+	for (i = i - 1; i >= 0; i--)
+		vbe_draw_character(buffer[i]);
+}
+
+static void
 __vprintf(const char *fmt, va_list args)
 {
 	bool format_modifiers = false;
@@ -130,32 +147,20 @@ __vprintf(const char *fmt, va_list args)
 			case 'p':
 				vbe_draw_character('0');
 				vbe_draw_character('x');
+				print_hex((unsigned long int)(uintptr_t)va_arg(args, void *));
+				format_modifiers = false;
+				break;
 
 			case 'x':
 				{
 					unsigned long int number;
-					char buffer[16];
 
 					if (prefix_long)
 						number = va_arg(args, unsigned long int);
 					else
 						number = va_arg(args, unsigned int);
 
-					int i = 0;
-					while (number != 0)
-					{
-						int n = number % 16;
-
-						if (n < 10)
-							buffer[i++] = (char)n + 48; // to ascii number from 0 to 9
-						else
-							buffer[i++] = (char)n + 87; // to lower hex ascii from 'a' to 'f'
-
-						number /= 16;
-					}
-
-					for (i = i - 1; i >= 0; i--)
-						vbe_draw_character(buffer[i]);
+					print_hex(number);
 				}
 				format_modifiers = false;
 				break;
