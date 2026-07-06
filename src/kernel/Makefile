@@ -52,7 +52,7 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 KERNEL          = aragveli.elf
 MULTIBOOT_IMAGE	= aragveli.iso
 
-all: kernel initrd cdrom
+all: cdrom
 
 kernel: $(KERNEL)
 
@@ -73,7 +73,7 @@ initrd:
 	tar cvf initrd.tar -C $(INITRD_PATH) initrd/
 	mv initrd.tar $(INITRD_DST)
 
-cdrom:
+cdrom: kernel initrd
 	$(generating) '$@'
 	mv $(KERNEL) $(BOOTLOADER_PATH)/iso/boot/
 	grub-mkrescue -o $(MULTIBOOT_IMAGE) $(BOOTLOADER_PATH)/iso/
