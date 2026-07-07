@@ -37,6 +37,7 @@
 
 extern void pit_interrupt();
 extern void spurious_interrupt_handler();
+extern void jump_to_user_mode();
 
 void
 interrupts_setup(void)
@@ -81,6 +82,14 @@ extra_kernel(uint32_t initrd_start, uint32_t initrd_end)
 
 	// RTL8139 network card
 	rtl8139_setup();
+}
+
+void
+test_user_function(void)
+{
+	kprintf("Hi user\n");
+	while (1);
+	return;
 }
 
 
@@ -156,5 +165,10 @@ aragveli_main(uint32_t magic, uint32_t address)
 	// SMP
 	//SmpInit();
 
-	extra_kernel(initrd_start, initrd_end);
+	uint32_t kernel_stack = frame_alloc();
+	set_kernel_stack(kernel_stack + 0x1000);
+
+	jump_to_user_mode();
+
+	//extra_kernel(initrd_start, initrd_end);
 }

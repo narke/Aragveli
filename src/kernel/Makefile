@@ -28,7 +28,7 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  arch/x86/lapic.o \
 	  arch/x86/paging-stubs.o \
 	  arch/x86/paging.o \
-	  arch/x86/smp.o \
+	  arch/x86/user-mode.o \
 	  lib/c/stdio.o \
 	  lib/c/string.o \
 	  memory/frame.o \
@@ -83,7 +83,7 @@ run:
 		-netdev user,id=net0 \
 		-device rtl8139,netdev=net0 \
 		-smp cores=4,threads=2 \
-		-cdrom $(MULTIBOOT_IMAGE)
+		-cdrom $(MULTIBOOT_IMAGE) -d int
 
 clean:
 	$(cleaning)

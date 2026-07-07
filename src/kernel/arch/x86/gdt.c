@@ -10,6 +10,7 @@
 #include <lib/c/stdbool.h>
 #include "gdt.h"
 #include "segment.h"
+#include <lib/c/stdio.h>
 
 // Describes a GDT entry
 struct x86_gdt_entry
@@ -64,15 +65,22 @@ struct x86_gdtr
 struct x86_tss
 {
 	uint16_t back_link;
+
 	uint16_t reserved1;
+
 	vaddr_t	 esp0;
 	uint16_t ss0;
+
 	uint16_t reserved2;
+
 	vaddr_t  esp1;
 	uint16_t ss1;
-	uint32_t reserved3;
+
+	uint16_t reserved3;
+
 	vaddr_t  esp2;
 	uint16_t ss2;
+
 	uint16_t reserved4;
 
 	vaddr_t cr3;
@@ -212,6 +220,7 @@ gdt_register_tss(vaddr_t tss_vadd)
 	};
 
 	uint16_t tss_register_value = X86_BUILD_SEGMENT_REGISTER_VALUE(0, false, TSS_SEGMENT);
+	kprintf("tr=%d", tss_register_value);
 
 	asm ("ltr %0"::"r"(tss_register_value));
 }
@@ -224,6 +233,12 @@ tss_setup(void)
 	kernel_tss.ss0 = X86_BUILD_SEGMENT_REGISTER_VALUE(0, false, KERNEL_DATA_SEGMENT);
 
 	gdt_register_tss((vaddr_t)&kernel_tss);
+}
+
+void
+set_kernel_stack(uint32_t stack)
+{
+	kernel_tss.esp0 = stack;
 }
 
 void
