@@ -79,7 +79,7 @@ x86_idt_setup(void)
 		idt_entry->storage_segment	= 0;
 
 		// This IDT entry is disabled by default.
-		x86_idt_set_handler(i, (uint32_t)NULL);
+		x86_idt_set_handler(i, (uint32_t)NULL, 0);
 	}
 
 	idtr.base_address = (uint32_t)idt_array;
@@ -90,7 +90,8 @@ x86_idt_setup(void)
 
 
 status_t
-x86_idt_set_handler(uint32_t index, uint32_t handler_address)
+x86_idt_set_handler(uint32_t index, uint32_t handler_address,
+		uint8_t dpl)
 {
 	if (index >= INTERRUPTS_MAX_LIMIT)
 		return -KERNEL_INVALID_VALUE;
@@ -102,7 +103,7 @@ x86_idt_set_handler(uint32_t index, uint32_t handler_address)
 		// Enabling IDT entry.
 		idt_entry->offset_low  = handler_address & 0xffff;
 		idt_entry->offset_high = (uint16_t)(handler_address >> 16) & 0xffff;
-		idt_entry->descriptor_privilege_level = 0;
+		idt_entry->descriptor_privilege_level = (uint8_t)(dpl & 0x3);
 		idt_entry->present     = 1;	// Yes, there is a handler.
 	}
 	else

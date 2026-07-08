@@ -29,6 +29,8 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  arch/x86/paging-stubs.o \
 	  arch/x86/paging.o \
 	  arch/x86/user-mode.o \
+	  arch/x86/syscall-entry.o \
+	  arch/x86/syscall.o \
 	  lib/c/stdio.o \
 	  lib/c/string.o \
 	  memory/frame.o \

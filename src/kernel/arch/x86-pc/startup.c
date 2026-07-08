@@ -13,6 +13,7 @@
 #include <arch/x86-pc/bootstrap/multiboot.h>
 #include <arch/x86/gdt.h>
 #include <arch/x86/idt.h>
+#include <arch/x86/syscall.h>
 #include <arch/x86/isr.h>
 #include <arch/x86/irq.h>
 #include <arch/x86/pic.h>
@@ -37,14 +38,14 @@
 
 extern void pit_interrupt();
 extern void spurious_interrupt_handler();
-extern void jump_to_user_mode();
+extern void jump_to_user_mode(uint32_t entry, uint32_t user_stack_top);
 
 void
 interrupts_setup(void)
 {
 	// Spurious interrupt
-	x86_idt_set_handler(TIMER_INTERRUPT, (uint32_t)pit_interrupt);
-	x86_idt_set_handler(SPURIOUS_INTERRUPT, (uint32_t)spurious_interrupt_handler);
+	x86_idt_set_handler(TIMER_INTERRUPT, (uint32_t)pit_interrupt, 0);
+	x86_idt_set_handler(SPURIOUS_INTERRUPT, (uint32_t)spurious_interrupt_handler, 0);
 
 	// Disable PIC to use Local APIC
 	x86_pic_disable();
@@ -84,12 +85,22 @@ extra_kernel(uint32_t initrd_start, uint32_t initrd_end)
 	rtl8139_setup();
 }
 
+static inline int
+syscall1(int number, uint32_t arg1)
+{
+	int ret;
+	asm volatile("int $0x80"
+			: "=a"(ret)
+			: "a"(number), "b"(arg1)
+			: "memory");
+	return ret;
+}
+
 void
 test_user_function(void)
 {
-	kprintf("Hi user\n");
-	while (1);
-	return;
+	syscall1(SYS_WRITE, (uint32_t)"Hi user\n");
+	syscall1(SYS_EXIT, 0);
 }
 
 
@@ -159,6 +170,9 @@ aragveli_main(uint32_t magic, uint32_t address)
 
 	kprintf("Aragveli\n");
 
+	// System calls
+	system_calls_setup();
+
 	// Enable interrupts
 	asm volatile("sti");
 
@@ -168,7 +182,9 @@ aragveli_main(uint32_t magic, uint32_t address)
 	uint32_t kernel_stack = frame_alloc();
 	set_kernel_stack(kernel_stack + 0x1000);
 
-	jump_to_user_mode();
+	// Run a function in user mode, then return here via the exit syscall
+	uint32_t user_stack = frame_alloc();
+	jump_to_user_mode((uint32_t)test_user_function, user_stack + 0x1000);
 
-	//extra_kernel(initrd_start, initrd_end);
+	extra_kernel(initrd_start, initrd_end);
 }

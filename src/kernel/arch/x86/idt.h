@@ -28,6 +28,8 @@ void x86_idt_setup(void);
  *
  * @param index 		Index in IDT
  * @param handler_address	The callback which will be called
+ * @param dpl			Descriptor Privilege Level (0..3) allowed to invoke it
  * @return KERNEL_OK on success or KERNEL_INVALID_VALUE on failure
  */
-status_t x86_idt_set_handler(uint32_t index, uint32_t handler_address);
+status_t x86_idt_set_handler(uint32_t index, uint32_t handler_address,
+		uint8_t dpl);
