@@ -31,10 +31,14 @@
 #include <drivers/vbe.h>
 #include <drivers/pci.h>
 #include <drivers/rtl8139.h>
+#include <process/elf_loader.h>
 #include <test-suite/tarfs-test.h>
 
 #define TIMER_INTERRUPT    0x20
 #define SPURIOUS_INTERRUPT 0xff
+
+
+struct superblock *root_fs;
 
 extern void pit_interrupt();
 extern void spurious_interrupt_handler();
@@ -71,7 +75,6 @@ extra_kernel(uint32_t initrd_start, uint32_t initrd_end)
 	status_t status = tarfs_init(initrd_start, initrd_end);
 	assert(status == KERNEL_OK);
 
-	struct superblock *root_fs;
 	status = vfs_init("initrd", "tarfs", "/", NULL, &root_fs);
 	assert(status == KERNEL_OK);
 
@@ -83,6 +86,8 @@ extra_kernel(uint32_t initrd_start, uint32_t initrd_end)
 
 	// RTL8139 network card
 	rtl8139_setup();
+
+	vbe_set_color(NORMAL_GREEN);
 }
 
 static inline int
@@ -182,9 +187,8 @@ aragveli_main(uint32_t magic, uint32_t address)
 	uint32_t kernel_stack = frame_alloc();
 	set_kernel_stack(kernel_stack + 0x1000);
 
-	// Run a function in user mode, then return here via the exit syscall
-	uint32_t user_stack = frame_alloc();
-	jump_to_user_mode((uint32_t)test_user_function, user_stack + 0x1000);
-
 	extra_kernel(initrd_start, initrd_end);
+
+	// ELF loading
+	elf_exec("/hello.elf", root_fs->root);
 }

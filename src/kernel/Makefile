@@ -43,6 +43,7 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  process/semaphore.o \
 	  process/mutex.o \
 	  process/sched_rr.o \
+	  process/elf_loader.o \
 	  ../extra/drivers/vbe.o \
 	  ../extra/drivers/pci.o \
 	  ../extra/drivers/rtl8139.o \
@@ -81,11 +82,11 @@ cdrom: kernel initrd
 	grub-mkrescue -o $(MULTIBOOT_IMAGE) $(BOOTLOADER_PATH)/iso/
 
 run:
-	qemu-system-i386 -m 8 -vga std \
+	qemu-system-i386 -m 256 -vga std \
 		-netdev user,id=net0 \
 		-device rtl8139,netdev=net0 \
 		-smp cores=4,threads=2 \
-		-cdrom $(MULTIBOOT_IMAGE) -d int
+		-cdrom $(MULTIBOOT_IMAGE)
 
 clean:
 	$(cleaning)

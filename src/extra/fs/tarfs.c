@@ -321,7 +321,7 @@ add_node(const char *path, uint8_t type, size_t file_size, void *archive,
 	{
 		new_node->type = TMPFS_FILE;
 		new_node->u.file.size = file_size;
-		new_node->u.file.data = archive - 512;
+		new_node->u.file.data = archive;
 	}
 
 	// Create a list of node names separated by '/'
@@ -417,15 +417,15 @@ untar(void *ramdisk_address, struct node *root_node)
 		{
 			file_size = (size_t)parseoct(buffer + 124, 12);
 
-			if (file_size < 512)
-				file_size = 512;
-
-			ramdisk_address += file_size;
+			size_t data_blocks = (file_size + 511) / 512;   /* ceil(file_size / 512) */
+			size_t padded_size = data_blocks * 512;
+			void *data_start = ramdisk_address;
+			ramdisk_address += padded_size;
 
 			char *normalized_path = strchr(buffer, '/');
 
 			status = add_node(normalized_path, TMPFS_FILE,
-					file_size, ramdisk_address, root_node);
+					file_size, data_start, root_node);
 			assert(status == KERNEL_OK);
 		}
 		else if (buffer[156] == '5')
