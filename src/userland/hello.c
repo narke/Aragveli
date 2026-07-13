@@ -1,5 +1,5 @@
-#include "libc/stdio.h"
-#include "libc/stdlib.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 void main(void)
 {

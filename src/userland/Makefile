@@ -13,7 +13,7 @@ hello.elf: $(OBJS) user.ld
 	cp hello.elf ../extra/initrd/
 
 hello.o: hello.c
-	$(CC) $(CFLAGS) hello.c -o hello.o
+	$(CC) $(CFLAGS) -Ilibc hello.c -o hello.o
 
 start.o: start.asm
 	$(NASM) -f elf32 start.asm -o start.o
