@@ -16,3 +16,5 @@ stack:
 	resb 4096
 global _stack_top
 _stack_top:
+
+section .note.GNU-stack noalloc noexec nowrite
