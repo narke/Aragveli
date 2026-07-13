@@ -10,7 +10,6 @@
 #include <lib/c/stdbool.h>
 #include "gdt.h"
 #include "segment.h"
-#include <lib/c/stdio.h>
 
 // Describes a GDT entry
 struct x86_gdt_entry
@@ -220,7 +219,6 @@ gdt_register_tss(vaddr_t tss_vadd)
 	};
 
 	uint16_t tss_register_value = X86_BUILD_SEGMENT_REGISTER_VALUE(0, false, TSS_SEGMENT);
-	kprintf("tr=%d", tss_register_value);
 
 	asm ("ltr %0"::"r"(tss_register_value));
 }
