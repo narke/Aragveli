@@ -6,6 +6,7 @@
  */
 
 #include <arch/x86-pc/bootstrap/multiboot.h>
+#include <arch/x86/paging.h>
 #include <lib/queue.h>
 #include <lib/types.h>
 #include <lib/c/string.h>
@@ -47,7 +48,7 @@ frame_setup(size_t ram_size,
 	ram_size = PAGE_ALIGN_DOWN(ram_size);
 
 	// Update the addresses managed by the physical memory allocator
-	*identity_mapping_start = PAGE_ALIGN_DOWN((paddr_t)(&__kernel_start));
+	*identity_mapping_start = PAGE_ALIGN_DOWN((paddr_t)VA2PA(&__kernel_start));
 	*identity_mapping_end = FRAMES_ARRAY_ADDRSS
 		+ PAGE_ALIGN_UP((ram_size >> PAGE_SHIFT) * sizeof(frame_t));
 
@@ -90,7 +91,7 @@ frame_setup(size_t ram_size,
 		else if ((frame_address >= (vbe_mode_info->framebuffer_addr
 				+ vbe_mode_info->pitch
 				* vbe_mode_info->y_res))
-			&& (frame_address < (paddr_t)&__kernel_start))
+			&& (frame_address < (paddr_t)VA2PA(&__kernel_start)))
 		{
 			action = FREE;
 		}
