@@ -23,6 +23,9 @@ VBE_WIDTH	equ 1024
 VBE_HEIGHT	equ 768
 VBE_DEPTH	equ 32
 
+KERNEL_VIRTUAL_BASE	equ 0xC0000000
+KERNEL_PDE		equ (KERNEL_VIRTUAL_BASE >> 22)	; 768 entries(3GB)
+
 
 ; The multiboot header must come first.
 section .multiboot
@@ -44,14 +47,42 @@ multiboot_header:
 	dd VBE_HEIGHT
 	dd VBE_DEPTH
 
-; The beginning of our kernel code
-section .text
+
+; Low / identity-mapped boot section (runs with paging OFF)
+section .boot
+align 4096
+global boot_page_directory
+boot_page_directory:
+	dd 0x00000083				; PDE 0:   identity map 0..4MiB (PS|RW|P)
+	times (KERNEL_PDE - 1) dd 0
+	dd 0x00000083				; PDE 768: 0xC0000000 -> phys 0 (4 MiB)
+	times (1024 - KERNEL_PDE - 1) dd 0
 
 global multiboot_entry
 multiboot_entry:
+	mov esi, eax				; multiboot magic
+	mov edi, ebx				; multiboot info
+
+	mov ecx, boot_page_directory		; physical address (linked low in .boot)
+	mov cr3, ecx
+
+	mov ecx, cr4
+	or  ecx, 0x00000010			; CR4.PSE (4 MiB pages)
+	mov cr4, ecx
+
+	mov ecx, cr0
+	or  ecx, 0x80000000
+	mov cr0, ecx
+
+	lea ecx, [higher_half]
+	jmp ecx
+
+; High / virtual code
+section .text
+higher_half:
 	mov esp, stack + STACK_SIZE	; set up the stack
-	mov [magic], ebx		; multiboot magic number
-	mov [multiboot_info], eax	; multiboot data structure
+	push edi			; multiboot data structure
+	push esi			; multiboot magic number
 
 	call aragveli_main		; calling the kernel
 
@@ -60,10 +91,8 @@ hang:
 	jmp hang
 
 
-section .bss nobits align=4
+section .bss nobits align=16
 ; Reserve initial kernel stack space
 stack:          resb STACK_SIZE ; reserve 16 KiB stack
-multiboot_info: resd 1          ; we will use this in kernel's main
-magic:          resd 1          ; we will use this in kernel's main
 
 section .note.GNU-stack noalloc noexec nowrite

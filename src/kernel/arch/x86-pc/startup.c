@@ -114,7 +114,6 @@ void
 aragveli_main(uint32_t magic, uint32_t address)
 {
 	status_t status;
-	multiboot_info_t *mbi = (multiboot_info_t *)address;
 
 	assert(magic == 0x2BADB002);
 
@@ -126,6 +125,11 @@ aragveli_main(uint32_t magic, uint32_t address)
 
 	// ISRs
 	x86_isr_setup();
+
+	// Paging
+	x86_paging_setup();
+
+	multiboot_info_t *mbi = (multiboot_info_t *)address;
 
 	// VBE
 	struct vbe_mode_info *vbe_mode_info =
@@ -161,9 +165,6 @@ aragveli_main(uint32_t magic, uint32_t address)
 			framebuffer_start,
 			framebuffer_end);
 
-	// Paging
-	x86_paging_setup();
-
 	// TSS
 	tss_setup();
 
@@ -190,5 +191,5 @@ aragveli_main(uint32_t magic, uint32_t address)
 	extra_kernel(initrd_start, initrd_end);
 
 	// ELF loading
-	elf_exec("/hello.elf", root_fs->root);
+	//elf_exec("/hello.elf", root_fs->root);
 }
