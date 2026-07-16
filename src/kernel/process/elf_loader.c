@@ -11,6 +11,7 @@
 #include <lib/c/stdlib.h>
 #include <lib/status.h>
 #include <memory/frame.h>
+#include <arch/x86/paging.h>
 
 
 #include "elf_loader.h"
@@ -107,7 +108,7 @@ elf_check_supported(Elf32_Ehdr *hdr)
 }
 
 static void *
-elf_load_exec(Elf32_Ehdr *hdr, size_t size)
+elf_load_exec(Elf32_Ehdr *hdr, size_t size, uint32_t pd_physical)
 {
     Elf32_Phdr *ph = (Elf32_Phdr *)((uint8_t *)hdr + hdr->e_phoff);
 
@@ -119,20 +120,51 @@ elf_load_exec(Elf32_Ehdr *hdr, size_t size)
         if (ph[i].p_offset + ph[i].p_filesz > size)
             return NULL;
 
-        uint8_t *dest = (uint8_t *)(uintptr_t)ph[i].p_vaddr;
+	uint32_t start = PAGE_ALIGN_DOWN(ph[i].p_vaddr);
+	uint32_t end   = PAGE_ALIGN_UP(ph[i].p_vaddr + ph[i].p_memsz);
 
-        if (ph[i].p_filesz)
-            memcpy(dest, (uint8_t *)hdr + ph[i].p_offset, ph[i].p_filesz);
+	for (uint32_t page = start; page < end; page += PAGE_SIZE)
+	{
+		if (page_lookup(pd_physical, page))
+		{
+			continue;
+		}
 
-        if (ph[i].p_memsz > ph[i].p_filesz)
-            memset(dest + ph[i].p_filesz, 0, ph[i].p_memsz - ph[i].p_filesz);
+		uint32_t frame = frame_alloc();
+
+		if (!frame)
+		{
+			return NULL;
+		}
+
+		memset(PA2VA(frame), 0, PAGE_SIZE);
+		page_map_user(pd_physical, page, frame, PAGE_RW);
+	}
+
+	uint8_t *src = (uint8_t *)hdr + ph[i].p_offset;
+
+        for (uint32_t offset = 0; offset < ph[i].p_filesz; )
+        {
+            uint32_t va    = ph[i].p_vaddr + offset;
+            uint32_t frame = page_lookup(pd_physical, va);
+            uint32_t poff  = va & PAGE_MASK;
+            uint32_t n     = PAGE_SIZE - poff;
+
+            if (n > ph[i].p_filesz - offset)
+	    {
+		    n = ph[i].p_filesz - offset;
+	    }
+
+            memcpy((uint8_t *)PA2VA(frame) + poff, src + offset, n);
+            offset += n;
+        }
     }
 
     return (void *)(uintptr_t)hdr->e_entry;
 }
 
 void *
-elf_load_file(void *file, size_t size)
+elf_load_file(void *file, size_t size, uint32_t pd)
 {
 	Elf32_Ehdr *hdr = (Elf32_Ehdr *)file;
 
@@ -145,7 +177,7 @@ elf_load_file(void *file, size_t size)
 	switch (hdr->e_type)
 	{
 		case ET_EXEC:
-			return elf_load_exec(hdr, size);
+			return elf_load_exec(hdr, size, pd);
 		case ET_REL:
 			return NULL;
 	}
@@ -156,19 +188,48 @@ elf_load_file(void *file, size_t size)
 status_t
 elf_exec(const char *path, struct node *root)
 {
-    struct node *file = resolve_node(path, root);
+	struct node *file = resolve_node(path, root);
 
-    if (!file || file->type != TMPFS_FILE)
-        return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+	if (!file || file->type != TMPFS_FILE)
+	{
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+	}
 
-    void *entry = elf_load_file(file->u.file.data, file->u.file.size);
+	uint32_t pd = page_directory_create();
 
-    if (!entry)
-        return -KERNEL_INVALID_VALUE;
+	if (!pd)
+	{
+		return -KERNEL_NO_MEMORY;
+	}
 
-    uint32_t user_stack = frame_alloc();
-    jump_to_user_mode((uint32_t)entry, user_stack + 0x1000);
+	void *entry = elf_load_file(file->u.file.data, file->u.file.size, pd);
 
-    return KERNEL_OK;
+	if (!entry)
+	{
+		page_directory_destroy(pd);
+		return -KERNEL_INVALID_VALUE;
+	}
+
+	uint32_t stack_frame = frame_alloc();
+
+	if (!stack_frame)
+	{
+		page_directory_destroy(pd);
+		return -KERNEL_NO_MEMORY;
+	}
+
+	uint32_t stack_va = 0xBFFFF000;
+	page_map_user(pd, stack_va, stack_frame, PAGE_RW);
+
+	uint32_t kernel_pd = page_directory_kernel();
+
+	page_directory_switch(pd);
+	jump_to_user_mode((uint32_t)entry, stack_va + PAGE_SIZE);
+
+	page_directory_switch(kernel_pd);
+
+	page_directory_destroy(pd);
+
+	return KERNEL_OK;
 }
 

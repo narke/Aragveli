@@ -34,7 +34,6 @@ sys_exit(struct syscall_frame *frame)
 static uint32_t
 sys_write(struct syscall_frame *frame)
 {
-	// Memory is identity-mapped, so the user pointer is directly usable.
 	const char *message = (const char *)frame->ebx;
 
 	kprintf("%s", message);

@@ -42,7 +42,6 @@ struct superblock *root_fs;
 
 extern void pit_interrupt();
 extern void spurious_interrupt_handler();
-extern void jump_to_user_mode(uint32_t entry, uint32_t user_stack_top);
 
 void
 interrupts_setup(void)
@@ -186,10 +185,10 @@ aragveli_main(uint32_t magic, uint32_t address)
 	//SmpInit();
 
 	uint32_t kernel_stack = frame_alloc();
-	set_kernel_stack(kernel_stack + 0x1000);
+	set_kernel_stack((uint32_t)PA2VA(kernel_stack) + PAGE_SIZE);
 
 	extra_kernel(initrd_start, initrd_end);
 
 	// ELF loading
-	//elf_exec("/hello.elf", root_fs->root);
+	elf_exec("/hello.elf", root_fs->root);
 }

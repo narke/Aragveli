@@ -67,5 +67,5 @@ enum Elf_Type {
 
 bool elf_check_file(Elf32_Ehdr *hdr);
 bool elf_check_supported(Elf32_Ehdr *hdr);
-void *elf_load_file(void *file, size_t size);
+void *elf_load_file(void *file, size_t size, uint32_t pd);
 status_t elf_exec(const char *path, struct node *root);
