@@ -51,6 +51,8 @@ frame_setup(size_t ram_size,
 	*identity_mapping_start = PAGE_ALIGN_DOWN((paddr_t)VA2PA(&__kernel_start));
 	*identity_mapping_end = FRAMES_ARRAY_ADDRSS
 		+ PAGE_ALIGN_UP((ram_size >> PAGE_SHIFT) * sizeof(frame_t));
+	/* One extra page for heap allocation-record metadata. */
+	*identity_mapping_end = PAGE_ALIGN_UP(*identity_mapping_end) + PAGE_SIZE;
 
 	// Is there enough memory to fit the kernel?
 	if (*identity_mapping_end > ram_size)
@@ -127,6 +129,19 @@ frame_setup(size_t ram_size,
 	return KERNEL_OK;
 }
 
+static frame_t *
+frame_at_address(paddr_t frame_address)
+{
+	if (frame_address & PAGE_MASK)
+		return NULL;
+
+	if ((frame_address < physical_memory_start)
+		|| (frame_address >= physical_memory_end))
+		return NULL;
+
+	return frames_array + (frame_address >> PAGE_SHIFT);
+}
+
 paddr_t
 frame_alloc(void)
 {
@@ -147,17 +162,46 @@ frame_alloc(void)
 	return frame->address;
 }
 
-inline static frame_t *
-frame_at_address(paddr_t frame_address)
+paddr_t
+frame_alloc_contiguous(size_t nb_pages)
 {
-	if (frame_address & PAGE_MASK)
-		return NULL;
+	paddr_t candidate;
+	size_t i;
 
-	if ((frame_address < physical_memory_start)
-		|| (frame_address >= physical_memory_end))
-		return NULL;
+	if (nb_pages == 0)
+		return (paddr_t)NULL;
 
-	return frames_array + (frame_address >> PAGE_SHIFT);
+	if (nb_pages == 1)
+		return frame_alloc();
+
+	for (candidate = physical_memory_start;
+		candidate + nb_pages * PAGE_SIZE <= physical_memory_end;
+		candidate += PAGE_SIZE)
+	{
+		for (i = 0; i < nb_pages; i++)
+		{
+			frame_t *frame = frame_at_address(candidate + i * PAGE_SIZE);
+
+			if (!frame || frame->ref_count != 0)
+				break;
+		}
+
+		if (i < nb_pages)
+			continue;
+
+		for (i = 0; i < nb_pages; i++)
+		{
+			frame_t *frame = frame_at_address(candidate + i * PAGE_SIZE);
+
+			SLIST_REMOVE(&free_frames, frame, frame, next);
+			frame->ref_count = 1;
+			SLIST_INSERT_HEAD(&used_frames, frame, next);
+		}
+
+		return candidate;
+	}
+
+	return (paddr_t)NULL;
 }
 
 status_t
@@ -180,4 +224,11 @@ frame_free(paddr_t frame_address)
 	}
 
 	return status;
+}
+
+void
+frame_free_contiguous(paddr_t base, size_t nb_pages)
+{
+	for (size_t i = 0; i < nb_pages; i++)
+		frame_free(base + i * PAGE_SIZE);
 }

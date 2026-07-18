@@ -13,5 +13,6 @@
 void scheduler_setup(void);
 void scheduler_insert_thread(thread_t * t);
 void scheduler_remove_thread(thread_t *t);
-thread_t *scheduler_elect_new_current_thread(void);
+void scheduler_start(void) __attribute__((noreturn));
 void schedule(void);
+void scheduler_switch_to_next(thread_t *dying) __attribute__((noreturn));

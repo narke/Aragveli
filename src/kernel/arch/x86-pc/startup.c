@@ -26,6 +26,7 @@
 #include <memory/heap.h>
 #include <arch/x86/paging.h>
 #include <process/thread.h>
+#include <process/process.h>
 #include <process/scheduler.h>
 #include <fs/tarfs.h>
 #include <drivers/vbe.h>
@@ -178,9 +179,6 @@ aragveli_main(uint32_t magic, uint32_t address)
 	// System calls
 	system_calls_setup();
 
-	// Enable interrupts
-	asm volatile("sti");
-
 	// SMP
 	//SmpInit();
 
@@ -189,6 +187,7 @@ aragveli_main(uint32_t magic, uint32_t address)
 
 	extra_kernel(initrd_start, initrd_end);
 
-	// ELF loading
-	elf_exec("/hello.elf", root_fs->root);
+	/* ELF loading (IRQs stay off until the first scheduled thread irets) */
+	process_create_from_elf("/hello.elf", root_fs->root);
+	scheduler_start();
 }

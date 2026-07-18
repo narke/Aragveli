@@ -91,6 +91,9 @@
 // Destination Field
 #define ICR_DESTINATION_SHIFT           24
 
+uint8_t *g_localApicAddr;
+uint32_t g_activeCpuCount;
+
 // ------------------------------------------------------------------------------------------------
 static uint32_t LocalApicIn(uint32_t reg)
 {

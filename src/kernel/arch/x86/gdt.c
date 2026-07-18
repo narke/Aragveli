@@ -177,7 +177,7 @@ static struct x86_gdt_entry gdt[] = {
 		.base_paged_address_31_24	= 0
 	},
 	[USER_DATA_SEGMENT] = (struct x86_gdt_entry){
-		.segment_limit_15_0		= 0x67,	// Intel x86 manual vol 3 section 6.2.2
+		.segment_limit_15_0		= 0xffff,
 		.base_paged_address_15_0	= 0,
 		.base_paged_address_23_16	= 0,
 		.segment_type			= 0x3,	// Data segment
@@ -208,13 +208,13 @@ gdt_register_tss(vaddr_t tss_vadd)
 		.base_paged_address_23_16	= (tss_vadd >> 16) & 0xff,
 		.segment_type			= 0x9,
 		.descriptor_type		= 0,
-		.descriptor_privilege_level	= 3,
+		.descriptor_privilege_level	= 0,
 		.segment_present		= 1,
 		.segment_limit_19_16		= 0,
 		.available			= 0,
 		.zero				= 0,
 		.operand_size			= 0,
-		.granularity			= 1,
+		.granularity			= 0,	/* byte limit: sizeof(TSS)-1 */
 		.base_paged_address_31_24	= (uint8_t)((tss_vadd >> 24) & 0xff)
 	};
 

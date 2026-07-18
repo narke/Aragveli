@@ -10,18 +10,98 @@
 #include <lib/c/stdlib.h>
 #include <lib/status.h>
 #include <arch/x86/irq.h>
+#include <arch/x86/paging.h>
+#include <arch/x86/gdt.h>
 #include "thread.h"
 #include "scheduler.h"
+#include "process.h"
 
-TAILQ_HEAD(, thread) kernel_threads;
+extern void enter_user_mode(uint32_t, uint32_t);
+
+static TAILQ_HEAD(, thread) zombie_threads;
 
 static volatile thread_t *g_current_thread = NULL;
 
 static void
-idle_thread()
+thread_reap(void)
 {
-	while (1)
-		asm("hlt\n");
+	uint32_t flags;
+	thread_t *z;
+
+	X86_IRQs_DISABLE(flags);
+
+	while ((z = TAILQ_FIRST(&zombie_threads)) != NULL)
+	{
+		TAILQ_REMOVE(&zombie_threads, z, zombie);
+		free((void *)z->stack_base_address);
+		free(z);
+	}
+
+	X86_IRQs_ENABLE(flags);
+}
+
+static void
+idle_thread(uint32_t arg)
+{
+	(void)arg;
+
+	for (;;)
+	{
+		thread_reap();
+		asm volatile("sti; hlt" ::: "memory");
+	}
+}
+
+static void
+user_thread_entry(uint32_t arg)
+{
+	process_t *p = (process_t *)arg;
+
+	page_directory_switch(p->page_directory);
+	set_kernel_stack(p->thread->kernel_stack_top);
+	enter_user_mode(p->entry, p->user_stack_top);
+}
+
+static thread_t *
+thread_alloc(const char *name,
+		kernel_thread_start_routine_t start_func,
+		void *start_arg)
+{
+	thread_t *new_thread;
+
+	if (!start_func)
+		return NULL;
+
+	new_thread = malloc(sizeof(thread_t));
+
+	if (!new_thread)
+		return NULL;
+
+	memset(new_thread, 0, sizeof(*new_thread));
+	strzcpy(new_thread->name, ((name)?name:"[NONAME]"), THREAD_MAX_NAMELEN);
+
+	new_thread->stack_base_address	= (uint32_t)malloc(THREAD_KERNEL_STACK_SIZE);
+	new_thread->stack_size		= THREAD_KERNEL_STACK_SIZE;
+
+	if (!new_thread->stack_base_address)
+	{
+		free(new_thread);
+		return NULL;
+	}
+
+	/* Needed before the first switch_to(): TSS.esp0 must be valid. */
+	new_thread->kernel_stack_top =
+		new_thread->stack_base_address + new_thread->stack_size;
+
+	cpu_kstate_init(&new_thread->cpu_state,
+			(cpu_kstate_function_arg1_t *)start_func,
+			(uint32_t)start_arg,
+			new_thread->stack_base_address,
+			new_thread->stack_size,
+			(cpu_kstate_function_arg1_t *)thread_exit,
+			(uint32_t)NULL);
+
+	return new_thread;
 }
 
 inline void
@@ -43,82 +123,46 @@ thread_get_current(void)
 void
 threading_setup(void)
 {
-	TAILQ_INIT(&kernel_threads);
+	TAILQ_INIT(&zombie_threads);
 
-	thread_t *idle = thread_create("idle", idle_thread, NULL, 0);
+	thread_t *idle = thread_kernel_create("idle", idle_thread, NULL);
 	assert(idle != NULL);
 
 	thread_set_current(idle);
 }
 
 thread_t *
-thread_create(const char *name,
+thread_kernel_create(const char *name,
 		kernel_thread_start_routine_t start_func,
-		void *start_arg,
-		uint8_t priority)
+		void *start_arg)
 {
-	uint32_t flags;
-	thread_t *new_thread;
-
-	if (!start_func)
-		return NULL;
-
-	// Allocate a new thread structure for the current running thread
-	new_thread = malloc(sizeof(thread_t));
+	thread_t *new_thread = thread_alloc(name, start_func, start_arg);
 
 	if (!new_thread)
 		return NULL;
 
-	// Initialize the thread attributes
-	strzcpy(new_thread->name, ((name)?name:"[NONAME]"), THREAD_MAX_NAMELEN);
-	new_thread->state = THREAD_CREATED;
-
-	// Allocate the stack for the new thread
-	new_thread->stack_base_address	= (uint32_t)malloc(THREAD_KERNEL_STACK_SIZE);
-	new_thread->stack_size		= THREAD_KERNEL_STACK_SIZE;
-	new_thread->priority		= priority;
-
-	if (!new_thread->stack_base_address)
-	{
-		free(new_thread);
-		return NULL;
-	}
-
-	// Initialize the CPU context of the new thread
-	cpu_kstate_init(&new_thread->cpu_state,
-			(cpu_kstate_function_arg1_t *)start_func,
-			(uint32_t)start_arg,
-			new_thread->stack_base_address,
-			new_thread->stack_size,
-			(cpu_kstate_function_arg1_t *)thread_exit,
-			(uint32_t)NULL);
-
-	// Add the thread in the global list
-	X86_IRQs_DISABLE(flags);
-	TAILQ_INSERT_TAIL(&kernel_threads, new_thread, next);
-	X86_IRQs_ENABLE(flags);
-
-	// Mark the thread as ready
 	scheduler_insert_thread(new_thread);
 
 	return new_thread;
 }
 
-void
-thread_destroy(thread_t *thread)
+thread_t *
+thread_user_create(const char *name, struct process *process)
 {
-	uint32_t flags;
+	thread_t *t;
 
-	if (!thread || thread == g_current_thread)
-		return;
+	if (!process)
+		return NULL;
 
-	X86_IRQs_DISABLE(flags);
-	TAILQ_REMOVE(&kernel_threads, thread, next);
-	scheduler_remove_thread(thread);
-	X86_IRQs_ENABLE(flags);
+	t = thread_alloc(name, user_thread_entry, process);
+	if (!t)
+		return NULL;
 
-	free((void *)thread->stack_base_address);
-	free(thread);
+	t->process = process;
+	process->thread = t;
+	scheduler_insert_thread(t);
+
+	return t;
 }
 
 void
@@ -128,17 +172,13 @@ thread_exit(void)
 
 	X86_IRQs_DISABLE(flags);
 
-	TAILQ_REMOVE(&kernel_threads, g_current_thread, next);
+	thread_t *self = (thread_t *)g_current_thread;
 
-	scheduler_remove_thread((thread_t *)g_current_thread);
-	free((void *)g_current_thread->stack_base_address);
-	memset((void *)g_current_thread, 0, sizeof(thread_t));
-	free((void *)g_current_thread);
+	scheduler_remove_thread(self);
 
-	thread_t *new_current_thread = scheduler_elect_new_current_thread();
-	thread_set_current(new_current_thread);
+	self->state = THREAD_ZOMBIE;
+	TAILQ_INSERT_TAIL(&zombie_threads, self, zombie);
 
-	X86_IRQs_ENABLE(flags);
-
-	schedule();
+	/* Never returns: switches to the next ready thread. */
+	scheduler_switch_to_next(self);
 }

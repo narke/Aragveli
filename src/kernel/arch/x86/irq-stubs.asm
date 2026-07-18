@@ -18,7 +18,9 @@ section .text
 [extern g_localApicAddr]
 [global pit_interrupt]
 [global spurious_interrupt_handler]
+[extern timer_interrupt_handler]
 
+; Same packed layout of cpu_state, other irq wrappers (o16)
 %macro SAVE_REGISTERS 0
 	push edi
 	push esi
@@ -27,19 +29,19 @@ section .text
 	push ebx
 	push eax
 	sub  esp, 2
-	push word ss
-	push word ds
-	push word es
-	push word fs
-	push word gs
+	o16 push word ss
+	o16 push word ds
+	o16 push word es
+	o16 push word fs
+	o16 push word gs
 %endmacro
 
 %macro RESTORE_REGISTERS 0
-	pop word  gs
-	pop word  fs
-	pop word  es
-	pop word  ds
-	pop word  ss
+	o16 pop word  gs
+	o16 pop word  fs
+	o16 pop word  es
+	o16 pop word  ds
+	o16 pop word  ss
 	add esp, 2
 	pop eax
 	pop ebx
@@ -134,20 +136,26 @@ X86_IRQ_WRAPPER_SLAVE  15
 
 ; PIT interrupt
 pit_interrupt:
-	push eax
-	push edi
-
-	mov eax, dword [g_pit_ticks]
-	inc eax
-	mov dword [g_pit_ticks], eax
+	; Fake error code + frame, matching the IRQ wrappers
+	push 0
+	push ebp
+	mov  ebp, esp
+	SAVE_REGISTERS
 
 	mov edi, [g_localApicAddr]
 	add edi, 0xb0 ; Write to the register with offset 0xB0...
 	xor eax, eax  ; ...using the value 0 to signal an end of interrupt.
 	stosd
 
-	pop eax
-	pop edi
+	; Call the C handler (argument is unused)
+	push 0
+	call timer_interrupt_handler
+	add  esp, 4
+
+	RESTORE_REGISTERS
+
+	; Remove fake error code
+	add  esp, 4
 	iret
 
 ; Spurious interrupt

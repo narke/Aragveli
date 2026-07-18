@@ -150,14 +150,12 @@ page_directory_destroy(uint32_t pd_physical)
 			{
 				frame_free(pt[j] & PAGE_FRAME_MASK);
 			}
-
 		}
 
 		frame_free(pt_physical);
 	}
 
 	frame_free(pd_physical);
-
 }
 
 uint32_t
@@ -171,6 +169,11 @@ page_lookup(uint32_t pd_physical, uint32_t vaddr)
 	if (!(pd[pde_i] & PAGE_PRESENT))
 	{
 		return 0;                       /* not mapped */
+	}
+
+	if (pd[pde_i] & PAGE_PS)
+	{
+		return (pd[pde_i] & PAGE_FRAME_MASK) + (vaddr & 0x3FFFFF);
 	}
 
 	uint32_t *pt = (uint32_t *)PA2VA(pd[pde_i] & PAGE_FRAME_MASK);

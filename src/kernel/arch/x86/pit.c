@@ -71,7 +71,7 @@ x86_pit_set_frequency(uint32_t frequency)
 	return KERNEL_OK;
 }
 
-/*void
+void
 timer_interrupt_handler(int number)
 {
 	static int seconds = 0;
@@ -90,7 +90,7 @@ timer_interrupt_handler(int number)
 	X86_IRQs_DISABLE(flags);
 	schedule();
 	X86_IRQs_ENABLE(flags);
-}*/
+}
 
 void
 PitWait(uint32_t ms)

@@ -34,4 +34,6 @@ status_t frame_setup(size_t ram_size,
 		paddr_t initrd_end);
 
 paddr_t frame_alloc(void);
+paddr_t frame_alloc_contiguous(size_t nb_pages);
 status_t frame_free(paddr_t frame_address);
+void frame_free_contiguous(paddr_t base, size_t nb_pages);

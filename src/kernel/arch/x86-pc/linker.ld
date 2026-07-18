@@ -3,9 +3,6 @@ KERNEL_VIRTUAL_BASE = 0xC0000000;
 
 SECTIONS
 {
-	g_localApicAddr = 0x00006000;
-	g_activeCpuCount = 0x00006004;
-
 	/* Load the kernel at 0x00100000.
 	 * A multi-boot compatible kernel cannot be loaded before the 1MB mark,
 	 * it must be loaded at or above 1MB. */

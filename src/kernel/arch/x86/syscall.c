@@ -8,13 +8,12 @@
 #include <lib/c/stdio.h>
 #include <lib/c/string.h>
 #include <lib/status.h>
+#include <process/process.h>
 #include "idt.h"
+#include "paging.h"
 #include "syscall.h"
 
 #define SYSCALL_INTERRUPT 0x80
-
-// Defined in user-mode.asm: restores the kernel context and never returns.
-extern void back_to_kernel(void);
 
 // A system call handler receives the saved user frame and returns a value
 // that is written back into the user's eax.
@@ -23,12 +22,16 @@ typedef uint32_t (*syscall_t)(struct syscall_frame *frame);
 static uint32_t
 sys_exit(struct syscall_frame *frame)
 {
+	process_t *p = thread_get_current()->process;
 	(void)frame;
+	p->state = PROC_ZOMBIE;
 
-	// Hand control back to the kernel; this does not return.
-	back_to_kernel();
+	page_directory_switch(page_directory_kernel());
+	page_directory_destroy(p->page_directory);
+	p->page_directory = 0;
 
-	return 0;
+	thread_exit();
+	return 0;	/* not reached */
 }
 
 static uint32_t

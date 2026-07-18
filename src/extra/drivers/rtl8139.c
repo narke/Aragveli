@@ -11,6 +11,7 @@
 #include <lib/c/stdio.h>
 #include <lib/c/stdbool.h>
 #include <arch/x86/irq.h>
+#include <arch/x86/paging.h>
 #include <drivers/vbe.h>
 #include "rtl8139.h"
 #include "pci.h"
@@ -282,7 +283,7 @@ rtl8139_setup(void)
 	}
 
 	memset(rtl8139_device.rx_buffer, 0x0, RX_BUFFER_LENGTH);
-	out32(rtl8139_device.io_base + RX_BUF, (uintptr_t)rtl8139_device.rx_buffer);
+	out32(rtl8139_device.io_base + RX_BUF, VA2PA(rtl8139_device.rx_buffer));
 	out32(rtl8139_device.io_base + RX_BUF_PTR, 0);
 	out32(rtl8139_device.io_base + RX_BUF_ADDR, 0);
 
@@ -301,7 +302,7 @@ rtl8139_setup(void)
 	for (uint16_t i = 0; i < NB_TX_DESCRIPTORS; i++)
 	{
 		out32((uint16_t)(rtl8139_device.io_base + TX_ADDRESS + (i * 4)),
-				(uint32_t)(rtl8139_device.tx_buffer + (TX_BUFFER_SIZE * i)));
+				VA2PA(rtl8139_device.tx_buffer + (TX_BUFFER_SIZE * i)));
 	}
 
 	// 6. Set IMR + ISR, enable some interrupts

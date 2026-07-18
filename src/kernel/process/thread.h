@@ -16,7 +16,7 @@
 /*
  * The size of the stack of a kernel thread
  */
-#define THREAD_KERNEL_STACK_SIZE PAGE_SIZE
+#define THREAD_KERNEL_STACK_SIZE (4 * PAGE_SIZE)
 
 #define THREAD_MAX_NAMELEN 32
 
@@ -25,8 +25,8 @@
  */
 typedef enum
 {
-	THREAD_CREATED,
-	THREAD_READY,
+	/* 0 = new thread after memset, not yet on the ready queue */
+	THREAD_READY = 1,
 	THREAD_RUNNING,
 	THREAD_BLOCKED,
 	THREAD_ZOMBIE,
@@ -45,17 +45,19 @@ typedef struct thread
 	char		name[THREAD_MAX_NAMELEN];
 	thread_state	state;
 	struct cpu_state *cpu_state;
-	uint8_t		priority;
-	TAILQ_ENTRY(thread) next;
+	struct process  *process;
+	uint32_t        kernel_stack_top;
+	TAILQ_ENTRY(thread) next;		/* mutex/sem waitqueue */
+	TAILQ_ENTRY(thread) sched_next;		/* ready queue */
+	TAILQ_ENTRY(thread) zombie;
 } thread_t;
 
 
 void threading_setup(void);
-thread_t *thread_create(const char *name,
+thread_t *thread_kernel_create(const char *name,
 		kernel_thread_start_routine_t start_func,
-		void *start_arg,
-		uint8_t priority);
-void thread_exit(void);
-void thread_destroy(thread_t *thread);
+		void *start_arg);
+thread_t *thread_user_create(const char *name, struct process *process);
+void thread_exit(void) __attribute__((noreturn));
 inline void thread_set_current(thread_t *current_thread);
 thread_t *thread_get_current(void);
