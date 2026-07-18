@@ -9,6 +9,7 @@
 #include <lib/c/string.h>
 #include <lib/status.h>
 #include <process/process.h>
+#include <process/thread.h>
 #include "idt.h"
 #include "paging.h"
 #include "syscall.h"
@@ -23,12 +24,18 @@ static uint32_t
 sys_exit(struct syscall_frame *frame)
 {
 	process_t *p = thread_get_current()->process;
-	(void)frame;
+
+	p->exit_status = (int)frame->ebx;
 	p->state = PROC_ZOMBIE;
 
 	page_directory_switch(page_directory_kernel());
-	page_directory_destroy(p->page_directory);
-	p->page_directory = 0;
+	if (p->page_directory)
+	{
+		page_directory_destroy(p->page_directory);
+		p->page_directory = 0;
+	}
+
+	process_wake_waiters(p->parent);
 
 	thread_exit();
 	return 0;	/* not reached */
@@ -44,9 +51,28 @@ sys_write(struct syscall_frame *frame)
 	return 0;
 }
 
+static uint32_t
+sys_wait(struct syscall_frame *frame)
+{
+	process_t *p = thread_get_current()->process;
+	int status = 0;
+	int pid;
+
+	if (!p)
+		return (uint32_t)-1;
+
+	pid = process_wait(p, &status);
+
+	if (pid >= 0 && frame->ebx != 0)
+		*(int *)frame->ebx = status;
+
+	return (uint32_t)pid;
+}
+
 static syscall_t syscall_table[] = {
 	[SYS_EXIT]  = sys_exit,
 	[SYS_WRITE] = sys_write,
+	[SYS_WAIT]  = sys_wait,
 };
 
 #define SYSCALL_COUNT (sizeof(syscall_table) / sizeof(syscall_table[0]))

@@ -47,7 +47,8 @@ scheduler_remove_thread(thread_t *t)
 static void
 switch_to(thread_t *next_thread, struct cpu_state **save_to)
 {
-	uint32_t next_pd = next_thread->process
+	uint32_t next_pd = (next_thread->process
+			&& next_thread->process->page_directory)
 		? next_thread->process->page_directory
 		: page_directory_kernel();
 
@@ -100,7 +101,9 @@ schedule(void)
 	// Avoid context switch if the context does not change
 	if (current_thread != next_thread)
 	{
-		current_thread->state = THREAD_READY;
+		/* Preserve THREAD_BLOCKED (wait/sem); only demote a running thread. */
+		if (current_thread->state == THREAD_RUNNING)
+			current_thread->state = THREAD_READY;
 		switch_to(next_thread, &current_thread->cpu_state);
 
 		assert(current_thread == thread_get_current());

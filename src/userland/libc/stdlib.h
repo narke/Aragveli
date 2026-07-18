@@ -8,3 +8,4 @@
 #pragma once
 
 void exit(int status);
+int wait(int *status);

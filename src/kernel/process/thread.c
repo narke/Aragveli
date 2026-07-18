@@ -174,6 +174,12 @@ thread_exit(void)
 
 	thread_t *self = (thread_t *)g_current_thread;
 
+	if (self->process)
+	{
+		self->process->thread = NULL;
+		self->process = NULL;
+	}
+
 	scheduler_remove_thread(self);
 
 	self->state = THREAD_ZOMBIE;
