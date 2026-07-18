@@ -9,6 +9,7 @@
 
 #define SYS_EXIT 0
 #define SYS_WAIT 2
+#define SYS_EXEC 3
 
 void
 exit(int status)
@@ -27,4 +28,16 @@ wait(int *status)
 		: "a"(SYS_WAIT), "b"(status)
 		: "memory");
 	return pid;
+}
+
+int
+exec(const char *path, char *const argv[])
+{
+	int ret;
+
+	asm volatile("int $0x80"
+		: "=a"(ret)
+		: "a"(SYS_EXEC), "b"(path), "c"(argv)
+		: "memory");
+	return ret;
 }

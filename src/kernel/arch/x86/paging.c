@@ -124,7 +124,7 @@ page_directory_switch(uint32_t pd_physical)
 }
 
 void
-page_directory_destroy(uint32_t pd_physical)
+page_directory_clear_user(uint32_t pd_physical)
 {
 	if (!pd_physical)
 	{
@@ -153,8 +153,19 @@ page_directory_destroy(uint32_t pd_physical)
 		}
 
 		frame_free(pt_physical);
+		pd[i] = 0;
+	}
+}
+
+void
+page_directory_destroy(uint32_t pd_physical)
+{
+	if (!pd_physical)
+	{
+		return;
 	}
 
+	page_directory_clear_user(pd_physical);
 	frame_free(pd_physical);
 }
 

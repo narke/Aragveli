@@ -13,6 +13,7 @@
 #define SYS_EXIT	0
 #define SYS_WRITE	1
 #define SYS_WAIT	2
+#define SYS_EXEC	3
 
 /**
  * Register state as saved by syscall_stub (see syscall-entry.asm).
