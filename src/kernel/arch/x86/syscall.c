@@ -12,6 +12,7 @@
 #include <memory/frame.h>
 #include <process/process.h>
 #include <process/thread.h>
+#include <drivers/vbe.h>
 #include "idt.h"
 #include "paging.h"
 #include "syscall.h"
@@ -21,6 +22,7 @@
 #define EXEC_PATH_MAX	256
 #define EXEC_ARG_MAX	32
 #define EXEC_ARG_LEN	256
+#define WRITE_MAX	4096
 
 extern struct superblock *root_fs;
 
@@ -98,11 +100,35 @@ sys_exit(struct syscall_frame *frame)
 static uint32_t
 sys_write(struct syscall_frame *frame)
 {
-	const char *message = (const char *)frame->ebx;
+	process_t *p = thread_get_current()->process;
+	int fd = (int)frame->ebx;
+	uint32_t buf = frame->ecx;
+	uint32_t len = frame->edx;
+	uint32_t i;
 
-	kprintf("%s", message);
+	if (!p)
+		return (uint32_t)-1;
 
-	return 0;
+	if (fd < 0 || fd >= PROC_NFDS || p->fds[fd] != FD_CONSOLE)
+		return (uint32_t)-1;
+
+	if (len == 0)
+		return 0;
+
+	if (!buf || len > WRITE_MAX)
+		return (uint32_t)-1;
+
+	for (i = 0; i < len; i++)
+	{
+		uint8_t c;
+
+		if (copy_user_byte(p->page_directory, buf + i, &c) != 0)
+			return (uint32_t)-1;
+
+		vbe_draw_character((char)c);
+	}
+
+	return len;
 }
 
 static uint32_t

@@ -8,6 +8,10 @@
 
 typedef enum { PROC_LIVE, PROC_ZOMBIE } proc_state;
 
+#define PROC_NFDS	8
+#define FD_NONE		0
+#define FD_CONSOLE	1
+
 typedef struct process {
 	int		pid;
 	int		ppid;
@@ -21,6 +25,7 @@ typedef struct process {
 	LIST_HEAD(, process) children;
 	LIST_ENTRY(process) sibling;	/* on parent's children */
 	TAILQ_HEAD(, thread) waiters;	/* parents blocked in wait */
+	uint8_t		fds[PROC_NFDS];
 } process_t;
 
 void process_init(void);

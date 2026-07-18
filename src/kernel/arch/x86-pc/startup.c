@@ -90,25 +90,6 @@ extra_kernel(uint32_t initrd_start, uint32_t initrd_end)
 	vbe_set_color(NORMAL_GREEN);
 }
 
-static inline int
-syscall1(int number, uint32_t arg1)
-{
-	int ret;
-	asm volatile("int $0x80"
-			: "=a"(ret)
-			: "a"(number), "b"(arg1)
-			: "memory");
-	return ret;
-}
-
-void
-test_user_function(void)
-{
-	syscall1(SYS_WRITE, (uint32_t)"Hi user\n");
-	syscall1(SYS_EXIT, 0);
-}
-
-
 // The kernel entry point. All starts from here!
 void
 aragveli_main(uint32_t magic, uint32_t address)

@@ -13,13 +13,10 @@
 static int
 write(int fd, const void *buf, size_t len)
 {
-	(void)fd;
-	(void)len;
-
 	int ret;
 	asm volatile("int $0x80"
 			: "=a"(ret)
-			: "a"(SYS_WRITE), "b"(buf)
+			: "a"(SYS_WRITE), "b"(fd), "c"(buf), "d"(len)
 			: "memory");
 	return ret;
 }

@@ -299,6 +299,9 @@ process_create_from_elf(const char *path, struct node *root)
 	p->page_directory = pd;
 	p->entry          = entry;
 	p->user_stack_top = esp;
+	p->fds[0]         = FD_CONSOLE;
+	p->fds[1]         = FD_CONSOLE;
+	p->fds[2]         = FD_CONSOLE;
 	LIST_INIT(&p->children);
 	TAILQ_INIT(&p->waiters);
 
