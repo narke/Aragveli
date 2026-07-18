@@ -13,6 +13,7 @@
 #include <process/process.h>
 #include <process/thread.h>
 #include <drivers/vbe.h>
+#include <drivers/ps2_keyboard.h>
 #include "idt.h"
 #include "paging.h"
 #include "syscall.h"
@@ -23,6 +24,7 @@
 #define EXEC_ARG_MAX	32
 #define EXEC_ARG_LEN	256
 #define WRITE_MAX	4096
+#define READ_MAX	4096
 
 extern struct superblock *root_fs;
 
@@ -43,6 +45,22 @@ copy_user_byte(uint32_t pd, uint32_t uaddr, uint8_t *out)
 		return -1;
 
 	*out = *((uint8_t *)PA2VA(frame) + (uaddr & PAGE_MASK));
+	return 0;
+}
+
+static int
+write_user_byte(uint32_t pd, uint32_t uaddr, uint8_t value)
+{
+	uint32_t frame;
+
+	if (uaddr >= KERNEL_VIRTUAL_BASE)
+		return -1;
+
+	frame = page_lookup(pd, uaddr);
+	if (!frame)
+		return -1;
+
+	*((uint8_t *)PA2VA(frame) + (uaddr & PAGE_MASK)) = value;
 	return 0;
 }
 
@@ -132,6 +150,39 @@ sys_write(struct syscall_frame *frame)
 }
 
 static uint32_t
+sys_read(struct syscall_frame *frame)
+{
+	process_t *p = thread_get_current()->process;
+	int fd = (int)frame->ebx;
+	uint32_t buf = frame->ecx;
+	uint32_t len = frame->edx;
+	uint32_t i;
+
+	if (!p)
+		return (uint32_t)-1;
+
+	if (fd < 0 || fd >= PROC_NFDS || p->fds[fd] != FD_CONSOLE)
+		return (uint32_t)-1;
+
+	if (len == 0)
+		return 0;
+
+	if (!buf || len > READ_MAX)
+		return (uint32_t)-1;
+
+	for (i = 0; i < len; i++)
+	{
+		uint8_t c;
+
+		keyboard_read(&c, 1);
+		if (write_user_byte(p->page_directory, buf + i, c) != 0)
+			return (uint32_t)-1;
+	}
+
+	return len;
+}
+
+static uint32_t
 sys_wait(struct syscall_frame *frame)
 {
 	process_t *p = thread_get_current()->process;
@@ -213,6 +264,7 @@ static syscall_t syscall_table[] = {
 	[SYS_WRITE] = sys_write,
 	[SYS_WAIT]  = sys_wait,
 	[SYS_EXEC]  = sys_exec,
+	[SYS_READ]  = sys_read,
 };
 
 #define SYSCALL_COUNT (sizeof(syscall_table) / sizeof(syscall_table[0]))

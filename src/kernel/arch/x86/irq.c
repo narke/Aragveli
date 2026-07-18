@@ -9,7 +9,6 @@
 #include <lib/status.h>
 
 #include "idt.h"
-#include "pic.h"
 #include "irq.h"
 
 #define X86_IRQ_NUM	16
@@ -34,7 +33,7 @@ x86_irq_set_routine(uint32_t irq_level, x86_irq_handler_t routine)
 	/* Set the irq routine to be called by the IRQ wrapper */
 	x86_irq_handler_array[irq_level] = routine;
 
-	/* If the irq is to be enabled, update the IDT with the IRQ  wrapper */
+	/* Wire (or clear) the IDT entry. PIC stays masked; IOAPIC enables IRQs. */
 	if (routine != NULL)
 	{
 		ret = x86_idt_set_handler(X86_IRQ_BASE + irq_level,
@@ -44,17 +43,11 @@ x86_irq_set_routine(uint32_t irq_level, x86_irq_handler_t routine)
 		if (ret != KERNEL_OK)
 			x86_irq_handler_array[irq_level] = NULL;
 	}
-	else /* Disable this idt entry */
+	else
 	{
 		ret = x86_idt_set_handler(X86_IRQ_BASE + irq_level,
 				(uint32_t)NULL /* Disable IDTE */, 0);
 	}
-
-	/* Update the PIC only if an IRQ handler has been set */
-	if (x86_irq_handler_array[irq_level] != NULL)
-		x86_pic_enable_irq_line(irq_level);
-	else
-		x86_pic_disable_irq_line(irq_level);
 
 	X86_IRQs_ENABLE(flags);
 

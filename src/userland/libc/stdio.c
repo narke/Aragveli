@@ -9,6 +9,7 @@
 #include "string.h"
 
 #define SYS_WRITE 1
+#define SYS_READ  4
 
 static int
 write(int fd, const void *buf, size_t len)
@@ -17,6 +18,17 @@ write(int fd, const void *buf, size_t len)
 	asm volatile("int $0x80"
 			: "=a"(ret)
 			: "a"(SYS_WRITE), "b"(fd), "c"(buf), "d"(len)
+			: "memory");
+	return ret;
+}
+
+int
+read(int fd, void *buf, size_t len)
+{
+	int ret;
+	asm volatile("int $0x80"
+			: "=a"(ret)
+			: "a"(SYS_READ), "b"(fd), "c"(buf), "d"(len)
 			: "memory");
 	return ret;
 }

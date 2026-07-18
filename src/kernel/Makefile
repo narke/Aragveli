@@ -48,6 +48,7 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  ../extra/drivers/vbe.o \
 	  ../extra/drivers/pci.o \
 	  ../extra/drivers/rtl8139.o \
+	  ../extra/drivers/ps2_keyboard.o \
 	  ../extra/fs/vfs.o \
 	  ../extra/fs/tarfs.o \
 	  ../extra/test-suite/tarfs-test.o \

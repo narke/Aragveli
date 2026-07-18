@@ -32,6 +32,7 @@
 #include <drivers/vbe.h>
 #include <drivers/pci.h>
 #include <drivers/rtl8139.h>
+#include <drivers/ps2_keyboard.h>
 #include <process/elf_loader.h>
 #include <test-suite/tarfs-test.h>
 
@@ -86,6 +87,9 @@ extra_kernel(uint32_t initrd_start, uint32_t initrd_end)
 
 	// RTL8139 network card
 	rtl8139_setup();
+
+	// PS/2 keyboard
+	keyboard_setup();
 
 	vbe_set_color(NORMAL_GREEN);
 }

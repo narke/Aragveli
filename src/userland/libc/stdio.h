@@ -15,3 +15,4 @@ typedef uint32_t size_t;
 
 int printf(const char *, ...);
 int vsnprintf(char *, size_t, const char *, va_list);
+int read(int fd, void *buf, size_t len);

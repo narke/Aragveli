@@ -72,9 +72,11 @@ section .text
 		call [edi+4*%1]
 		add  esp, 4
 
-		; Send EOI to PIC. See Intel 8259 datasheet
-		mov al, 0x20
-		out byte 0x20, al
+		; LAPIC EOI (PIC is masked; IRQs arrive via IOAPIC)
+		mov edi, [g_localApicAddr]
+		add edi, 0xb0
+		xor eax, eax
+		stosd
 
 		RESTORE_REGISTERS
 
@@ -104,10 +106,11 @@ section .text
 		call [edi+4*%1]
 		add  esp, 4
 
-		; Send EOI to PIC. See Intel 8259 datasheet
-		mov byte  al, 0x20
-		out byte 0xa0, al
-		out byte 0x20, al
+		; LAPIC EOI (PIC is masked; IRQs arrive via IOAPIC)
+		mov edi, [g_localApicAddr]
+		add edi, 0xb0
+		xor eax, eax
+		stosd
 
 		RESTORE_REGISTERS
 
