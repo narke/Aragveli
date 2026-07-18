@@ -63,7 +63,12 @@ frame_setup(size_t ram_size,
 	physical_memory_start = PAGE_SIZE;
 	physical_memory_end   = ram_size;
 
-	frames_array = (frame_t *)FRAMES_ARRAY_ADDRSS;
+	/*
+	 * Access the allocator metadata through the higher-half mapping so
+	 * frame_alloc works after CR3 switches to a process page directory
+	 * (process PDs do not keep the low identity map).
+	 */
+	frames_array = (frame_t *)PA2VA(FRAMES_ARRAY_ADDRSS);
 
 	enum {RESERVED, HARDWARE, FREE, KERNEL} action;
 

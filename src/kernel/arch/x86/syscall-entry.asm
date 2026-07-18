@@ -9,6 +9,7 @@ section .text
 
 [extern syscall_dispatch]
 [global syscall_stub]
+[global syscall_fork_return]
 
 ; Entered from ring 3 via `int 0x80`. The CPU has already switched to the
 ; kernel stack (TSS.esp0) and pushed the interrupt frame. We save the user
@@ -33,6 +34,19 @@ syscall_stub:
 	call syscall_dispatch
 	add esp, 4
 
+	pop gs
+	pop fs
+	pop es
+	pop ds
+	popa
+	iret
+
+; void syscall_fork_return(struct syscall_frame *frame)
+; Child's first schedule lands here via forkret: switch to the copied
+; syscall frame and iret back to userland with eax = 0.
+syscall_fork_return:
+	cli
+	mov esp, [esp+4]
 	pop gs
 	pop fs
 	pop es

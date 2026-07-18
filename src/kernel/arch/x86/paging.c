@@ -79,6 +79,72 @@ page_directory_kernel(void)
 	return VA2PA((uint32_t)page_directory);
 }
 
+uint32_t
+page_directory_clone(uint32_t src_pd)
+{
+	uint32_t dst_pd;
+	uint32_t *src;
+	uint32_t i;
+	uint32_t j;
+
+	if (!src_pd)
+		return 0;
+
+	dst_pd = page_directory_create();
+	if (!dst_pd)
+		return 0;
+
+	src = (uint32_t *)PA2VA(src_pd);
+
+	for (i = 0; i < KERNEL_PDE_START; i++)
+	{
+		uint32_t *pt;
+
+		if (!(src[i] & PAGE_PRESENT))
+			continue;
+
+		/* User mappings are 4KiB pages, not PSE. */
+		if (src[i] & PAGE_PS)
+			goto fail;
+
+		pt = (uint32_t *)PA2VA(src[i] & PAGE_FRAME_MASK);
+
+		for (j = 0; j < 1024; j++)
+		{
+			uint32_t pte = pt[j];
+			uint32_t src_frame;
+			uint32_t dst_frame;
+			uint32_t vaddr;
+			uint32_t flags;
+
+			if (!(pte & PAGE_PRESENT))
+				continue;
+
+			src_frame = pte & PAGE_FRAME_MASK;
+			dst_frame = frame_alloc();
+			if (!dst_frame)
+				goto fail;
+
+			memcpy(PA2VA(dst_frame), PA2VA(src_frame), PAGE_SIZE);
+
+			vaddr = (i << 22) | (j << 12);
+			flags = (pte & PAGE_RW) ? PAGE_RW : 0;
+
+			if (page_map_user(dst_pd, vaddr, dst_frame, flags) != KERNEL_OK)
+			{
+				frame_free(dst_frame);
+				goto fail;
+			}
+		}
+	}
+
+	return dst_pd;
+
+fail:
+	page_directory_destroy(dst_pd);
+	return 0;
+}
+
 status_t
 page_map_user(uint32_t pd_physical, uint32_t vaddr, uint32_t paddr, uint32_t flags)
 {

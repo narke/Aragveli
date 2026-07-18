@@ -106,6 +106,19 @@ copy_user_u32(uint32_t pd, uint32_t uaddr, uint32_t *out)
 	return 0;
 }
 
+static int
+write_user_u32(uint32_t pd, uint32_t uaddr, uint32_t value)
+{
+	for (size_t i = 0; i < sizeof(uint32_t); i++)
+	{
+		if (write_user_byte(pd, uaddr + i,
+				    (uint8_t)(value >> (i * 8))) != 0)
+			return -1;
+	}
+
+	return 0;
+}
+
 static uint32_t
 sys_exit(struct syscall_frame *frame)
 {
@@ -194,8 +207,10 @@ sys_wait(struct syscall_frame *frame)
 
 	pid = process_wait(p, &status);
 
-	if (pid >= 0 && frame->ebx != 0)
-		*(int *)frame->ebx = status;
+	if (pid >= 0 && frame->ebx != 0
+	    && write_user_u32(p->page_directory, frame->ebx,
+			      (uint32_t)status) != 0)
+		return (uint32_t)-1;
 
 	return (uint32_t)pid;
 }
@@ -259,12 +274,24 @@ sys_exec(struct syscall_frame *frame)
 	return 0;
 }
 
+static uint32_t
+sys_fork(struct syscall_frame *frame)
+{
+	process_t *p = thread_get_current()->process;
+
+	if (!p)
+		return (uint32_t)-1;
+
+	return (uint32_t)process_fork(p, frame);
+}
+
 static syscall_t syscall_table[] = {
 	[SYS_EXIT]  = sys_exit,
 	[SYS_WRITE] = sys_write,
 	[SYS_WAIT]  = sys_wait,
 	[SYS_EXEC]  = sys_exec,
 	[SYS_READ]  = sys_read,
+	[SYS_FORK]  = sys_fork,
 };
 
 #define SYSCALL_COUNT (sizeof(syscall_table) / sizeof(syscall_table[0]))

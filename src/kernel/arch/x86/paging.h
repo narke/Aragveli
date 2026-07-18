@@ -15,6 +15,7 @@
 
 void x86_paging_setup(void);
 uint32_t page_directory_create(void);
+uint32_t page_directory_clone(uint32_t src_pd);
 status_t page_map_user(uint32_t pd_phys, uint32_t vaddr, uint32_t paddr, uint32_t flags);
 void page_directory_switch(uint32_t pd_phys);
 void page_directory_clear_user(uint32_t pd_phys);

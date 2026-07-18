@@ -10,3 +10,4 @@
 void exit(int status);
 int wait(int *status);
 int exec(const char *path, char *const argv[]);
+int fork(void);

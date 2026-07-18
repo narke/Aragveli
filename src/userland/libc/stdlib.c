@@ -10,6 +10,7 @@
 #define SYS_EXIT 0
 #define SYS_WAIT 2
 #define SYS_EXEC 3
+#define SYS_FORK 5
 
 void
 exit(int status)
@@ -40,4 +41,16 @@ exec(const char *path, char *const argv[])
 		: "a"(SYS_EXEC), "b"(path), "c"(argv)
 		: "memory");
 	return ret;
+}
+
+int
+fork(void)
+{
+	int pid;
+
+	asm volatile("int $0x80"
+		: "=a"(pid)
+		: "a"(SYS_FORK)
+		: "memory");
+	return pid;
 }

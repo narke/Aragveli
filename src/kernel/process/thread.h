@@ -53,11 +53,15 @@ typedef struct thread
 } thread_t;
 
 
+struct syscall_frame;
+
 void threading_setup(void);
 thread_t *thread_kernel_create(const char *name,
 		kernel_thread_start_routine_t start_func,
 		void *start_arg);
 thread_t *thread_user_create(const char *name, struct process *process);
+thread_t *thread_fork_create(const char *name, struct process *process,
+			     struct syscall_frame *parent_frame);
 void thread_exit(void) __attribute__((noreturn));
 inline void thread_set_current(thread_t *current_thread);
 thread_t *thread_get_current(void);

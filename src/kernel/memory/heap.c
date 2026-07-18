@@ -66,8 +66,11 @@ heap_setup(size_t ram_size,
 	SLIST_INIT(&used_ranges);
 	SLIST_INIT(&metadata_pool);
 
-	/* Last page of the kernel-reserved identity region (see frame_setup). */
-	metadata_end = PAGE_ALIGN_UP(identity_mapping_end);
+	/*
+	 * Metadata lives in the kernel-reserved physical region (see frame_setup).
+	 * Use the higher-half mapping so malloc works under a process CR3.
+	 */
+	metadata_end = (vaddr_t)PA2VA(PAGE_ALIGN_UP(identity_mapping_end));
 	metadata_heap = metadata_end - PAGE_SIZE;
 }
 

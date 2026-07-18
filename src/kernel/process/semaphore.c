@@ -63,7 +63,9 @@ semaphore_down(semaphore_t *semaphore)
 	else
 	{
 		thread_t *current_thread = thread_get_current();
+
 		current_thread->state = THREAD_BLOCKED;
+		scheduler_remove_thread(current_thread);
 		TAILQ_INSERT_TAIL(&semaphore->waitqueue, current_thread, next);
 		schedule();
 	}

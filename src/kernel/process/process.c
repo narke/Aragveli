@@ -3,6 +3,7 @@
 #include <lib/c/assert.h>
 #include <lib/status.h>
 #include <arch/x86/paging.h>
+#include <arch/x86/syscall.h>
 #include <memory/frame.h>
 
 #include "process.h"
@@ -248,6 +249,55 @@ process_exec_elf(process_t *p, const char *path, char *const argv[],
 	p->entry = entry;
 	p->user_stack_top = esp;
 	return 0;
+}
+
+int
+process_fork(process_t *parent, struct syscall_frame *frame)
+{
+	uint32_t pd;
+	process_t *child;
+	thread_t *t;
+	int pid;
+
+	if (!parent || !frame || !parent->page_directory)
+		return -1;
+
+	pd = page_directory_clone(parent->page_directory);
+	if (!pd)
+		return -1;
+
+	child = malloc(sizeof(process_t));
+	if (!child)
+	{
+		page_directory_destroy(pd);
+		return -1;
+	}
+
+	memset(child, 0, sizeof(*child));
+
+	pid = g_next_pid++;
+	child->pid = pid;
+	child->ppid = parent->pid;
+	child->parent = parent;
+	child->state = PROC_LIVE;
+	child->exit_status = 0;
+	child->page_directory = pd;
+	memcpy(child->fds, parent->fds, sizeof(child->fds));
+	LIST_INIT(&child->children);
+	TAILQ_INIT(&child->waiters);
+
+	LIST_INSERT_HEAD(&parent->children, child, sibling);
+
+	t = thread_fork_create("fork", child, frame);
+	if (!t)
+	{
+		LIST_REMOVE(child, sibling);
+		page_directory_destroy(pd);
+		free(child);
+		return -1;
+	}
+
+	return pid;
 }
 
 process_t *

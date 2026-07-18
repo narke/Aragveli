@@ -15,6 +15,7 @@
 #define SYS_WAIT	2
 #define SYS_EXEC	3
 #define SYS_READ	4
+#define SYS_FORK	5
 
 /**
  * Register state as saved by syscall_stub (see syscall-entry.asm).
@@ -34,3 +35,6 @@ void system_calls_setup(void);
 
 // C-level system call dispatcher, called by syscall_stub.
 void syscall_dispatch(struct syscall_frame *frame);
+
+// Child resume after fork: load frame as stack and iret to user (noreturn).
+void syscall_fork_return(struct syscall_frame *frame) __attribute__((noreturn));

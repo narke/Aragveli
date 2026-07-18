@@ -12,6 +12,7 @@
 #include <arch/x86/irq.h>
 #include <arch/x86/paging.h>
 #include <arch/x86/gdt.h>
+#include <arch/x86/syscall.h>
 #include "thread.h"
 #include "scheduler.h"
 #include "process.h"
@@ -63,6 +64,32 @@ user_thread_entry(uint32_t arg)
 }
 
 static thread_t *
+thread_alloc_stack(const char *name)
+{
+	thread_t *t;
+
+	t = malloc(sizeof(thread_t));
+	if (!t)
+		return NULL;
+
+	memset(t, 0, sizeof(*t));
+	strzcpy(t->name, ((name) ? name : "[NONAME]"), THREAD_MAX_NAMELEN);
+
+	t->stack_base_address = (uint32_t)malloc(THREAD_KERNEL_STACK_SIZE);
+	t->stack_size = THREAD_KERNEL_STACK_SIZE;
+
+	if (!t->stack_base_address)
+	{
+		free(t);
+		return NULL;
+	}
+
+	/* Needed before the first switch_to(): TSS.esp0 must be valid. */
+	t->kernel_stack_top = t->stack_base_address + t->stack_size;
+	return t;
+}
+
+static thread_t *
 thread_alloc(const char *name,
 		kernel_thread_start_routine_t start_func,
 		void *start_arg)
@@ -72,26 +99,9 @@ thread_alloc(const char *name,
 	if (!start_func)
 		return NULL;
 
-	new_thread = malloc(sizeof(thread_t));
-
+	new_thread = thread_alloc_stack(name);
 	if (!new_thread)
 		return NULL;
-
-	memset(new_thread, 0, sizeof(*new_thread));
-	strzcpy(new_thread->name, ((name)?name:"[NONAME]"), THREAD_MAX_NAMELEN);
-
-	new_thread->stack_base_address	= (uint32_t)malloc(THREAD_KERNEL_STACK_SIZE);
-	new_thread->stack_size		= THREAD_KERNEL_STACK_SIZE;
-
-	if (!new_thread->stack_base_address)
-	{
-		free(new_thread);
-		return NULL;
-	}
-
-	/* Needed before the first switch_to(): TSS.esp0 must be valid. */
-	new_thread->kernel_stack_top =
-		new_thread->stack_base_address + new_thread->stack_size;
 
 	cpu_kstate_init(&new_thread->cpu_state,
 			(cpu_kstate_function_arg1_t *)start_func,
@@ -116,7 +126,13 @@ thread_set_current(thread_t *current_thread)
 thread_t *
 thread_get_current(void)
 {
-	assert(g_current_thread->state == THREAD_RUNNING);
+	/*
+	 * BLOCKED is allowed: wait/sem set that state before schedule(),
+	 * which still needs to identify the outgoing thread.
+	 */
+	assert(g_current_thread != NULL);
+	assert(g_current_thread->state == THREAD_RUNNING
+	    || g_current_thread->state == THREAD_BLOCKED);
 	return (thread_t *)g_current_thread;
 }
 
@@ -157,6 +173,47 @@ thread_user_create(const char *name, struct process *process)
 	t = thread_alloc(name, user_thread_entry, process);
 	if (!t)
 		return NULL;
+
+	t->process = process;
+	process->thread = t;
+	scheduler_insert_thread(t);
+
+	return t;
+}
+
+static void
+forkret(uint32_t frame_addr)
+{
+	syscall_fork_return((struct syscall_frame *)frame_addr);
+}
+
+thread_t *
+thread_fork_create(const char *name, struct process *process,
+		   struct syscall_frame *parent_frame)
+{
+	thread_t *t;
+	struct syscall_frame *cframe;
+
+	if (!process || !parent_frame)
+		return NULL;
+
+	t = thread_alloc_stack(name ? name : "[fork]");
+	if (!t)
+		return NULL;
+
+	/* Frame at stack top; kstate uses the remainder below it. */
+	cframe = (struct syscall_frame *)(t->kernel_stack_top
+					  - sizeof(struct syscall_frame));
+	memcpy(cframe, parent_frame, sizeof(*cframe));
+	cframe->eax = 0;
+
+	cpu_kstate_init(&t->cpu_state,
+			(cpu_kstate_function_arg1_t *)forkret,
+			(uint32_t)cframe,
+			t->stack_base_address,
+			t->stack_size - sizeof(struct syscall_frame),
+			(cpu_kstate_function_arg1_t *)thread_exit,
+			(uint32_t)NULL);
 
 	t->process = process;
 	process->thread = t;
