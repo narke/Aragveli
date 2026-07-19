@@ -60,7 +60,11 @@ vbe_scroll_up(void)
 	size_t row_bytes = (size_t)screen_width * sizeof(uint32_t);
 
 	for (row = 0; row < screen_height - LINE_HEIGHT; row++)
-		memcpy(dst + row * screen_width, src + row * screen_width, row_bytes);
+	{
+		if (memcpy_s(dst + row * screen_width, row_bytes,
+				src + row * screen_width, row_bytes) == NULL)
+			return;
+	}
 
 	for (row = screen_height - LINE_HEIGHT; row < screen_height; row++)
 		for (col = 0; col < screen_width; col++)

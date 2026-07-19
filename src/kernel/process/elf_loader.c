@@ -155,7 +155,10 @@ elf_load_exec(Elf32_Ehdr *hdr, size_t size, uint32_t pd_physical)
 		    n = ph[i].p_filesz - offset;
 	    }
 
-            memcpy((uint8_t *)PA2VA(frame) + poff, src + offset, n);
+            if (memcpy_s((uint8_t *)PA2VA(frame) + poff, PAGE_SIZE - poff,
+			    src + offset, n) == NULL)
+		    return NULL;
+
             offset += n;
         }
     }
