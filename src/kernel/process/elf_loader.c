@@ -29,7 +29,7 @@ typedef struct {
     Elf32_Word p_align;
 } Elf32_Phdr;
 
-extern void jump_to_user_mode(uint32_t entry, uint32_t user_stack_top);
+extern void enter_user_mode(uint32_t entry, uint32_t user_stack_top);
 
 bool
 elf_check_file(Elf32_Ehdr *hdr)
@@ -221,15 +221,10 @@ elf_exec(const char *path, struct node *root)
 	uint32_t stack_va = 0xBFFFF000;
 	page_map_user(pd, stack_va, stack_frame, PAGE_RW);
 
-	uint32_t kernel_pd = page_directory_kernel();
-
 	page_directory_switch(pd);
-	jump_to_user_mode((uint32_t)entry, stack_va + PAGE_SIZE);
+	enter_user_mode((uint32_t)entry, stack_va + PAGE_SIZE);
 
-	page_directory_switch(kernel_pd);
-
-	page_directory_destroy(pd);
-
+	/* not reached */
 	return KERNEL_OK;
 }
 
