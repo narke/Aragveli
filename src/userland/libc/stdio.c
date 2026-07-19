@@ -15,35 +15,31 @@
 #define READ_MAX 4096
 
 static int
-write(int fd, const void *buffer, size_t len)
+write(int fd, const void *buf, size_t len)
 {
 	int ret;
 	asm volatile("int $0x80"
 			: "=a"(ret)
-			: "a"(SYS_WRITE), "b"(fd), "c"(buffer), "d"(len)
+			: "a"(SYS_WRITE), "b"(fd), "c"(buf), "d"(len)
 			: "memory");
 	return ret;
 }
 
 int
-read(int fd, void *buffer, size_t buffer_size)
+read(int fd, void *buf, size_t len)
 {
 	int ret;
 
-	if (buffer_size == 0)
+	if (len == 0)
 		return 0;
 
-	if (fd < 0 || !buffer || buffer_size > READ_MAX)
+	if (fd < 0 || !buf || len > READ_MAX)
 		return -1;
 
 	asm volatile("int $0x80"
 			: "=a"(ret)
-			: "a"(SYS_READ), "b"(fd), "c"(buffer), "d"(buffer_size)
+			: "a"(SYS_READ), "b"(fd), "c"(buf), "d"(len)
 			: "memory");
-
-	if (ret < 0 || (size_t)ret > buffer_size)
-		return -1;
-
 	return ret;
 }
 
@@ -136,7 +132,7 @@ vprintf_helper(fmt_buffer_t *out, const char *fmt, va_list args)
 				{
 					long integer = va_arg(args, long);
 					int i = 0;
-					char buffer[32];
+					char buf[32];
 
 					if (integer < 0)
 					{
@@ -147,20 +143,20 @@ vprintf_helper(fmt_buffer_t *out, const char *fmt, va_list args)
 					{
 						int digit = integer % 10;
 						digit = (digit < 0) ? -digit : digit;
-						buffer[i++] = (char)('0' + digit);
+						buf[i++] = (char)('0' + digit);
 						integer /= 10;
 					} while (integer != 0);
 
 					for (i = i - 1; i >= 0; i--)
 					{
-						fmt_putc(out, buffer[i]);
+						fmt_putc(out, buf[i]);
 					}
 				}
 				else
 				{
 					int integer = va_arg(args, int);
 					int i = 0;
-					char buffer[16];
+					char buf[16];
 
 					if (integer < 0)
 					{
@@ -171,13 +167,13 @@ vprintf_helper(fmt_buffer_t *out, const char *fmt, va_list args)
 					{
 						int digit = integer % 10;
 						digit = (digit < 0) ? -digit : digit;
-						buffer[i++] = (char)('0' + digit);
+						buf[i++] = (char)('0' + digit);
 						integer /= 10;
 					} while (integer != 0);
 
 					for (i = i - 1; i >= 0; i--)
 					{
-						fmt_putc(out, buffer[i]);
+						fmt_putc(out, buf[i]);
 					}
 				}
 
@@ -189,36 +185,36 @@ vprintf_helper(fmt_buffer_t *out, const char *fmt, va_list args)
 				{
 					unsigned long integer = va_arg(args, unsigned long);
 					int i = 0;
-					char buffer[32];
+					char buf[32];
 
 					do
 					{
 						unsigned int digit = integer % 10;
-						buffer[i++] = (char)('0' + digit);
+						buf[i++] = (char)('0' + digit);
 						integer /= 10;
 					} while (integer != 0);
 
 					for (i = i - 1; i >= 0; i--)
 					{
-						fmt_putc(out, buffer[i]);
+						fmt_putc(out, buf[i]);
 					}
 				}
 				else
 				{
 					unsigned int integer = va_arg(args, unsigned int);
 					int i = 0;
-					char buffer[16];
+					char buf[16];
 
 					do
 					{
 						unsigned int digit = integer % 10;
-						buffer[i++] = (char)('0' + digit);
+						buf[i++] = (char)('0' + digit);
 						integer /= 10;
 					} while (integer != 0);
 
 					for (i = i - 1; i >= 0; i--)
 					{
-						fmt_putc(out, buffer[i]);
+						fmt_putc(out, buf[i]);
 					}
 				}
 				format_modifiers = false;
@@ -279,25 +275,20 @@ vsnprintf(char *buffer, size_t size, const char *fmt, va_list ap)
 {
 	fmt_buffer_t out = { .buffer = buffer, .size = size, .len = 0 };
 
-	if (!buffer || !fmt || size == 0)
-		return -1;
+	if (size > 0)
+	{
+		buffer[0] = '\0';
+	}
 
 	vprintf_helper(&out, fmt, ap);
 
-	buffer[(out.len < size - 1) ? out.len : size - 1] = '\0';
+	if (size > 0)
+	{
+		size_t term = out.len < size - 1 ? out.len : size - 1;
+		buffer[term] = '\0';
+	}
+
 	return (int)out.len;
-}
-
-int
-snprintf(char *buffer, size_t size, const char *fmt, ...)
-{
-	va_list ap;
-	int n;
-
-	va_start(ap, fmt);
-	n = vsnprintf(buffer, size, fmt, ap);
-	va_end(ap);
-	return n;
 }
 
 int
@@ -305,15 +296,11 @@ printf(const char *fmt, ...)
 {
 	char buffer[4096];
 	va_list args;
-	int n;
 
 	va_start(args, fmt);
-	n = vsnprintf(buffer, sizeof(buffer), fmt, args);
+	vsnprintf(buffer, sizeof(buffer), fmt, args);
 	va_end(args);
 
-	if (n < 0)
-		return -1;
-
-	return write(1, buffer, strnlen(buffer, sizeof(buffer)));
+	return write(1, buffer, strlen(buffer));
 }
 

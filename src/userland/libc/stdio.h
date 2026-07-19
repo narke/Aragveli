@@ -10,13 +10,12 @@
 #include "stdint.h"
 #include "stdbool.h"
 #include "stdarg.h"
-#include "string.h"
 
-int printf(const char *fmt, ...)
-	__attribute__((format(__printf__, 1, 2)));
-int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
-	__attribute__((format(__printf__, 3, 0)));
-int snprintf(char *buf, size_t size, const char *fmt, ...)
-	__attribute__((format(__printf__, 3, 4)));
+typedef uint32_t size_t;
 
-int read(int fd, void *buf, size_t bufsize);
+int printf(const char *, ...);
+int vsnprintf(char *, size_t, const char *, va_list);
+
+/* buf must be at least len bytes; len is both capacity and max to read. */
+int read(int fd, void *buf, size_t len)
+	__attribute__((access(write_only, 2, 3)));
