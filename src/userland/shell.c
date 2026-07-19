@@ -71,19 +71,17 @@ sys_reboot(void)
 }
 
 static void
-read_line(char *buf, int size)
+read_line(char *buf, size_t size)
 {
-	int i = 0;
+	size_t i = 0;
 	char c;
 
-	if (size <= 0)
+	/* Need room for at least one character and a NUL terminator. */
+	if (!buf || size < 2)
 		return;
 
-	while (i < size - 1)
+	while (read(0, &c, 1) == 1)
 	{
-		if (read(0, &c, 1) != 1)
-			break;
-
 		if (c == '\n' || c == '\r')
 		{
 			printf("\n");
@@ -99,6 +97,10 @@ read_line(char *buf, int size)
 			}
 			continue;
 		}
+
+		/* Keep one byte for NUL; discard overflow until newline. */
+		if (i >= size - 1)
+			continue;
 
 		buf[i++] = c;
 		printf("%c", c);

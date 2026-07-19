@@ -11,6 +11,9 @@
 #define SYS_WRITE 1
 #define SYS_READ  4
 
+/* Must match kernel READ_MAX in syscall.c. */
+#define READ_MAX 4096
+
 static int
 write(int fd, const void *buf, size_t len)
 {
@@ -26,6 +29,13 @@ int
 read(int fd, void *buf, size_t len)
 {
 	int ret;
+
+	if (len == 0)
+		return 0;
+
+	if (fd < 0 || !buf || len > READ_MAX)
+		return -1;
+
 	asm volatile("int $0x80"
 			: "=a"(ret)
 			: "a"(SYS_READ), "b"(fd), "c"(buf), "d"(len)
