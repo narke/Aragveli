@@ -125,12 +125,7 @@ page_directory_clone(uint32_t src_pd)
 			if (!dst_frame)
 				goto fail;
 
-			if (memcpy_s(PA2VA(dst_frame), PAGE_SIZE,
-					PA2VA(src_frame), PAGE_SIZE) == NULL)
-			{
-				frame_free(dst_frame);
-				goto fail;
-			}
+			memcpy(PA2VA(dst_frame), PA2VA(src_frame), PAGE_SIZE);
 
 			vaddr = (i << 22) | (j << 12);
 			flags = (pte & PAGE_RW) ? PAGE_RW : 0;

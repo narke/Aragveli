@@ -204,13 +204,7 @@ thread_fork_create(const char *name, struct process *process,
 	/* Frame at stack top; kstate uses the remainder below it. */
 	cframe = (struct syscall_frame *)(t->kernel_stack_top
 					  - sizeof(struct syscall_frame));
-	if (memcpy_s(cframe, sizeof(*cframe), parent_frame, sizeof(*cframe))
-			== NULL)
-	{
-		free((void *)t->stack_base_address);
-		free(t);
-		return NULL;
-	}
+	memcpy(cframe, parent_frame, sizeof(*cframe));
 	cframe->eax = 0;
 
 	cpu_kstate_init(&t->cpu_state,

@@ -173,12 +173,7 @@ user_stack_build(uint32_t pd, char *const argv[])
 
 	for (int i = 0; i < argc; i++)
 	{
-		size_t off = (size_t)(str_va - USER_STACK_TOP);
-		size_t avail = PAGE_SIZE - off;
-
-		if (memcpy_s(top_page + off, avail, argv[i], lens[i]) == NULL)
-			return 0;
-
+		memcpy(top_page + (str_va - USER_STACK_TOP), argv[i], lens[i]);
 		words[1 + i] = str_va;
 		str_va += (uint32_t)lens[i];
 	}
@@ -289,13 +284,7 @@ process_fork(process_t *parent, struct syscall_frame *frame)
 	child->exit_status = 0;
 	child->page_directory = pd;
 	child->cwd = parent->cwd;
-	if (memcpy_s(child->fds, sizeof(child->fds),
-			parent->fds, sizeof(parent->fds)) == NULL)
-	{
-		page_directory_destroy(pd);
-		free(child);
-		return -1;
-	}
+	memcpy(child->fds, parent->fds, sizeof(child->fds));
 	LIST_INIT(&child->children);
 	TAILQ_INIT(&child->waiters);
 
