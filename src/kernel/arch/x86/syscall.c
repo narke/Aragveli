@@ -17,6 +17,7 @@
 #include <fs/commands.h>
 #include "idt.h"
 #include "paging.h"
+#include "acpi.h"
 #include "syscall.h"
 
 #define SYSCALL_INTERRUPT 0x80
@@ -437,14 +438,32 @@ sys_fs(struct syscall_frame *frame)
 	return (uint32_t)-1;
 }
 
+static uint32_t
+sys_halt(struct syscall_frame *frame)
+{
+	(void)frame;
+	AcpiPowerOff();
+	return 0;
+}
+
+static uint32_t
+sys_reboot(struct syscall_frame *frame)
+{
+	(void)frame;
+	AcpiReboot();
+	return 0;
+}
+
 static syscall_t syscall_table[] = {
-	[SYS_EXIT]  = sys_exit,
-	[SYS_WRITE] = sys_write,
-	[SYS_WAIT]  = sys_wait,
-	[SYS_EXEC]  = sys_exec,
-	[SYS_READ]  = sys_read,
-	[SYS_FORK]  = sys_fork,
-	[SYS_FS]    = sys_fs,
+	[SYS_EXIT]   = sys_exit,
+	[SYS_WRITE]  = sys_write,
+	[SYS_WAIT]   = sys_wait,
+	[SYS_EXEC]   = sys_exec,
+	[SYS_READ]   = sys_read,
+	[SYS_FORK]   = sys_fork,
+	[SYS_FS]     = sys_fs,
+	[SYS_HALT]   = sys_halt,
+	[SYS_REBOOT] = sys_reboot,
 };
 
 #define SYSCALL_COUNT (sizeof(syscall_table) / sizeof(syscall_table[0]))

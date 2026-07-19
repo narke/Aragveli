@@ -2,6 +2,8 @@
 #include <stdlib.h>
 
 #define SYS_FS		6
+#define SYS_HALT	7
+#define SYS_REBOOT	8
 
 #define FS_LS		0
 #define FS_PWD		1
@@ -48,6 +50,24 @@ sys_fs(int op, const char *arg1, const char *arg2)
 			: "a"(SYS_FS), "b"(op), "c"(arg1), "d"(arg2)
 			: "memory");
 	return ret;
+}
+
+static void
+sys_halt(void)
+{
+	asm volatile("int $0x80"
+			:
+			: "a"(SYS_HALT)
+			: "memory");
+}
+
+static void
+sys_reboot(void)
+{
+	asm volatile("int $0x80"
+			:
+			: "a"(SYS_REBOOT)
+			: "memory");
 }
 
 static void
@@ -215,6 +235,18 @@ main(int argc, char **argv)
 		if (streq(args[0], "hello"))
 		{
 			run_hello();
+			continue;
+		}
+
+		if (streq(args[0], "halt"))
+		{
+			sys_halt();
+			continue;
+		}
+
+		if (streq(args[0], "reboot"))
+		{
+			sys_reboot();
 			continue;
 		}
 

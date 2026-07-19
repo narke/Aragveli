@@ -33,3 +33,7 @@ extern uint8_t g_acpiCpuIds[MAX_CPU_COUNT];
 
 void AcpiInit(void);
 uint8_t AcpiRemapIrq(uint8_t irq);
+
+/* Power management (noreturn). */
+void AcpiPowerOff(void) __attribute__((noreturn));
+void AcpiReboot(void) __attribute__((noreturn));

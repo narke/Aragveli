@@ -24,7 +24,6 @@
 #include <lib/c/stdio.h>
 #include <lib/c/stdbool.h>
 #include <lib/c/string.h>
-#include <lib/c/assert.h>
 #include "io-ports.h"
 #include "lapic.h"
 #include "ioapic.h"
@@ -32,8 +31,13 @@
 
 #define RSD_PTR_SIGNATURE 0x2052545020445352	// 'RSD PTR '
 #define APIC_SIGNATURE 0x43495041
-#define FACS_SIGNATURE 0x50434146
+#define FACP_SIGNATURE 0x50434146		// 'FACP'
 #define RSDT_SIGNATURE 0x54445352
+
+#define SLP_EN		(1 << 13)
+
+#define RESET_PORT	0xCF9
+#define RESET_VALUE	0x06
 
 uint32_t g_acpiCpuCount;
 uint8_t g_acpiCpuIds[MAX_CPU_COUNT];
@@ -52,19 +56,24 @@ typedef struct AcpiHeader
     uint32_t creatorRevision;
 } __attribute__((packed)) AcpiHeader;
 
-// ------------------------------------------------------------------------------------------------
+/* Fields through PM1b_CNT; SMI_CMD must be 4 bytes or later offsets are wrong. */
 typedef struct AcpiFadt
 {
-    AcpiHeader header;
-    uint32_t firmwareControl;
-    uint32_t dsdt;
-    uint8_t reserved;
-    uint8_t preferredPMProfile;
-    uint16_t sciInterrupt;
-    uint16_t smiCommandPort;
-    uint8_t acpiEnable;
-    uint8_t acpiDisable;
-    // TODO - fill in rest of data
+	AcpiHeader header;
+	uint32_t firmwareControl;
+	uint32_t dsdt;
+	uint8_t reserved;
+	uint8_t preferredPMProfile;
+	uint16_t sciInterrupt;
+	uint32_t smiCommandPort;
+	uint8_t acpiEnable;
+	uint8_t acpiDisable;
+	uint8_t s4BiosReq;
+	uint8_t pstateCnt;
+	uint32_t pm1aEventBlock;
+	uint32_t pm1bEventBlock;
+	uint32_t pm1aControlBlock;
+	uint32_t pm1bControlBlock;
 } __attribute__((packed)) AcpiFadt;
 
 // ------------------------------------------------------------------------------------------------
@@ -125,23 +134,35 @@ typedef struct RSDPDescriptor {
 } __attribute__((packed)) AcpiRSDP;
 
 static AcpiMadt *g_madt;
+/* Cached at init: process PDs lack the low identity map used for FADT. */
+static uint16_t g_pm1a_cnt;
+static uint16_t g_pm1b_cnt;
 
 // ------------------------------------------------------------------------------------------------
 
 static void
+hang(void) __attribute__((noreturn));
+
+static void
+hang(void)
+{
+	while (1)
+		asm volatile("hlt");
+}
+
+static void
 AcpiParseFacp(AcpiFadt *facp)
 {
-    if (facp->smiCommandPort)
-    {
-        kprintf("Enabling ACPI\n");
-        out8(facp->smiCommandPort, facp->acpiEnable);
+	g_pm1a_cnt = (uint16_t)facp->pm1aControlBlock;
+	g_pm1b_cnt = (uint16_t)facp->pm1bControlBlock;
 
-        // TODO - wait for SCI_EN bit
-    }
-    else
-    {
-        kprintf("ACPI already enabled\n");
-    }
+	if (facp->smiCommandPort)
+	{
+		kprintf("Enabling ACPI\n");
+		out8((uint16_t)facp->smiCommandPort, facp->acpiEnable);
+	}
+
+	kprintf("ACPI: PM1a_CNT=0x%x\n", (unsigned int)g_pm1a_cnt);
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -228,7 +249,7 @@ AcpiParseDT(AcpiHeader *header)
 
     kprintf("Descriptor Table: %s, signature: 0x%x\n", descriptor_name, (unsigned int)header->signature);
 
-    if (header->signature == FACS_SIGNATURE)
+    if (header->signature == FACP_SIGNATURE)
     {
         AcpiParseFacp((AcpiFadt *)header);
     }
@@ -287,14 +308,11 @@ AcpiParseRsdp(uint8_t *p)
 
 	kprintf("ACPI OEM: %s\n", rsdp->oemid);
 
-	if (rsdp->revision == 0)
+	/* Rev 0 and 2 both expose rsdt_address (QEMU uses rev 2). */
+	if (rsdp->revision == 0 || rsdp->revision == 2)
 	{
-		kprintf("ACPI version: 1\n");
+		kprintf("ACPI version: %d\n", rsdp->revision == 0 ? 1 : 2);
 		AcpiParseRsdt((AcpiHeader *)rsdp->rsdt_address);
-	}
-	else if (rsdp->revision == 2)
-	{
-		kprintf("ACPI version: 2\n");
 	}
 	else
 	{
@@ -355,4 +373,36 @@ AcpiRemapIrq(uint8_t irq)
     }
 
     return irq;
+}
+
+void
+AcpiPowerOff(void)
+{
+	// QEMU's _S5 uses SLP_TYP 0;
+	uint16_t sleep = SLP_EN;
+
+	asm volatile("cli");
+
+	if (!g_pm1a_cnt)
+	{
+		kprintf("ACPI power-off unavailable\n");
+		hang();
+	}
+
+	out16(g_pm1a_cnt, sleep);
+
+	if (g_pm1b_cnt)
+		out16(g_pm1b_cnt, sleep);
+
+	kprintf("ACPI power-off failed\n");
+	hang();
+}
+
+void
+AcpiReboot(void)
+{
+	asm volatile("cli");
+	out8(RESET_PORT, RESET_VALUE);
+	kprintf("Reboot via 0xCF9 failed\n");
+	hang();
 }

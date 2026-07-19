@@ -17,6 +17,8 @@
 #define SYS_READ	4
 #define SYS_FORK	5
 #define SYS_FS		6
+#define SYS_HALT	7
+#define SYS_REBOOT	8
 
 /* SYS_FS opcodes (ebx) */
 #define FS_LS		0
