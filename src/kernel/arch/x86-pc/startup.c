@@ -34,7 +34,6 @@
 #include <drivers/rtl8139.h>
 #include <drivers/ps2_keyboard.h>
 #include <process/elf_loader.h>
-#include <test-suite/tarfs-test.h>
 
 #define TIMER_INTERRUPT    0x20
 #define SPURIOUS_INTERRUPT 0xff
@@ -78,8 +77,6 @@ extra_kernel(uint32_t initrd_start, uint32_t initrd_end)
 
 	status = vfs_init("initrd", "tarfs", "/", NULL, &root_fs);
 	assert(status == KERNEL_OK);
-
-	tarfs_test(root_fs->root);
 
 	// PCI devices
 	pci_scan();

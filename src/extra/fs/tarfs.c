@@ -11,6 +11,7 @@
 #include <lib/c/assert.h>
 #include <lib/types.h>
 #include <lib/queue.h>
+#include <arch/x86/paging.h>
 #include "vfs.h"
 #include "tarfs.h"
 
@@ -321,7 +322,8 @@ add_node(const char *path, uint8_t type, size_t file_size, void *archive,
 	{
 		new_node->type = TMPFS_FILE;
 		new_node->u.file.size = file_size;
-		new_node->u.file.data = archive;
+		/* Higher-half VA so access works under a process CR3. */
+		new_node->u.file.data = PA2VA((uint32_t)(uintptr_t)archive);
 	}
 
 	// Create a list of node names separated by '/'

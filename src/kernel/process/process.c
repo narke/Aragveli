@@ -199,10 +199,7 @@ process_image_load(uint32_t pd, const char *path, char *const argv[],
 	if (!file || file->type != TMPFS_FILE)
 		return -1;
 
-	/* Initrd file data is a physical address; use the higher-half map so
-	 * this works under a process CR3 (no low identity mapping). */
-	entry = elf_load_file(PA2VA((uint32_t)(uintptr_t)file->u.file.data),
-			      file->u.file.size, pd);
+	entry = elf_load_file(file->u.file.data, file->u.file.size, pd);
 	if (!entry)
 		return -1;
 
@@ -286,6 +283,7 @@ process_fork(process_t *parent, struct syscall_frame *frame)
 	child->state = PROC_LIVE;
 	child->exit_status = 0;
 	child->page_directory = pd;
+	child->cwd = parent->cwd;
 	memcpy(child->fds, parent->fds, sizeof(child->fds));
 	LIST_INIT(&child->children);
 	TAILQ_INIT(&child->waiters);
@@ -356,6 +354,7 @@ process_create_from_elf(const char *path, struct node *root)
 	p->fds[0]         = FD_CONSOLE;
 	p->fds[1]         = FD_CONSOLE;
 	p->fds[2]         = FD_CONSOLE;
+	p->cwd            = root;
 	LIST_INIT(&p->children);
 	TAILQ_INIT(&p->waiters);
 

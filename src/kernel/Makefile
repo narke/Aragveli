@@ -51,7 +51,7 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  ../extra/drivers/ps2_keyboard.o \
 	  ../extra/fs/vfs.o \
 	  ../extra/fs/tarfs.o \
-	  ../extra/test-suite/tarfs-test.o \
+	  ../extra/fs/commands.o \
 	  arch/x86-pc/startup.o
 
 KERNEL          = aragveli.elf

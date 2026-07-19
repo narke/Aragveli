@@ -14,6 +14,7 @@
 #include <process/thread.h>
 #include <drivers/vbe.h>
 #include <drivers/ps2_keyboard.h>
+#include <fs/commands.h>
 #include "idt.h"
 #include "paging.h"
 #include "syscall.h"
@@ -25,6 +26,7 @@
 #define EXEC_ARG_LEN	256
 #define WRITE_MAX	4096
 #define READ_MAX	4096
+#define FS_PATH_MAX	256
 
 extern struct superblock *root_fs;
 
@@ -285,6 +287,156 @@ sys_fork(struct syscall_frame *frame)
 	return (uint32_t)process_fork(p, frame);
 }
 
+typedef int (*fs_op_fn)(process_t *p, const char *a1, const char *a2);
+
+static int
+op_ls(process_t *p, const char *a1, const char *a2)
+{
+	(void)a2;
+	return cmd_ls(root_fs->root, p->cwd, a1);
+}
+
+static int
+op_pwd(process_t *p, const char *a1, const char *a2)
+{
+	(void)a1;
+	(void)a2;
+	return cmd_pwd(p->cwd);
+}
+
+static int
+op_cd(process_t *p, const char *a1, const char *a2)
+{
+	(void)a2;
+	return cmd_cd(root_fs->root, &p->cwd, a1);
+}
+
+static int
+op_mkdir(process_t *p, const char *a1, const char *a2)
+{
+	(void)a2;
+	return cmd_mkdir(root_fs->root, p->cwd, a1);
+}
+
+static int
+op_touch(process_t *p, const char *a1, const char *a2)
+{
+	(void)a2;
+	return cmd_touch(root_fs->root, p->cwd, a1);
+}
+
+static int
+op_rm(process_t *p, const char *a1, const char *a2)
+{
+	(void)a2;
+	return cmd_rm(root_fs->root, p->cwd, a1);
+}
+
+static int
+op_rmdir(process_t *p, const char *a1, const char *a2)
+{
+	(void)a2;
+	return cmd_rmdir(root_fs->root, p->cwd, a1);
+}
+
+static int
+op_cat(process_t *p, const char *a1, const char *a2)
+{
+	(void)a2;
+	return cmd_cat(root_fs->root, p->cwd, a1);
+}
+
+static int
+op_file(process_t *p, const char *a1, const char *a2)
+{
+	(void)a2;
+	return cmd_file(root_fs->root, p->cwd, a1);
+}
+
+static int
+op_mv(process_t *p, const char *a1, const char *a2)
+{
+	return cmd_mv(root_fs->root, p->cwd, a1, a2);
+}
+
+static int
+op_cp(process_t *p, const char *a1, const char *a2)
+{
+	return cmd_cp(root_fs->root, p->cwd, a1, a2);
+}
+
+static const struct {
+	uint32_t op;
+	int nargs;
+	fs_op_fn fn;
+} fs_ops[] = {
+	{ FS_LS,    0, op_ls },	/* 0 args required; optional path in a1 */
+	{ FS_PWD,   0, op_pwd },
+	{ FS_CD,    1, op_cd },
+	{ FS_MKDIR, 1, op_mkdir },
+	{ FS_TOUCH, 1, op_touch },
+	{ FS_RM,    1, op_rm },
+	{ FS_RMDIR, 1, op_rmdir },
+	{ FS_CAT,   1, op_cat },
+	{ FS_FILE,  1, op_file },
+	{ FS_MV,    2, op_mv },
+	{ FS_CP,    2, op_cp },
+};
+
+static uint32_t
+sys_fs(struct syscall_frame *frame)
+{
+	process_t *p = thread_get_current()->process;
+	uint32_t op = frame->ebx;
+	uint32_t uarg1 = frame->ecx;
+	uint32_t uarg2 = frame->edx;
+	char path1[FS_PATH_MAX];
+	char path2[FS_PATH_MAX];
+	const char *a1 = NULL;
+	const char *a2 = NULL;
+	unsigned int i;
+
+	if (!p || !p->cwd || !root_fs || !root_fs->root)
+		return (uint32_t)-1;
+
+	if (uarg1)
+	{
+		if (copy_user_string(p->page_directory, uarg1, path1,
+				    sizeof(path1)) != 0)
+		{
+			return (uint32_t)-1;
+		}
+
+		a1 = path1;
+	}
+
+	if (uarg2)
+	{
+		if (copy_user_string(p->page_directory, uarg2, path2,
+				    sizeof(path2)) != 0)
+		{
+			return (uint32_t)-1;
+		}
+
+		a2 = path2;
+	}
+
+	for (i = 0; i < sizeof(fs_ops) / sizeof(fs_ops[0]); i++)
+	{
+		if (fs_ops[i].op != op)
+			continue;
+
+		if (fs_ops[i].nargs >= 1 && !a1)
+			return (uint32_t)-1;
+		if (fs_ops[i].nargs >= 2 && !a2)
+			return (uint32_t)-1;
+
+		return (uint32_t)fs_ops[i].fn(p, a1, a2);
+	}
+
+	return (uint32_t)-1;
+}
+
 static syscall_t syscall_table[] = {
 	[SYS_EXIT]  = sys_exit,
 	[SYS_WRITE] = sys_write,
@@ -292,6 +444,7 @@ static syscall_t syscall_table[] = {
 	[SYS_EXEC]  = sys_exec,
 	[SYS_READ]  = sys_read,
 	[SYS_FORK]  = sys_fork,
+	[SYS_FS]    = sys_fs,
 };
 
 #define SYSCALL_COUNT (sizeof(syscall_table) / sizeof(syscall_table[0]))

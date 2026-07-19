@@ -26,6 +26,7 @@ typedef struct process {
 	LIST_ENTRY(process) sibling;	/* on parent's children */
 	TAILQ_HEAD(, thread) waiters;	/* parents blocked in wait */
 	uint8_t		fds[PROC_NFDS];
+	struct node	*cwd;		/* current working directory in tarfs */
 } process_t;
 
 struct syscall_frame;

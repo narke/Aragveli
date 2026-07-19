@@ -13,9 +13,6 @@
 #define TMPFS_NODE(node) ((node) ? (tarfs_node_t *)(node)->data : NULL)
 #define FS_NODE(node)    ((node) ? (node)->bp : NULL)
 
-#define TARFS_FILE	1
-#define TARFS_DIRECTORY	2
-
 typedef enum
 {
 	TMPFS_NONE,

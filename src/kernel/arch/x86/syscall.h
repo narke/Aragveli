@@ -16,6 +16,20 @@
 #define SYS_EXEC	3
 #define SYS_READ	4
 #define SYS_FORK	5
+#define SYS_FS		6
+
+/* SYS_FS opcodes (ebx) */
+#define FS_LS		0
+#define FS_PWD		1
+#define FS_CD		2
+#define FS_MKDIR	3
+#define FS_TOUCH	4
+#define FS_RM		5
+#define FS_RMDIR	6
+#define FS_CAT		7
+#define FS_FILE		8
+#define FS_MV		9
+#define FS_CP		10
 
 /**
  * Register state as saved by syscall_stub (see syscall-entry.asm).
