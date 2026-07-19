@@ -5,12 +5,18 @@
  * found in the LICENSE file.
  */
 
+#include <lib/c/string.h>
+
 #include "vbe.h"
+
+#define FONT_HEIGHT 16
+#define LINE_HEIGHT 20
 
 uint32_t *vram;
 uint16_t pitch;
 uint8_t bpp;
 int screen_width;
+int screen_height;
 uint32_t color = NORMAL_WHITE;
 uint8_t scale = 1;
 uint16_t x = 0;
@@ -45,6 +51,22 @@ box_fill(int x0, int y0, int x1, int y1)
 			vram[y * screen_width + x] = color;
 }
 
+static void
+vbe_scroll_up(void)
+{
+	int row, col;
+	uint32_t *dst = vram;
+	uint32_t *src = vram + LINE_HEIGHT * screen_width;
+	size_t row_bytes = (size_t)screen_width * sizeof(uint32_t);
+
+	for (row = 0; row < screen_height - LINE_HEIGHT; row++)
+		memcpy(dst + row * screen_width, src + row * screen_width, row_bytes);
+
+	for (row = screen_height - LINE_HEIGHT; row < screen_height; row++)
+		for (col = 0; col < screen_width; col++)
+			vram[row * screen_width + col] = NORMAL_BLACK;
+}
+
 void
 vbe_draw_character(const char c)
 {
@@ -52,11 +74,35 @@ vbe_draw_character(const char c)
 
 	if (c == '\n')
 	{
-		vbe_set_position(y + 20, 0);
+		int next_y = (int)y + LINE_HEIGHT;
+
+		/* Stay on this row after scroll so spacing stays LINE_HEIGHT. */
+		if (next_y + FONT_HEIGHT * (int)scale <= screen_height)
+			vbe_set_position((uint16_t)next_y, 0);
+		else
+		{
+			vbe_scroll_up();
+			x = 0;
+		}
+		return;
+	}
+
+	if (c == '\b')
+	{
+		if (x >= 8 * scale)
+			vbe_set_position(y, (uint16_t)(x - 8 * scale));
 		return;
 	}
 
 	vbe_set_position(y, (uint16_t)(x + 8 * scale));
+
+	{
+		uint32_t saved_color = color;
+
+		color = NORMAL_BLACK;
+		box_fill(x, y, x + 8 * scale - 1, y + FONT_HEIGHT * scale - 1);
+		color = saved_color;
+	}
 
 	for (i = 0; i < 16; i++)
 	{
@@ -91,6 +137,7 @@ vbe_setup(struct vbe_mode_info *vbe_mode_info)
 {
 	vram		= (uint32_t *)vbe_mode_info->framebuffer_addr;
 	screen_width	= vbe_mode_info->x_res;
+	screen_height	= vbe_mode_info->y_res;
 	pitch		= vbe_mode_info->pitch / sizeof(uint32_t);
 	bpp		= vbe_mode_info->bpp;
 
