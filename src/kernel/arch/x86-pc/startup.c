@@ -175,6 +175,6 @@ aragveli_main(uint32_t magic, uint32_t address)
 	process_init();
 
 	/* ELF loading (IRQs stay off until the first scheduled thread irets) */
-	process_create_from_elf("/hello.elf", root_fs->root);
+	process_create_from_elf("/shell.elf", root_fs->root);
 	scheduler_start();
 }

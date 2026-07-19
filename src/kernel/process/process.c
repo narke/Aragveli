@@ -199,7 +199,10 @@ process_image_load(uint32_t pd, const char *path, char *const argv[],
 	if (!file || file->type != TMPFS_FILE)
 		return -1;
 
-	entry = elf_load_file(file->u.file.data, file->u.file.size, pd);
+	/* Initrd file data is a physical address; use the higher-half map so
+	 * this works under a process CR3 (no low identity mapping). */
+	entry = elf_load_file(PA2VA((uint32_t)(uintptr_t)file->u.file.data),
+			      file->u.file.size, pd);
 	if (!entry)
 		return -1;
 
@@ -240,7 +243,6 @@ process_exec_elf(process_t *p, const char *path, char *const argv[],
 		return -1;
 
 	page_directory_clear_user(p->page_directory);
-	page_directory_switch(p->page_directory);
 
 	if (process_image_load(p->page_directory, path, argv, root,
 			       &entry, &esp) != 0)
@@ -248,6 +250,8 @@ process_exec_elf(process_t *p, const char *path, char *const argv[],
 
 	p->entry = entry;
 	p->user_stack_top = esp;
+	/* Reload CR3 to flush stale user TLB entries after remap. */
+	page_directory_switch(p->page_directory);
 	return 0;
 }
 
