@@ -15,7 +15,4 @@ typedef uint32_t size_t;
 
 int printf(const char *, ...);
 int vsnprintf(char *, size_t, const char *, va_list);
-
-/* buf must be at least len bytes; len is both capacity and max to read. */
-int read(int fd, void *buf, size_t len)
-	__attribute__((access(write_only, 2, 3)));
+int read(int fd, void *buf, size_t len);
