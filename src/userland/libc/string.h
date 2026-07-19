@@ -7,6 +7,13 @@
 
 #pragma once
 
-#define NULL ((void*)0)
+#include "stdint.h"
 
-unsigned int strlen(register const char *str);
+#define NULL ((void *)0)
+
+typedef uint32_t size_t;
+
+#define STRLEN_MAX 65536u
+
+size_t strlen(const char *str);
+size_t strnlen(const char *str, size_t maxlen);

@@ -7,13 +7,22 @@
 
 #include "string.h"
 
-unsigned int
-strlen(register const char *str)
+size_t
+strnlen(const char *str, size_t maxlen)
 {
-	unsigned int retval = 0;
+	size_t n = 0;
 
-	while (*str++)
-		retval++;
+	if (!str)
+		return 0;
 
-	return retval;
+	while (n < maxlen && str[n] != '\0')
+		n++;
+
+	return n;
+}
+
+size_t
+strlen(const char *str)
+{
+	return strnlen(str, STRLEN_MAX);
 }

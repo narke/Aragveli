@@ -76,12 +76,14 @@ read_line(char *buf, size_t size)
 	size_t i = 0;
 	char c;
 
-	/* Need room for at least one character and a NUL terminator. */
 	if (!buf || size < 2)
 		return;
 
-	while (read(0, &c, 1) == 1)
+	while (i < size - 1)
 	{
+		if (read(0, &c, sizeof(c)) != 1)
+			break;
+
 		if (c == '\n' || c == '\r')
 		{
 			printf("\n");
@@ -98,12 +100,17 @@ read_line(char *buf, size_t size)
 			continue;
 		}
 
-		/* Keep one byte for NUL; discard overflow until newline. */
-		if (i >= size - 1)
-			continue;
-
 		buf[i++] = c;
 		printf("%c", c);
+	}
+
+	/* Buffer full: discard until end of line. */
+	if (i >= size - 1)
+	{
+		while (read(0, &c, sizeof(c)) == 1 && c != '\n' && c != '\r')
+			;
+		if (c == '\n' || c == '\r')
+			printf("\n");
 	}
 
 	buf[i] = '\0';
@@ -197,7 +204,12 @@ run_builtin(int argc, char **argv)
 			printf("usage: %s", b->name);
 
 			if (b->max_args >= 2)
-				printf(b->min_args < 2 ? " [path]" : " <path>");
+			{
+				if (b->min_args < 2)
+					printf(" [path]");
+				else
+					printf(" <path>");
+			}
 			if (b->max_args >= 3)
 				printf(" <dst>");
 
