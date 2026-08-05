@@ -1,5 +1,5 @@
 CC      = gcc
-CFLAGS  = -m32 -c -ffreestanding -nostdlib -fno-builtin
+CFLAGS  = -m32 -c -ffreestanding -nostdlib -fno-builtin -Wformat -Wformat-security
 NASM    = nasm
 LD      = ld
 

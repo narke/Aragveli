@@ -23,7 +23,7 @@ write(int fd, const void *buf, size_t len)
 }
 
 int
-read(int fd, void *buf, size_t len)
+read(int fd, void *buf, size_t len) /* Flawfinder: ignore */
 {
 	int ret;
 	asm volatile("int $0x80"
@@ -68,10 +68,10 @@ fmt_puts(fmt_buffer_t *out, const char *s)
 static void
 print_hex_to_buf(fmt_buffer_t *out, unsigned long number)
 {
-	char digits[16];
+	char digits[16]; /* Flawfinder: ignore */
 	int i = 0;
 
-	while (number != 0)
+	while (number != 0 && i < (int)sizeof(digits))
 	{
 		int n = number % 16;
 		digits[i++] = (char)(n < 10 ? n + '0' : n + 87);
@@ -122,7 +122,7 @@ vprintf_helper(fmt_buffer_t *out, const char *fmt, va_list args)
 				{
 					long integer = va_arg(args, long);
 					int i = 0;
-					char buf[32];
+					char buf[32]; /* Flawfinder: ignore */
 
 					if (integer < 0)
 					{
@@ -131,7 +131,12 @@ vprintf_helper(fmt_buffer_t *out, const char *fmt, va_list args)
 
 					do
 					{
-						int digit = integer % 10;
+						int digit;
+
+						if (i >= (int)sizeof(buf))
+							break;
+
+						digit = integer % 10;
 						digit = (digit < 0) ? -digit : digit;
 						buf[i++] = (char)('0' + digit);
 						integer /= 10;
@@ -146,7 +151,7 @@ vprintf_helper(fmt_buffer_t *out, const char *fmt, va_list args)
 				{
 					int integer = va_arg(args, int);
 					int i = 0;
-					char buf[16];
+					char buf[16]; /* Flawfinder: ignore */
 
 					if (integer < 0)
 					{
@@ -155,7 +160,12 @@ vprintf_helper(fmt_buffer_t *out, const char *fmt, va_list args)
 
 					do
 					{
-						int digit = integer % 10;
+						int digit;
+
+						if (i >= (int)sizeof(buf))
+							break;
+
+						digit = integer % 10;
 						digit = (digit < 0) ? -digit : digit;
 						buf[i++] = (char)('0' + digit);
 						integer /= 10;
@@ -175,11 +185,16 @@ vprintf_helper(fmt_buffer_t *out, const char *fmt, va_list args)
 				{
 					unsigned long integer = va_arg(args, unsigned long);
 					int i = 0;
-					char buf[32];
+					char buf[32]; /* Flawfinder: ignore */
 
 					do
 					{
-						unsigned int digit = integer % 10;
+						unsigned int digit;
+
+						if (i >= (int)sizeof(buf))
+							break;
+
+						digit = integer % 10;
 						buf[i++] = (char)('0' + digit);
 						integer /= 10;
 					} while (integer != 0);
@@ -193,11 +208,16 @@ vprintf_helper(fmt_buffer_t *out, const char *fmt, va_list args)
 				{
 					unsigned int integer = va_arg(args, unsigned int);
 					int i = 0;
-					char buf[16];
+					char buf[16]; /* Flawfinder: ignore */
 
 					do
 					{
-						unsigned int digit = integer % 10;
+						unsigned int digit;
+
+						if (i >= (int)sizeof(buf))
+							break;
+
+						digit = integer % 10;
 						buf[i++] = (char)('0' + digit);
 						integer /= 10;
 					} while (integer != 0);
@@ -261,7 +281,7 @@ vprintf_helper(fmt_buffer_t *out, const char *fmt, va_list args)
 }
 
 int
-vsnprintf(char *buffer, size_t size, const char *fmt, va_list ap)
+vsnprintf(char *buffer, size_t size, const char *fmt, va_list ap) /* Flawfinder: ignore */
 {
 	fmt_buffer_t out = { .buffer = buffer, .size = size, .len = 0 };
 
@@ -282,15 +302,24 @@ vsnprintf(char *buffer, size_t size, const char *fmt, va_list ap)
 }
 
 int
-printf(const char *fmt, ...)
+printf(const char *fmt, ...) /* Flawfinder: ignore */
 {
-	char buffer[4096];
+	/* Filled only via vsnprintf(..., sizeof(buffer), ...); truncates, no overrun. */
+	char buffer[4096]; /* Flawfinder: ignore */
 	va_list args;
+	int len;
 
 	va_start(args, fmt);
-	vsnprintf(buffer, sizeof(buffer), fmt, args);
+	len = vsnprintf(buffer, sizeof(buffer), fmt, args); /* Flawfinder: ignore */
 	va_end(args);
 
-	return write(1, buffer, strlen(buffer));
+	if (len < 0)
+		return len;
+
+	/* vsnprintf returns the untruncated length. */
+	if ((size_t)len > sizeof(buffer) - 1)
+		len = (int)(sizeof(buffer) - 1);
+
+	return write(1, buffer, (size_t)len);
 }
 

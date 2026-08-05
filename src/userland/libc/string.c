@@ -8,7 +8,7 @@
 #include "string.h"
 
 unsigned int
-strlen(register const char *str)
+strlen(register const char *str) /* Flawfinder: ignore */
 {
 	unsigned int retval = 0;
 

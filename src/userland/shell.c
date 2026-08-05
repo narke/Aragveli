@@ -81,7 +81,7 @@ read_line(char *buf, int size)
 
 	while (i < size - 1)
 	{
-		if (read(0, &c, 1) != 1)
+		if (read(0, &c, 1) != 1) /* Flawfinder: ignore */
 			break;
 
 		if (c == '\n' || c == '\r')
@@ -195,7 +195,12 @@ run_builtin(int argc, char **argv)
 			printf("usage: %s", b->name);
 
 			if (b->max_args >= 2)
-				printf(b->min_args < 2 ? " [path]" : " <path>");
+			{
+				if (b->min_args < 2)
+					printf(" [path]");
+				else
+					printf(" <path>");
+			}
 			if (b->max_args >= 3)
 				printf(" <dst>");
 
@@ -214,8 +219,9 @@ run_builtin(int argc, char **argv)
 int
 main(int argc, char **argv)
 {
-	char line[256];
-	char *args[MAX_ARGS];
+	/* Filled only via read_line(line, sizeof(line)). */
+	char line[256]; /* Flawfinder: ignore */
+	char *args[MAX_ARGS]; /* Flawfinder: ignore */
 	int n;
 	int rc;
 

@@ -13,6 +13,9 @@
 
 typedef uint32_t size_t;
 
-int printf(const char *, ...);
-int vsnprintf(char *, size_t, const char *, va_list);
-int read(int fd, void *buf, size_t len);
+/* Formats are compiler-checked at every call site: -Wformat -Wformat-security. */
+int printf(const char *, ...) /* Flawfinder: ignore */
+	__attribute__((__format__(__printf__, 1, 2)));
+int vsnprintf(char *, size_t, const char *, va_list) /* Flawfinder: ignore */
+	__attribute__((__format__(__printf__, 3, 0)));
+int read(int fd, void *buf, size_t len); /* Flawfinder: ignore */

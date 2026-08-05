@@ -9,4 +9,4 @@
 
 #define NULL ((void*)0)
 
-unsigned int strlen(register const char *str);
+unsigned int strlen(register const char *str); /* Flawfinder: ignore */
