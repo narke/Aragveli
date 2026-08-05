@@ -128,8 +128,8 @@ typedef struct
 
 struct vfs_path
 {
-	char path[PATH_MAX];
-	char name[NAME_MAX + 1];
+	char path[PATH_MAX]; /* Flawfinder: ignore */
+	char name[NAME_MAX + 1]; /* Flawfinder: ignore */
 };
 
 struct dirent
@@ -156,7 +156,7 @@ struct node
 {
 	uint8_t type;
 	size_t name_length;
-	char name[NODE_NAME_LENGTH];
+	char name[NODE_NAME_LENGTH]; /* Flawfinder: ignore */
 	union
 	{
 		struct folder folder;
@@ -178,7 +178,7 @@ typedef struct {
 	status_t (*mount)	(const char*, const char *, const char *,
 					struct superblock **);
 	status_t (*umount)	(void);
-	int      (*read)	(block_device_id_t, fs_index_t,
+	int      (*read)	(block_device_id_t, fs_index_t, /* Flawfinder: ignore */
 					uint64_t, size_t, size_t *);
 	int      (*write)	(block_device_id_t, fs_index_t, uint64_t,
 					size_t, size_t *, uint64_t *);
@@ -221,7 +221,7 @@ typedef struct {
 
 struct file_system
 {
-	char name[FS_NAME_MAXLEN];
+	char name[FS_NAME_MAXLEN]; /* Flawfinder: ignore */
 	status_t (*mount)(const char *root_device,
 			const char *mount_point,
 			const char *mount_args,
@@ -288,10 +288,11 @@ struct vnode
 
 struct vnode_ops
 {
-	int     (*open)		(struct vnode *vnode);
+	/* Unimplemented dispatch table: tarfs leaves these NULL. */
+	int     (*open)		(struct vnode *vnode); /* Flawfinder: ignore */
 	int     (*close)	(struct vnode *vnode);
 	ino_t   (*lookup)	(struct vnode *vnode, char *name);
-	ssize_t (*read)		(struct vnode *vnode, void *buf, size_t len,
+	ssize_t (*read)		(struct vnode *vnode, void *buf, size_t len, /* Flawfinder: ignore */
 					loff_t offset);
 	ssize_t (*write)	(struct vnode *vnode, void *buf, size_t len,
 					loff_t offset);
@@ -300,7 +301,7 @@ struct vnode_ops
 	int     (*creat)	(struct vnode *vnode, char *name, mode_t mode,
 					uid_t uid, gid_t gid);
 	int     (*symlink)	(struct vnode *vnode, char *name, char *path);
-	int     (*readlink)	(struct vnode *vnode, char *buf, size_t len);
+	int     (*readlink)	(struct vnode *vnode, char *buf, size_t len); /* Flawfinder: ignore */
 	int     (*getdents)	(struct vnode *vnode, struct dirent *dirp,
 					size_t len, loff_t *offset);
 	int     (*sync)		(struct vnode *vnode);

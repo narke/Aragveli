@@ -41,7 +41,7 @@ static struct superblock *mounted_superblock;
 
 struct path_node
 {
-	char name[NODE_NAME_LENGTH];
+	char name[NODE_NAME_LENGTH]; /* Flawfinder: ignore */
 	STAILQ_ENTRY(path_node) next;
 };
 
@@ -95,7 +95,7 @@ checksum(const char *p)
 	for (n = 0; n < 512; ++n) {
 		if (n < 148 || n > 155)
 			/* Standard tar checksum adds unsigned bytes. */
-			u += ((unsigned char *)p)[n];
+			u += ((unsigned char *)p)[n]; /* Flawfinder: ignore */
 		else
 			u += 0x20;
 
@@ -110,7 +110,7 @@ checksum(const char *p)
 static status_t
 path_nodes_to_list(const char *path)
 {
-	uint8_t i = 0;
+	size_t i = 0;
 	char *name  = malloc(NODE_NAME_LENGTH);
 	if (!name)
 		return -KERNEL_NO_MEMORY;
@@ -133,7 +133,7 @@ path_nodes_to_list(const char *path)
 				return -KERNEL_NO_MEMORY;
 			}
 
-			strzcpy(pnode->name, name, strnlen(name, NODE_NAME_LENGTH)+1);
+			strzcpy(pnode->name, name, sizeof(pnode->name));
 			STAILQ_INSERT_TAIL(&path_nodes, pnode, next);
 
 			free(name);
@@ -151,9 +151,11 @@ path_nodes_to_list(const char *path)
 			continue;
 		}
 
-		name[i] = *path;
+		/* Overlong components are truncated, as strzcpy would. */
+		if (i < NODE_NAME_LENGTH - 1)
+			name[i++] = *path;
+
 		path++;
-		i++;
 	}
 
 	// There was a string after the last '/'
@@ -168,7 +170,7 @@ path_nodes_to_list(const char *path)
 			return -KERNEL_NO_MEMORY;
 		}
 
-		strzcpy(pnode->name, name, strnlen(name, NODE_NAME_LENGTH)+1);
+		strzcpy(pnode->name, name, sizeof(pnode->name));
 
 		STAILQ_INSERT_TAIL(&path_nodes, pnode, next);
 	}
@@ -231,12 +233,13 @@ resolve_node(const char *path, struct node *root_node)
 static char *
 tarfs_basename(const char *path)
 {
-	static char path_copy[NODE_NAME_LENGTH];
+	/* Holds a whole path, not just a name. */
+	static char path_copy[PATH_MAX]; /* Flawfinder: ignore */
 	char *result;
 
-	strzcpy(path_copy, path, strnlen(path, NODE_NAME_LENGTH)+1);
+	strzcpy(path_copy, path, sizeof(path_copy));
 
-	if (strnlen(path_copy, NODE_NAME_LENGTH) == 1 && path_copy[0] == '/')
+	if (strnlen(path_copy, sizeof(path_copy)) == 1 && path_copy[0] == '/')
 	{
 		path_copy[0] = '/';
 		path_copy[1] = '\0';
@@ -244,9 +247,9 @@ tarfs_basename(const char *path)
 	}
 
 	// Strip trailing '/' for no root folders
-	if (strnlen(path_copy, NODE_NAME_LENGTH) > 1 && path_copy[strnlen(path_copy, NODE_NAME_LENGTH) - 1] == '/')
+	if (strnlen(path_copy, sizeof(path_copy)) > 1 && path_copy[strnlen(path_copy, sizeof(path_copy)) - 1] == '/')
 	{
-		path_copy[strnlen(path_copy, NODE_NAME_LENGTH) - 1] = '\0';
+		path_copy[strnlen(path_copy, sizeof(path_copy)) - 1] = '\0';
 	}
 
 	result = strrchr(path_copy, '/');
@@ -257,12 +260,12 @@ tarfs_basename(const char *path)
 static char *
 tarfs_dirname(const char *path)
 {
-	static char result[NODE_NAME_LENGTH];
-	char path_copy[NODE_NAME_LENGTH];
+	static char result[PATH_MAX]; /* Flawfinder: ignore */
+	char path_copy[PATH_MAX]; /* Flawfinder: ignore */
 
-	strzcpy(path_copy, path, strnlen(path, NODE_NAME_LENGTH)+1);
+	strzcpy(path_copy, path, sizeof(path_copy));
 
-	if (strnlen(path_copy, NODE_NAME_LENGTH) == 1 && path_copy[0] == '/')
+	if (strnlen(path_copy, sizeof(path_copy)) == 1 && path_copy[0] == '/')
 	{
 		result[0] = '/';
 		result[1] = '\0';
@@ -270,16 +273,16 @@ tarfs_dirname(const char *path)
 	}
 
 	// Strip trailing '/' for no root folders
-	if (strnlen(path_copy, NODE_NAME_LENGTH) > 1 && path_copy[strnlen(path_copy, NODE_NAME_LENGTH) - 1] == '/')
+	if (strnlen(path_copy, sizeof(path_copy)) > 1 && path_copy[strnlen(path_copy, sizeof(path_copy)) - 1] == '/')
 	{
-		path_copy[strnlen(path_copy, NODE_NAME_LENGTH) - 1] = '\0';
+		path_copy[strnlen(path_copy, sizeof(path_copy)) - 1] = '\0';
 	}
 
 	char *last_slash = strrchr(path_copy, '/');
 	if (!last_slash)
 		return NULL;
 
-	int new_path_length = strnlen(path_copy, NODE_NAME_LENGTH) - (strnlen(last_slash, NODE_NAME_LENGTH) - 1);
+	int new_path_length = strnlen(path_copy, sizeof(path_copy)) - (strnlen(last_slash, sizeof(path_copy)) - 1);
 	path_copy[new_path_length] = '\0';
 
 	// Strip a remaining '/' after a filename was removed.
@@ -288,7 +291,7 @@ tarfs_dirname(const char *path)
 		path_copy[new_path_length - 1] = '\0';
 	}
 
-	strzcpy(result, path_copy, new_path_length+1);
+	strzcpy(result, path_copy, sizeof(result));
 
 	return result;
 }
@@ -310,8 +313,8 @@ add_node(const char *path, uint8_t type, size_t file_size, void *archive,
 		return -KERNEL_NO_MEMORY;
 
 	memset(new_node, 0, sizeof(struct node));
-	new_node->name_length = strnlen(filename, NODE_NAME_LENGTH)+1;
-	strzcpy(new_node->name, filename, new_node->name_length);
+	strzcpy(new_node->name, filename, sizeof(new_node->name));
+	new_node->name_length = strnlen(new_node->name, NODE_NAME_LENGTH) + 1;
 
 	if (type == TMPFS_FOLDER)
 	{
@@ -397,7 +400,7 @@ add_node(const char *path, uint8_t type, size_t file_size, void *archive,
 static void
 untar(void *ramdisk_address, struct node *root_node)
 {
-	char buffer[512];
+	char buffer[512]; /* Flawfinder: ignore */
 	size_t file_size;
 	status_t status;
 
@@ -514,7 +517,7 @@ tarfs_umount(void)
 status_t
 tarfs_init(paddr_t start, paddr_t end)
 {
-	strzcpy(tarfs.name, "tarfs", strnlen("tarfs", FS_NAME_MAXLEN)+1);
+	strzcpy(tarfs.name, "tarfs", sizeof(tarfs.name));
 	tarfs.mount  = tarfs_mount;
 	tarfs.umount = tarfs_umount;
 

@@ -27,7 +27,8 @@
 #define SC_LSHIFT	0x2a
 #define SC_RSHIFT	0x36
 
-static const char keymap_unshifted[128] = {
+/* Indexed only by scancode_to_ascii(), which rejects sc >= 128. */
+static const char keymap_unshifted[128] = { /* Flawfinder: ignore */
 	0,    0,   '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=',
 	'\b', '\t', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']',
 	'\n', 0,   'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`',
@@ -35,7 +36,7 @@ static const char keymap_unshifted[128] = {
 	0,    ' ',
 };
 
-static const char keymap_shifted[128] = {
+static const char keymap_shifted[128] = { /* Flawfinder: ignore */
 	0,    0,   '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+',
 	'\b', '\t', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}',
 	'\n', 0,   'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '"', '~',

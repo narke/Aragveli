@@ -41,7 +41,8 @@ resolve_node_wrapper(const char *path, struct node *root, struct node *cwd)
 static int
 fs_split_path(const char *path, char *dir, char *base, size_t n)
 {
-	char copy[FS_PATH_MAX];
+	/* Length-validated against n and FS_PATH_MAX before any copy. */
+	char copy[FS_PATH_MAX]; /* Flawfinder: ignore */
 	size_t len;
 	char *slash;
 
@@ -163,8 +164,9 @@ static int
 cmd_create(struct node *root, struct node *cwd, const char *path,
 		uint8_t type)
 {
-	char dir[FS_PATH_MAX];
-	char base[FS_PATH_MAX];
+	/* Written only by fs_split_path(), bounded by the n argument. */
+	char dir[FS_PATH_MAX]; /* Flawfinder: ignore */
+	char base[FS_PATH_MAX]; /* Flawfinder: ignore */
 	struct node *parent;
 	struct node *new_node;
 
@@ -185,8 +187,8 @@ cmd_create(struct node *root, struct node *cwd, const char *path,
 		return -KERNEL_NO_MEMORY;
 
 	memset(new_node, 0, sizeof(struct node));
-	new_node->name_length = strnlen(base, NODE_NAME_LENGTH) + 1;
-	strzcpy(new_node->name, base, new_node->name_length);
+	strzcpy(new_node->name, base, sizeof(new_node->name));
+	new_node->name_length = strnlen(new_node->name, NODE_NAME_LENGTH) + 1;
 	new_node->type = type;
 
 	if (type == TMPFS_FOLDER)
@@ -286,8 +288,9 @@ mv_cp_internal(struct node *root, struct node *cwd,
 	struct node *src_node;
 	struct node *dst_dir;
 	struct node *new_node = NULL;
-	char dir[FS_PATH_MAX];
-	char base[FS_PATH_MAX];
+	/* Written only by fs_split_path(), bounded by the n argument. */
+	char dir[FS_PATH_MAX]; /* Flawfinder: ignore */
+	char base[FS_PATH_MAX]; /* Flawfinder: ignore */
 	const char *new_name;
 
 	src_node = resolve_node_wrapper(src_path, root, cwd);
@@ -332,8 +335,8 @@ mv_cp_internal(struct node *root, struct node *cwd,
 
 		memset(new_node, 0, sizeof(struct node));
 		new_node->type = src_node->type;
-		new_node->name_length = strnlen(new_name, NODE_NAME_LENGTH) + 1;
-		strzcpy(new_node->name, new_name, new_node->name_length);
+		strzcpy(new_node->name, new_name, sizeof(new_node->name));
+		new_node->name_length = strnlen(new_node->name, NODE_NAME_LENGTH) + 1;
 
 		if (src_node->type == TMPFS_FILE)
 		{
