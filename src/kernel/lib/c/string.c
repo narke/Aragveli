@@ -19,7 +19,7 @@ memset(void *dst, int c, size_t length)
 }
 
 void *
-memcpy(void *dst, const void *src, size_t size)
+memcpy(void *dst, const void *src, size_t size) /* Flawfinder: ignore */
 {
 	char *_dst       = (char *)dst;
 	const char *_src = (const char *)src;

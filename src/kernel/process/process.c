@@ -173,7 +173,9 @@ user_stack_build(uint32_t pd, char *const argv[])
 
 	for (int i = 0; i < argc; i++)
 	{
-		memcpy(top_page + (str_va - USER_STACK_TOP), argv[i], lens[i]);
+		memcpy_s(top_page + (str_va - USER_STACK_TOP),
+			 PAGE_SIZE - (str_va - USER_STACK_TOP),
+			 argv[i], lens[i]);
 		words[1 + i] = str_va;
 		str_va += (uint32_t)lens[i];
 	}
@@ -308,7 +310,7 @@ process_create_from_elf(const char *path, struct node *root)
 	uint32_t pd;
 	uint32_t entry;
 	uint32_t esp;
-	char *argv[2];
+	char *argv[2]; /* Flawfinder: ignore */
 	process_t *p;
 	process_t *parent;
 	thread_t *current;

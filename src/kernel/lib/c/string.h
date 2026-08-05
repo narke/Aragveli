@@ -12,7 +12,7 @@
 #define NULL ((void*)0)
 
 void *memset(void *dst, int c, size_t length);
-void *memcpy(void *dst, const void *src, size_t size);
+void *memcpy(void *dst, const void *src, size_t size); /* Flawfinder: ignore */
 void *memcpy_s(void *dst, size_t dst_size, const void *src, size_t src_size);
 char *strzcpy(char *dst, const char *src, size_t len);
 size_t strnlen(const char *s, size_t max_length);

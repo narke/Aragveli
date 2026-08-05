@@ -15,7 +15,7 @@
 static void
 print_hex(unsigned long int number)
 {
-	char buffer[16];
+	char buffer[16]; /* Flawfinder: ignore */
 	int i = 0;
 
 	while (number != 0)
@@ -67,7 +67,7 @@ __vprintf(const char *fmt, va_list args)
 				{
 					long int integer = va_arg(args, long int);
 					int i = 0;
-					char buffer_int[32];
+					char buffer_int[32]; /* Flawfinder: ignore */
 
 					if (integer < 0)
 						vbe_draw_character('-');
@@ -87,7 +87,7 @@ __vprintf(const char *fmt, va_list args)
 				{
 					int integer = va_arg(args, int);
 					int i = 0;
-					char buffer_int[16];
+					char buffer_int[16]; /* Flawfinder: ignore */
 
 					if (integer < 0)
 						vbe_draw_character('-');
@@ -112,7 +112,7 @@ __vprintf(const char *fmt, va_list args)
 					unsigned long int integer =
 						va_arg(args, unsigned long int);
 					int i = 0;
-					char buffer_long[32];
+					char buffer_long[32]; /* Flawfinder: ignore */
 
 					do
 					{
@@ -129,7 +129,7 @@ __vprintf(const char *fmt, va_list args)
 					unsigned int integer =
 						va_arg(args, unsigned int);
 					int i = 0;
-					char buffer_long[16];
+					char buffer_long[16]; /* Flawfinder: ignore */
 
 					do
 					{

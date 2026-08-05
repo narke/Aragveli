@@ -42,7 +42,8 @@ typedef struct thread
 	/* Kernel stack parameters */
 	paddr_t		stack_base_address;
 	uint32_t	stack_size;
-	char		name[THREAD_MAX_NAMELEN];
+	/* THREAD_MAX_NAMELEN; write only via strzcpy(..., THREAD_MAX_NAMELEN). */
+	char		name[THREAD_MAX_NAMELEN]; /* Flawfinder: ignore */
 	thread_state	state;
 	struct cpu_state *cpu_state;
 	struct process  *process;

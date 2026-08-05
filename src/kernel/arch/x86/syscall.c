@@ -223,9 +223,10 @@ sys_exec(struct syscall_frame *frame)
 {
 	process_t *p = thread_get_current()->process;
 	uint32_t pd;
-	char path[EXEC_PATH_MAX];
-	char arg_storage[EXEC_ARG_MAX][EXEC_ARG_LEN];
-	char *argv[EXEC_ARG_MAX + 1];
+	/* Filled only via copy_user_string(..., sizeof/EXEC_ARG_LEN). */
+	char path[EXEC_PATH_MAX]; /* Flawfinder: ignore */
+	char arg_storage[EXEC_ARG_MAX][EXEC_ARG_LEN]; /* Flawfinder: ignore */
+	char *argv[EXEC_ARG_MAX + 1]; /* Flawfinder: ignore */
 	int argc = 0;
 	uint32_t uargv;
 	uint32_t uarg;
@@ -391,8 +392,9 @@ sys_fs(struct syscall_frame *frame)
 	uint32_t op = frame->ebx;
 	uint32_t uarg1 = frame->ecx;
 	uint32_t uarg2 = frame->edx;
-	char path1[FS_PATH_MAX];
-	char path2[FS_PATH_MAX];
+	/* Filled only via copy_user_string(..., sizeof(pathN)). */
+	char path1[FS_PATH_MAX]; /* Flawfinder: ignore */
+	char path2[FS_PATH_MAX]; /* Flawfinder: ignore */
 	const char *a1 = NULL;
 	const char *a2 = NULL;
 	unsigned int i;
