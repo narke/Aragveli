@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Konstantin Tcholokachvili.
+ * Copyright (c) 2018, 2026 Konstantin Tcholokachvili.
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
@@ -181,4 +181,15 @@ pci_devices_print(void)
 				pci_devices[i].device_id,
 				PCI_CLASS_IDS[pci_devices[i].class_id]);
 	}
+}
+
+void
+pci_devices_copy(pci_device_t *pci_devices_out, uint8_t *count_out)
+{
+	for (uint8_t i = 0; i < pci_devices_idx; i++)
+	{
+		pci_devices_out[i] = pci_devices[i];
+	}
+
+	*count_out = pci_devices_idx;
 }

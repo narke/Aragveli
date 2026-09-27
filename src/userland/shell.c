@@ -176,6 +176,34 @@ run_hello(void)
 }
 
 static int
+run_lspci(void)
+{
+	int status;
+	int pid;
+
+	pid = fork();
+
+	if (pid == 0)
+	{
+		char *child_argv[] = { "/lspci.elf", 0 };
+
+		exec("/lspci.elf", child_argv);
+		printf("exec failed\n");
+		exit(1);
+	}
+
+	if (pid < 0)
+	{
+		printf("fork failed\n");
+		return -1;
+	}
+
+	wait(&status);
+	return 0;
+}
+
+
+static int
 run_builtin(int argc, char **argv)
 {
 	unsigned int i;
@@ -241,6 +269,12 @@ main(int argc, char **argv)
 		if (streq(args[0], "hello"))
 		{
 			run_hello();
+			continue;
+		}
+
+		if (streq(args[0], "lspci"))
+		{
+			run_lspci();
 			continue;
 		}
 

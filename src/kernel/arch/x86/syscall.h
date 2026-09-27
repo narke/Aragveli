@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Konstantin Tcholokachvili.
+ * Copyright (c) 2018, 2026 Konstantin Tcholokachvili.
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
@@ -19,8 +19,9 @@
 #define SYS_FS		6
 #define SYS_HALT	7
 #define SYS_REBOOT	8
+#define SYS_PCI	9
 
-/* SYS_FS opcodes (ebx) */
+// SYS_FS opcodes (ebx)
 #define FS_LS		0
 #define FS_PWD		1
 #define FS_CD		2
@@ -32,6 +33,9 @@
 #define FS_FILE		8
 #define FS_MV		9
 #define FS_CP		10
+
+// SYS_PCI opcodes (ebx)
+#define PCI_LIST	0
 
 /**
  * Register state as saved by syscall_stub (see syscall-entry.asm).

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Konstantin Tcholokachvili.
+ * Copyright (c) 2018, 2026 Konstantin Tcholokachvili.
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
@@ -28,4 +28,4 @@ void pci_config_write_dword (uint8_t bus, uint8_t slot, uint8_t func, uint8_t of
 void pci_scan(void);
 pci_device_t pci_device_lookup(uint16_t vendor_id, uint16_t device_id);
 void pci_devices_print(void);
-
+void pci_devices_copy(pci_device_t *pci_devices_out, uint8_t *count_out);

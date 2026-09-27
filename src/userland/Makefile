@@ -10,7 +10,7 @@ COMMON = start.o $(LIBC_OBJS)
 
 .PHONY: all clean
 
-all: hello.elf shell.elf
+all: hello.elf shell.elf lspci.elf
 
 hello.elf: hello.o $(COMMON) user.ld
 	$(LD) -m elf_i386 -nostdlib -static -T user.ld -o hello.elf hello.o $(COMMON)
@@ -20,11 +20,18 @@ shell.elf: shell.o $(COMMON) user.ld
 	$(LD) -m elf_i386 -nostdlib -static -T user.ld -o shell.elf shell.o $(COMMON)
 	cp shell.elf ../extra/initrd/
 
+lspci.elf: lspci.o $(COMMON) user.ld
+	$(LD) -m elf_i386 -nostdlib -static -T user.ld -o lspci.elf lspci.o $(COMMON)
+	cp lspci.elf ../extra/initrd/
+
 hello.o: hello.c
 	$(CC) $(CFLAGS) -Ilibc hello.c -o hello.o
 
 shell.o: shell.c
 	$(CC) $(CFLAGS) -Ilibc shell.c -o shell.o
+
+lspci.o: lspci.c
+	$(CC) $(CFLAGS) -Ilibc lspci.c -o lspci.o
 
 start.o: start.asm
 	$(NASM) -f elf32 start.asm -o start.o
@@ -33,4 +40,4 @@ libc/%.o: libc/%.c
 	$(CC) $(CFLAGS) -Ilibc libc/$*.c -o libc/$*.o
 
 clean:
-	$(RM) hello.elf shell.elf start.o hello.o shell.o $(LIBC_OBJS)
+	$(RM) hello.elf shell.elf lspci.elf start.o hello.o shell.o lspci.o $(LIBC_OBJS)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Konstantin Tcholokachvili.
+ * Copyright (c) 2018, 2026 Konstantin Tcholokachvili.
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
@@ -13,6 +13,7 @@
 #include <process/process.h>
 #include <process/thread.h>
 #include <drivers/vbe.h>
+#include <drivers/pci.h>
 #include <drivers/ps2_keyboard.h>
 #include <fs/commands.h>
 #include "idt.h"
@@ -117,6 +118,27 @@ write_user_u32(uint32_t pd, uint32_t uaddr, uint32_t value)
 		if (write_user_byte(pd, uaddr + i,
 				    (uint8_t)(value >> (i * 8))) != 0)
 			return -1;
+	}
+
+	return 0;
+}
+
+static int
+copy_to_user(uint32_t pd, uint32_t user_address, const void *src, size_t length)
+{
+	const uint8_t *p = (const uint8_t *)src;
+
+	if (!src || length == 0)
+	{
+		return -1;
+	}
+
+	for (size_t i = 0; i < length; i++)
+	{
+		if (write_user_byte(pd, user_address + i, p[i]) != 0)
+		{
+			return -1;
+		}
 	}
 
 	return 0;
@@ -456,6 +478,49 @@ sys_reboot(struct syscall_frame *frame)
 	return 0;
 }
 
+static uint32_t
+sys_pci(struct syscall_frame *frame)
+{
+	uint32_t op 		= frame->ebx;
+	uint32_t user_buffer	= frame->ecx;
+	uint32_t capacity	= frame->edx;
+	pci_device_t devices[16];
+	uint8_t count = 0;
+	process_t *currrent_process = thread_get_current()->process;
+
+	if (op != PCI_LIST)
+	{
+		return (uint32_t)-1;
+	}
+
+	if (!currrent_process || !user_buffer || capacity == 0)
+	{
+		return (uint32_t)-1;
+	}
+
+	pci_devices_copy(devices, &count);
+
+	if (count > capacity)
+	{
+		count = (uint8_t)capacity;
+	}
+
+	if (count == 0)
+	{
+		return 0;
+	}
+
+	if (copy_to_user(currrent_process->page_directory,
+		user_buffer,
+		devices,
+		count * sizeof(pci_device_t)) != 0)
+	{
+		return (uint32_t)-1;
+	}
+
+	return count;
+}
+
 static syscall_t syscall_table[] = {
 	[SYS_EXIT]   = sys_exit,
 	[SYS_WRITE]  = sys_write,
@@ -466,6 +531,7 @@ static syscall_t syscall_table[] = {
 	[SYS_FS]     = sys_fs,
 	[SYS_HALT]   = sys_halt,
 	[SYS_REBOOT] = sys_reboot,
+	[SYS_PCI]    = sys_pci,
 };
 
 #define SYSCALL_COUNT (sizeof(syscall_table) / sizeof(syscall_table[0]))
