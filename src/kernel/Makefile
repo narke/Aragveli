@@ -84,7 +84,7 @@ cdrom: kernel initrd
 	grub-mkrescue -o $(MULTIBOOT_IMAGE) $(BOOTLOADER_PATH)/iso/
 
 run:
-	qemu-system-i386 -enable-kvm -m 256 -vga std \
+	qemu-system-i386 -m 256 -vga std \
 		-netdev user,id=net0 \
 		-device rtl8139,netdev=net0 \
 		-smp cores=4,threads=2 \

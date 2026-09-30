@@ -42,23 +42,37 @@ semaphore_destroy(semaphore_t *semaphore)
 void
 semaphore_up(semaphore_t *semaphore)
 {
-	atomic_inc(semaphore->count);
+	uint32_t flags;
+	thread_t *t;
 
-	if (semaphore->count >= 0)
+	X86_IRQs_DISABLE(flags);
+
+	t = TAILQ_FIRST(&semaphore->waitqueue);
+
+	if (t)
 	{
 		// Awake a blocked thread
-		thread_t *unblocked_thread = TAILQ_FIRST(&semaphore->waitqueue);
-		TAILQ_REMOVE(&semaphore->waitqueue, unblocked_thread, next);
-		scheduler_insert_thread(unblocked_thread);
+		TAILQ_REMOVE(&semaphore->waitqueue, t, next);
+		scheduler_insert_thread(t);
 	}
+	else
+	{
+		semaphore->count++;
+	}
+
+	X86_IRQs_ENABLE(flags);
 }
 
 void
 semaphore_down(semaphore_t *semaphore)
 {
-	if (semaphore->count >= 0)
+	uint32_t flags;
+
+	X86_IRQs_DISABLE(flags);
+
+	if (semaphore->count > 0)
 	{
-		atomic_dec(semaphore->count);
+		semaphore->count--;
 	}
 	else
 	{
@@ -69,4 +83,6 @@ semaphore_down(semaphore_t *semaphore)
 		TAILQ_INSERT_TAIL(&semaphore->waitqueue, current_thread, next);
 		schedule();
 	}
+
+	X86_IRQs_ENABLE(flags);
 }

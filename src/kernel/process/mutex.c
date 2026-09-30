@@ -48,7 +48,7 @@ mutex_lock(mutex_t *mtx)
 {
 	status_t status = KERNEL_OK;
 
-	atomic_inc(mtx->count);
+	atomic_inc(&mtx->count);
 
 	// Mutex already owned?
 	if (mtx->owner != NULL)
@@ -69,7 +69,7 @@ mutex_unlock(mutex_t *mtx)
 {
 	status_t status;
 
-	atomic_dec(mtx->count);
+	atomic_dec(&mtx->count);
 
 	if (mtx->owner != thread_get_current())
 	{

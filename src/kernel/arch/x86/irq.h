@@ -30,11 +30,17 @@
 #define IRQ_RESERVED_5    15
 
 
-#define X86_IRQs_DISABLE(flags) \
-	({asm volatile("pushfl ; popl %0":"=g"(flags)::"memory"); asm("cli\n");})
+#define X86_IRQs_DISABLE(flags)				\
+	do {						\
+		asm volatile("pushfl; popl %0; cli"	\
+			: "=rm"(flags) :: "memory");	\
+	} while (0)
 
-#define X86_IRQs_ENABLE(flags) \
-	asm volatile("push %0; popfl"::"g"(flags):"memory");
+#define X86_IRQs_ENABLE(flags)				\
+	do {						\
+		asm volatile("push %0; popfl"		\
+			::"g"(flags) : "memory", "cc");	\
+	} while (0)
 
 
 typedef void (*x86_irq_handler_t)(int irq_level);
