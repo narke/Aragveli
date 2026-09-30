@@ -12,6 +12,9 @@
 #include <lib/c/string.h>
 #include <arch/x86-pc/bootstrap/multiboot.h>
 #include <arch/x86/gdt.h>
+#include <arch/x86/gdt.h>
+#include <arch/x86/per_cpu.h>
+#include <arch/x86/idt.h>
 #include <arch/x86/idt.h>
 #include <arch/x86/syscall.h>
 #include <arch/x86/isr.h>
@@ -100,7 +103,7 @@ aragveli_main(uint32_t magic, uint32_t address)
 	assert(magic == 0x2BADB002);
 
 	// GDT
-	x86_gdt_setup();
+	gdt_setup_cpu(&g_cpus[0]);
 
 	// IDT
 	x86_idt_setup();
@@ -146,9 +149,6 @@ aragveli_main(uint32_t magic, uint32_t address)
 			identity_mapping_end,
 			framebuffer_start,
 			framebuffer_end);
-
-	// TSS
-	tss_setup();
 
 	// Scheduler
 	scheduler_setup();

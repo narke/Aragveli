@@ -1,4 +1,4 @@
-; Copyright (c) 2017 Konstantin Tcholokachvili.
+; Copyright (c) 2017, 2026 Konstantin Tcholokachvili.
 ; All rights reserved.
 ; Use of this source code is governed by a MIT license that can be
 ; found in the LICENSE file.
@@ -6,6 +6,9 @@
 ; @see http://www.osdever.net/bkerndev/Docs/isrs.htm
 
 ;Interrupt Service Routines (ISRs)
+
+KERNEL_DATA_SELECTOR equ 0x10
+PER_CPU_SELECTOR     equ 0x30
 
 %macro ISR_NO_ERROR_CODE 1
 	[global isr%1]
@@ -41,10 +44,11 @@ isr_common_stub:
     push es
     push fs
     push gs
-    mov ax, 0x10	; Load the Kernel Data Segment descriptor!
+    mov ax, KERNEL_DATA_SELECTOR
     mov ds, ax
     mov es, ax
     mov fs, ax
+    mov ax, PER_CPU_SELECTOR
     mov gs, ax
     mov eax, esp	; Push us the stack
     push eax

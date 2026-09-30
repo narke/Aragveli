@@ -7,6 +7,9 @@
 
 section .text
 
+KERNEL_DATA_SELECTOR equ 0x10
+PER_CPU_SELECTOR     equ 0x30
+
 [extern syscall_dispatch]
 [global syscall_stub]
 [global syscall_fork_return]
@@ -23,10 +26,11 @@ syscall_stub:
 	push fs
 	push gs
 
-	mov ax, 0x10		; kernel data segment
+	mov ax, KERNEL_DATA_SELECTOR
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
+	mov ax, PER_CPU_SELECTOR
 	mov gs, ax
 
 	mov eax, esp		; pointer to struct syscall_frame

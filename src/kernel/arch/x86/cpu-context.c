@@ -110,6 +110,12 @@ cpu_kstate_init(struct cpu_state **ctx,
 		X86_BUILD_SEGMENT_REGISTER_VALUE(0, 0, KERNEL_DATA_SEGMENT); /* Data */
 	kctx->regs.ss =
 		X86_BUILD_SEGMENT_REGISTER_VALUE(0, 0, KERNEL_DATA_SEGMENT); /* Stack */
+	kctx->regs.fs =
+		X86_BUILD_SEGMENT_REGISTER_VALUE(0, 0, KERNEL_DATA_SEGMENT);
+	kctx->regs.gs =
+		X86_BUILD_SEGMENT_REGISTER_VALUE(0, 0, PER_CPU_SEGMENT); /* Per-CPU */
+
+
 
 	/* fs and gs unused for the moment. */
 

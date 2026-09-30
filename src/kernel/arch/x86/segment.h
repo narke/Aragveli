@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Konstantin Tcholokachvili.
+ * Copyright (c) 2017, 2026 Konstantin Tcholokachvili.
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
@@ -13,6 +13,9 @@
 #define USER_CODE_SEGMENT   3
 #define USER_DATA_SEGMENT   4
 #define TSS_SEGMENT         5
+#define PER_CPU_SEGMENT     6
+
+#define GDT_ENTRIES         7
 
 /*
  * Builds a value for a segment register

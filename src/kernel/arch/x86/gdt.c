@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Konstantin Tcholokachvili.
+ * Copyright (c) 2017, 2026 Konstantin Tcholokachvili.
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
@@ -8,128 +8,17 @@
 #include <lib/types.h>
 #include <lib/c/string.h>
 #include <lib/c/stdbool.h>
-#include "gdt.h"
+#include "per_cpu.h"
 #include "segment.h"
+#include "gdt.h"
 
-// Describes a GDT entry
-struct x86_gdt_entry
-{
-        /*
-	 * Lowest dword
-	 */
-        // Segment Limit: bits 15:0
-        uint16_t segment_limit_15_0;
-        // Base Address: bits 15..0
-        uint16_t base_paged_address_15_0;
+#define SEGMENT_TYPE_CODE	0xb	// Execute/read, accessed
+#define SEGMENT_TYPE_DATA	0x3	// Read/write, accessed
+#define SEGMENT_TYPE_TSS	0x9	// 32-bit available TSS
 
-        /*
-	 * Highest dword
-	 */
-        // Base Address: bits 23..16
-        uint8_t base_paged_address_23_16;
-        // Segment Type (code/data)
-        uint8_t segment_type:			4;
-        // 0 = system, 1 = Code/Data
-        uint8_t descriptor_type:		1;
-        // Descriptor Privilege Level
-        uint8_t descriptor_privilege_level:	2;
-        // Segment Present
-        uint8_t segment_present:		1;
-        // Segment Limit: bits 19..16
-        uint8_t segment_limit_19_16:		4;
-        // Available for any use
-        uint8_t available:			1;
-        uint8_t zero:				1;
-        // 0=16 bits instructions, 1=32 bits
-        uint8_t operand_size:			1;
-        // 0=limit in bytes, 1=limit in pages
-        uint8_t granularity:			1;
-        // Base address bits 31..24
-        uint8_t base_paged_address_31_24;
-} __attribute__((packed, aligned(8)));
+struct cpu g_cpus[MAX_CPU_COUNT];
 
-
-/** Describes the GDTR register */
-struct x86_gdtr
-{
-	// The limit address represents the maximal offset of the GDTR register
-	uint16_t  limit;
-
-	/* The base (linear, in paged memory) address represents
-	 * the starting address of the GDTR register */
-	uint32_t linear_base_address;
-} __attribute__((packed, aligned(8)));
-
-
-struct x86_tss
-{
-	uint16_t back_link;
-
-	uint16_t reserved1;
-
-	vaddr_t	 esp0;
-	uint16_t ss0;
-
-	uint16_t reserved2;
-
-	vaddr_t  esp1;
-	uint16_t ss1;
-
-	uint16_t reserved3;
-
-	vaddr_t  esp2;
-	uint16_t ss2;
-
-	uint16_t reserved4;
-
-	vaddr_t cr3;
-	vaddr_t eip;
-	uint32_t eflags;
-	uint32_t eax;
-	uint32_t ecx;
-	uint32_t edx;
-	uint32_t ebx;
-	uint32_t esp;
-	uint32_t ebp;
-	uint32_t esi;
-	uint32_t edi;
-
-	// +72
-	uint16_t es;
-	uint16_t reserved5;
-
-	// +76
-	uint16_t cs;
-	uint16_t reserved6;
-
-	// +80
-	uint16_t ss;
-	uint16_t reserved7;
-
-	// +84
-	uint16_t ds;
-	uint16_t reserved8;
-
-	// +88
-	uint16_t fs;
-	uint16_t reserved9;
-
-	// +92
-	uint16_t gs;
-	uint16_t reserved10;
-
-	// +96
-	uint16_t ldtr;
-	uint16_t reserved11;
-
-	// +100
-	uint16_t debug_trap_flag :1;
-	uint16_t reserved12      :15;
-	uint16_t iomap_base_addr;
-} __attribute__((packed, aligned(128)));;
-
-
-static struct x86_gdt_entry gdt[] = {
+static const struct x86_gdt_entry gdt[GDT_ENTRIES] = {
 	[NULL_SEGMENT]  = (struct x86_gdt_entry){ 0, },
 	[KERNEL_CODE_SEGMENT] = (struct x86_gdt_entry){
 		.segment_limit_15_0		= 0xffff,
@@ -196,58 +85,46 @@ static struct x86_gdt_entry gdt[] = {
 	}
 };
 
-
-static struct x86_tss kernel_tss;
-
-void
-gdt_register_tss(vaddr_t tss_vadd)
+static void
+gdt_set_entry(
+	struct x86_gdt_entry *entry,
+	uint32_t base,
+	uint32_t limit,
+	uint8_t type,
+	uint8_t privilege_level,
+	bool code_or_data)
 {
-	gdt[TSS_SEGMENT] = (struct x86_gdt_entry){
-		.segment_limit_15_0		= 0x67,
-		.base_paged_address_15_0	= tss_vadd & 0xffff,
-		.base_paged_address_23_16	= (tss_vadd >> 16) & 0xff,
-		.segment_type			= 0x9,
-		.descriptor_type		= 0,
-		.descriptor_privilege_level	= 0,
+	bool in_pages = (limit > 0xfffff);
+
+	if (in_pages)
+	{
+		limit >>= 12;
+	}
+
+	*entry = (struct x86_gdt_entry){
+		.segment_limit_15_0		= limit & 0xffff,
+		.base_paged_address_15_0	= base & 0xffff,
+		.base_paged_address_23_16	= (base >> 16) & 0xff,
+		.segment_type			= (uint32_t)type & 0xf,
+		.descriptor_type		= code_or_data,
+		.descriptor_privilege_level	= (uint32_t)privilege_level & 0x3,
 		.segment_present		= 1,
-		.segment_limit_19_16		= 0,
+		.segment_limit_19_16		= (limit >> 16) & 0xf,
 		.available			= 0,
 		.zero				= 0,
-		.operand_size			= 0,
-		.granularity			= 0,	/* byte limit: sizeof(TSS)-1 */
-		.base_paged_address_31_24	= (uint8_t)((tss_vadd >> 24) & 0xff)
+		// Code/data: 32-bit. TSS: this bit must be 0.
+		.operand_size			= code_or_data,
+		.granularity			= in_pages,
+		.base_paged_address_31_24	= (uint8_t)(base >> 24)
 	};
-
-	uint16_t tss_register_value = X86_BUILD_SEGMENT_REGISTER_VALUE(0, false, TSS_SEGMENT);
-
-	asm ("ltr %0"::"r"(tss_register_value));
 }
 
-void
-tss_setup(void)
-{
-	memset(&kernel_tss, 0x0, sizeof(kernel_tss));
-
-	kernel_tss.ss0 = X86_BUILD_SEGMENT_REGISTER_VALUE(0, false, KERNEL_DATA_SEGMENT);
-
-	gdt_register_tss((vaddr_t)&kernel_tss);
-}
-
-void
-set_kernel_stack(uint32_t stack)
-{
-	kernel_tss.esp0 = stack;
-}
-
-void
-x86_gdt_setup(void)
+static void
+gdt_load(const struct x86_gdt_entry *table, uint16_t size)
 {
 	struct x86_gdtr gdtr;
-
-	// GDT's starting address
-	gdtr.linear_base_address = (uint32_t)gdt;
-	// GDT's upper limit address
-	gdtr.limit = sizeof(gdt) - 1;
+	gdtr.linear_base_address = (uint32_t)table;
+	gdtr.limit = (uint16_t)(size - 1);
 
 	/*
 	 * Load GDT into GDTR register and update segment register.
@@ -264,10 +141,45 @@ x86_gdt_setup(void)
                  movw %%ax,  %%ds \n\
                  movw %%ax,  %%es \n\
                  movw %%ax,  %%fs \n\
+                 movw %3,    %%ax \n\
                  movw %%ax,  %%gs"
 		:
 		:"m"(gdtr),
 		 "i"(X86_BUILD_SEGMENT_REGISTER_VALUE(0, false, KERNEL_CODE_SEGMENT)),
-		 "i"(X86_BUILD_SEGMENT_REGISTER_VALUE(0, false, KERNEL_DATA_SEGMENT))
+		 "i"(X86_BUILD_SEGMENT_REGISTER_VALUE(0, false, KERNEL_DATA_SEGMENT)),
+		 "i"(X86_BUILD_SEGMENT_REGISTER_VALUE(0, false, PER_CPU_SEGMENT))
 		 :"memory","eax");
+}
+
+void
+gdt_setup_cpu(struct cpu *cpu)
+{
+	cpu->self = cpu;
+
+	memcpy_s(cpu->gdt, sizeof(cpu->gdt), gdt, sizeof(gdt));
+
+	memset(&cpu->tss, 0x0, sizeof(cpu->tss));
+
+	cpu->tss.ss0 = X86_BUILD_SEGMENT_REGISTER_VALUE(0, false, KERNEL_DATA_SEGMENT);
+
+	// I/O bitmap beyond the TSS limit: every port is denied to ring 3
+	cpu->tss.iomap_base_addr = sizeof(struct x86_tss);
+
+	gdt_set_entry(&cpu->gdt[TSS_SEGMENT], (uint32_t)&cpu->tss,
+		0x67, SEGMENT_TYPE_TSS, 0, false);
+
+	gdt_set_entry(&cpu->gdt[PER_CPU_SEGMENT], (uint32_t)cpu,
+		sizeof(struct cpu) - 1, SEGMENT_TYPE_DATA, 0, true);
+
+	gdt_load(cpu->gdt, sizeof(cpu->gdt));
+
+	uint16_t tss_register_value = X86_BUILD_SEGMENT_REGISTER_VALUE(0, false, TSS_SEGMENT);
+
+	asm volatile ("ltr %0"::"r"(tss_register_value));
+}
+
+void
+set_kernel_stack(uint32_t stack)
+{
+	this_cpu()->tss.esp0 = stack;
 }

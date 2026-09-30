@@ -7,6 +7,9 @@
 
 section .text
 
+KERNEL_DATA_SELECTOR equ 0x10
+PER_CPU_SELECTOR     equ 0x30
+
 ; The address of the table of handlers (defined in irq.c)
 [extern x86_irq_handler_array]
 
@@ -34,6 +37,12 @@ section .text
 	o16 push word es
 	o16 push word fs
 	o16 push word gs
+	mov ax, KERNEL_DATA_SELECTOR
+	mov ds, ax
+	mov es, ax
+	mov fs, ax
+	mov ax, PER_CPU_SELECTOR
+	mov gs, ax
 %endmacro
 
 %macro RESTORE_REGISTERS 0
