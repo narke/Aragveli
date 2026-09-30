@@ -9,6 +9,7 @@
 #include <lib/types.h>
 #include <lib/c/stdlib.h>
 #include <lib/c/string.h>
+#include <lib/c/assert.h>
 #include <arch/x86/irq.h>
 #include <process/thread.h>
 #include <process/scheduler.h>
@@ -33,63 +34,65 @@ mutex_create(void)
 void
 mutex_destroy(mutex_t *mtx)
 {
-	thread_t *item;
-
-	while ((item = TAILQ_FIRST(&mtx->waitqueue)))
-	{
-		TAILQ_REMOVE(&mtx->waitqueue, item, next);
-	}
-
+	assert(mtx->owner == NULL);
+	assert(TAILQ_EMPTY(&mtx->waitqueue));
 	free(mtx);
 }
 
 status_t
 mutex_lock(mutex_t *mtx)
 {
-	status_t status = KERNEL_OK;
+	uint32_t flags;
+	thread_t *current_thread = thread_get_current();
 
-	atomic_inc(&mtx->count);
+	X86_IRQs_DISABLE(flags);
 
-	// Mutex already owned?
-	if (mtx->owner != NULL)
+	if (mtx->owner == current_thread)
 	{
-		thread_t *current_thread = thread_get_current();
-
-		if (mtx->owner == current_thread)
-			status = -KERNEL_BUSY;
-		else
-			TAILQ_INSERT_TAIL(&mtx->waitqueue, current_thread, next);
+		X86_IRQs_DISABLE(flags);
+		return -KERNEL_BUSY;
 	}
 
-	return status;
+	if (mtx->owner == NULL)
+	{
+		mtx->owner = current_thread;
+	}
+	else
+	{
+		current_thread->state = THREAD_BLOCKED;
+		scheduler_remove_thread(current_thread);
+		TAILQ_INSERT_TAIL(&mtx->waitqueue, current_thread, next);
+		schedule();
+	}
+
+	X86_IRQs_DISABLE(flags);
+	return KERNEL_OK;
 }
 
 status_t
 mutex_unlock(mutex_t *mtx)
 {
-	status_t status;
+	uint32_t flags;
+	thread_t *next_owner;
 
-	atomic_dec(&mtx->count);
+	X86_IRQs_DISABLE(flags);
 
 	if (mtx->owner != thread_get_current())
 	{
-		status = -KERNEL_PERMISSION_ERROR;
+		X86_IRQs_ENABLE(flags);
+		return -KERNEL_PERMISSION_ERROR;
 	}
-	else if (TAILQ_EMPTY(&mtx->waitqueue))
+
+	next_owner = TAILQ_FIRST(&mtx->waitqueue);
+
+	if (next_owner)
 	{
-		mtx->owner = NULL;
-		status = KERNEL_OK;
-	}
-	else
-	{
-		thread_t *blocked_thread = TAILQ_FIRST(&mtx->waitqueue);
-		TAILQ_REMOVE(&mtx->waitqueue, blocked_thread, next);
-
-		if (blocked_thread->state != THREAD_RUNNING)
-			scheduler_insert_thread(blocked_thread);
-
-		status = KERNEL_OK;
+		TAILQ_REMOVE(&mtx->waitqueue, next_owner, next);
+		scheduler_insert_thread(next_owner);
 	}
 
-	return status;
+	mtx->owner = next_owner;
+
+	X86_IRQs_ENABLE(flags);
+	return KERNEL_OK;
 }

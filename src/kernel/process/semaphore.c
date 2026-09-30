@@ -7,6 +7,7 @@
 
 #include <lib/c/stdlib.h>
 #include <lib/c/string.h>
+#include <lib/c/assert.h>
 #include <arch/x86/irq.h>
 #include <process/scheduler.h>
 
@@ -29,13 +30,7 @@ semaphore_create(int32_t value)
 void
 semaphore_destroy(semaphore_t *semaphore)
 {
-	thread_t *item;
-
-	while ((item = TAILQ_FIRST(&semaphore->waitqueue)))
-	{
-		TAILQ_REMOVE(&semaphore->waitqueue, item, next);
-	}
-
+	assert(TAILQ_EMPTY(&semaphore->waitqueue));
 	free(semaphore);
 }
 
