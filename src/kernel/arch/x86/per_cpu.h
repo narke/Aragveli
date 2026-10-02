@@ -1,7 +1,9 @@
-; Copyright (c) 2018 Konstantin Tcholokachvili.
-; All rights reserved.
-; Use of this source code is governed by a MIT license that can be
-; found in the LICENSE file.
+/*
+ * Copyright (c) 2026 Konstantin Tcholokachvili.
+ * All rights reserved.
+ * Use of this source code is governed by a MIT license that can be
+ * found in the LICENSE file.
+ */
 
 #pragma once
 
@@ -19,6 +21,7 @@ struct cpu
 	uint32_t	 apic_id;
 	struct thread	*idle;
 	uint32_t	 boot_stack_top;
+	struct thread	*prev;
 
 	struct x86_gdt_entry	gdt[GDT_ENTRIES] __attribute__((aligned(8)));
 	struct x86_tss		tss;
@@ -33,4 +36,13 @@ this_cpu(void)
 	asm volatile("movl %%gs:0, %0" : "=r"(cpu));
 	return cpu;
 
+}
+
+static inline struct thread *
+this_cpu_current(void)
+{
+	struct thread *current_thread;
+
+	asm volatile("movl %%gs:4, %0" : "=r"(current_thread));
+	return current_thread;
 }

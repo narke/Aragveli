@@ -5,8 +5,10 @@
  * found in the LICENSE file.
  */
 
-#include <lib/c/string.h>
+
 #include <arch/x86/segment.h>
+#include <process/sched_rr.h>
+#include <lib/c/string.h>
 #include <lib/c/stdio.h>
 
 #include "cpu-context.h"
@@ -55,6 +57,7 @@ core_routine(cpu_kstate_function_arg1_t *start_func,
 		cpu_kstate_function_arg1_t *exit_func,
 		uint32_t exit_arg)
 {
+	sched_finish_switch();
 	start_func(start_arg);
 	exit_func(exit_arg);
 

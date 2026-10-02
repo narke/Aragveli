@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Konstantin Tcholokachvili.
+ * Copyright (c) 2017, 2026 Konstantin Tcholokachvili.
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
@@ -48,6 +48,7 @@ typedef struct thread
 	struct cpu_state *cpu_state;
 	struct process  *process;
 	uint32_t        kernel_stack_top;
+	volatile uint32_t on_cpu;
 	TAILQ_ENTRY(thread) next;		/* mutex/sem waitqueue */
 	TAILQ_ENTRY(thread) sched_next;		/* ready queue */
 	TAILQ_ENTRY(thread) zombie;
@@ -64,5 +65,4 @@ thread_t *thread_user_create(const char *name, struct process *process);
 thread_t *thread_fork_create(const char *name, struct process *process,
 			     struct syscall_frame *parent_frame);
 void thread_exit(void) __attribute__((noreturn));
-inline void thread_set_current(thread_t *current_thread);
 thread_t *thread_get_current(void);

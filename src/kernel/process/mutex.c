@@ -49,7 +49,7 @@ mutex_lock(mutex_t *mtx)
 
 	if (mtx->owner == current_thread)
 	{
-		X86_IRQs_DISABLE(flags);
+		X86_IRQs_ENABLE(flags);
 		return -KERNEL_BUSY;
 	}
 
@@ -60,12 +60,11 @@ mutex_lock(mutex_t *mtx)
 	else
 	{
 		current_thread->state = THREAD_BLOCKED;
-		scheduler_remove_thread(current_thread);
 		TAILQ_INSERT_TAIL(&mtx->waitqueue, current_thread, next);
 		schedule();
 	}
 
-	X86_IRQs_DISABLE(flags);
+	X86_IRQs_ENABLE(flags);
 	return KERNEL_OK;
 }
 

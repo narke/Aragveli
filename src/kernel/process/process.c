@@ -89,7 +89,6 @@ process_wait(process_t *parent, int *status)
 		thread_t *current = thread_get_current();
 
 		current->state = THREAD_BLOCKED;
-		scheduler_remove_thread(current);
 		TAILQ_INSERT_TAIL(&parent->waiters, current, next);
 		schedule();
 	}

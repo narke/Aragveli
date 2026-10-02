@@ -188,11 +188,8 @@ keyboard_read(void *buf, size_t len)
 			thread_t *current = thread_get_current();
 
 			current->state = THREAD_BLOCKED;
-			scheduler_remove_thread(current);
 			TAILQ_INSERT_TAIL(&waiters, current, next);
-			X86_IRQs_ENABLE(flags);
 			schedule();
-			X86_IRQs_DISABLE(flags);
 		}
 		X86_IRQs_ENABLE(flags);
 

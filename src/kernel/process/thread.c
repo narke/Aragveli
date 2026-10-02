@@ -13,6 +13,7 @@
 #include <arch/x86/paging.h>
 #include <arch/x86/gdt.h>
 #include <arch/x86/syscall.h>
+#include <arch/x86/per_cpu.h>
 #include "thread.h"
 #include "scheduler.h"
 #include "process.h"
@@ -21,21 +22,29 @@ extern void enter_user_mode(uint32_t, uint32_t);
 
 static TAILQ_HEAD(, thread) zombie_threads;
 
-static volatile thread_t *g_current_thread = NULL;
-
 static void
 thread_reap(void)
 {
 	uint32_t flags;
-	thread_t *z;
+	thread_t *zombie_thread;
+	thread_t *tmp;
 
 	X86_IRQs_DISABLE(flags);
 
-	while ((z = TAILQ_FIRST(&zombie_threads)) != NULL)
+	for (zombie_thread = TAILQ_FIRST(&zombie_threads);
+		zombie_thread != NULL;
+		zombie_thread = tmp)
 	{
-		TAILQ_REMOVE(&zombie_threads, z, zombie);
-		free((void *)z->stack_base_address);
-		free(z);
+		tmp = TAILQ_NEXT(zombie_thread, zombie);
+
+		if (zombie_thread->on_cpu)
+		{
+			continue;
+		}
+
+		TAILQ_REMOVE(&zombie_threads, zombie_thread, zombie);
+		free((void *)zombie_thread->stack_base_address);
+		free(zombie_thread);
 	}
 
 	X86_IRQs_ENABLE(flags);
@@ -114,37 +123,35 @@ thread_alloc(const char *name,
 	return new_thread;
 }
 
-inline void
-thread_set_current(thread_t *current_thread)
-{
-	assert(current_thread->state == THREAD_READY);
-
-	g_current_thread        = current_thread;
-	g_current_thread->state = THREAD_RUNNING;
-}
-
 thread_t *
 thread_get_current(void)
 {
+	thread_t *current_thread = this_cpu_current();
+
 	/*
 	 * BLOCKED is allowed: wait/sem set that state before schedule(),
 	 * which still needs to identify the outgoing thread.
 	 */
-	assert(g_current_thread != NULL);
-	assert(g_current_thread->state == THREAD_RUNNING
-	    || g_current_thread->state == THREAD_BLOCKED);
-	return (thread_t *)g_current_thread;
+	assert(current_thread != NULL);
+	assert(current_thread->state == THREAD_RUNNING
+	    || current_thread->state == THREAD_BLOCKED);
+	return current_thread;
 }
 
 void
 threading_setup(void)
 {
+	struct cpu *cpu = this_cpu();
+
 	TAILQ_INIT(&zombie_threads);
 
-	thread_t *idle = thread_kernel_create("idle", idle_thread, NULL);
+	thread_t *idle = thread_alloc("idle", idle_thread, NULL);
 	assert(idle != NULL);
 
-	thread_set_current(idle);
+	idle->state  = THREAD_RUNNING;
+	idle->on_cpu = 1;
+	cpu->idle    = idle;
+	cpu->current = idle;
 }
 
 thread_t *
@@ -229,15 +236,13 @@ thread_exit(void)
 
 	X86_IRQs_DISABLE(flags);
 
-	thread_t *self = (thread_t *)g_current_thread;
+	thread_t *self = this_cpu_current();
 
 	if (self->process)
 	{
 		self->process->thread = NULL;
 		self->process = NULL;
 	}
-
-	scheduler_remove_thread(self);
 
 	self->state = THREAD_ZOMBIE;
 	TAILQ_INSERT_TAIL(&zombie_threads, self, zombie);

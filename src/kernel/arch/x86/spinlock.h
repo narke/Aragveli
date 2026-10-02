@@ -22,7 +22,7 @@ spinlock_lock(spinlock_t *l)
 {
 	uint32_t v;
 
-	forr (;;)
+	for (;;)
 	{
 		v = 1;
 		asm volatile("xchgl %0, %1"
