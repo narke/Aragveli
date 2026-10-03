@@ -31,6 +31,9 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  arch/x86/user-mode.o \
 	  arch/x86/syscall-entry.o \
 	  arch/x86/syscall.o \
+	  arch/x86/tlb.o \
+	  arch/x86/ap-trampoline.o \
+	  arch/x86/smp.o \
 	  lib/c/stdio.o \
 	  lib/c/string.o \
 	  memory/frame.o \

@@ -15,11 +15,13 @@
 void
 pool_create(pool_t *pool, uint32_t block_size, uint32_t nb_blocks)
 {
-	pool->nb_blocks		= nb_blocks;
-	pool->block_size	= block_size;
-	pool->mem_pool_start	= malloc(nb_blocks * block_size);
-	pool->nb_free_blocks 	= nb_blocks;
-	pool->next_mem_pool 	= pool->mem_pool_start;
+	spinlock_init(&pool->lock);
+	pool->nb_blocks			= nb_blocks;
+	pool->block_size		= block_size;
+	pool->mem_pool_start		= malloc(nb_blocks * block_size);
+	pool->nb_free_blocks 		= nb_blocks;
+	pool->nb_initialized_blocks	= 0;
+	pool->next_mem_pool 		= pool->mem_pool_start;
 }
 
 void
@@ -44,14 +46,15 @@ index_from_address(pool_t *pool, const unsigned char *p)
 void *
 pool_allocate(pool_t *pool)
 {
+	void *ret = NULL;
+	uint32_t flags = spinlock_lock_irqsave(&pool->lock);
+
 	if (pool->nb_initialized_blocks < pool->nb_blocks)
 	{
 		uint32_t *p = (uint32_t *)address_from_index(pool, pool->nb_initialized_blocks);
 		*p = pool->nb_initialized_blocks + 1;
 		pool->nb_initialized_blocks++;
 	}
-
-	void *ret = NULL;
 
 	if (pool->nb_free_blocks > 0)
 	{
@@ -64,12 +67,16 @@ pool_allocate(pool_t *pool)
 			pool->next_mem_pool = NULL;
 	}
 
+	spinlock_unlock_irqrestore(&pool->lock, flags);
+
 	return ret;
 }
 
 void
 pool_deallocate(pool_t *pool, void *ptr)
 {
+	uint32_t flags = spinlock_lock_irqsave(&pool->lock);
+
 	if (pool->next_mem_pool != NULL)
 	{
 		(*(uint32_t *)ptr) = index_from_address(pool, pool->next_mem_pool);
@@ -82,4 +89,6 @@ pool_deallocate(pool_t *pool, void *ptr)
 	}
 
 	++pool->nb_free_blocks;
+
+	spinlock_unlock_irqrestore(&pool->lock, flags);
 }

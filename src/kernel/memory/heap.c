@@ -11,10 +11,12 @@
 #include <lib/c/stdio.h>
 #include <memory/frame.h>
 #include <arch/x86/paging.h>
+#include <arch/x86/spinlock.h>
 #include "heap.h"
 
 static uint32_t metadata_heap;
 static vaddr_t metadata_end;
+static spinlock_t heap_lock = SPINLOCK_INIT;
 
 SLIST_HEAD(, memory_range) used_ranges;
 SLIST_HEAD(, memory_range) metadata_pool;
@@ -80,6 +82,7 @@ heap_alloc(size_t size)
 	size_t nb_pages = size == 0 ? 1 : (size + PAGE_SIZE - 1) / PAGE_SIZE;
 	paddr_t base = frame_alloc_contiguous(nb_pages);
 	struct memory_range *range;
+	uint32_t flags;
 
 	if (!base)
 	{
@@ -87,10 +90,14 @@ heap_alloc(size_t size)
 		return NULL;
 	}
 
+	flags = spinlock_lock_irqsave(&heap_lock);
+
 	range = range_metadata_alloc();
 	range->base_address = base;
 	range->nb_pages = nb_pages;
 	SLIST_INSERT_HEAD(&used_ranges, range, next);
+
+	spinlock_unlock_irqrestore(&heap_lock, flags);
 
 	return PA2VA(base);
 }
@@ -99,23 +106,36 @@ void
 heap_free(void *address)
 {
 	struct memory_range *range;
+	paddr_t base = 0;
+	size_t nb_pages = 0;
+	uint32_t flags;
 
 	if (!address)
 		return;
 
 	uint32_t physical_address = VA2PA(address);
 
+	flags = spinlock_lock_irqsave(&heap_lock);
+
 	SLIST_FOREACH(range, &used_ranges, next)
 	{
 		if (range->base_address == physical_address)
 		{
-			frame_free_contiguous(range->base_address, range->nb_pages);
+			base = range->base_address;
+			nb_pages = range->nb_pages;
 			SLIST_REMOVE(&used_ranges, range, memory_range, next);
 			range_metadata_free(range);
-			return;
+			break;
 		}
 	}
 
-	kprintf("heap_free: invalid pointer %p\n", address);
-	assert(0);
+	spinlock_unlock_irqrestore(&heap_lock, flags);
+
+	if (!nb_pages)
+	{
+		kprintf("heap_free: invalid pointer %p\n", address);
+		assert(0);
+	}
+
+	frame_free_contiguous(base, nb_pages);
 }

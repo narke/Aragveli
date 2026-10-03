@@ -33,3 +33,4 @@ void x86_idt_setup(void);
  */
 status_t x86_idt_set_handler(uint32_t index, uint32_t handler_address,
 		uint8_t dpl);
+void x86_idt_load(void);

@@ -26,6 +26,11 @@
 
 #include <lib/types.h>
 
-extern volatile uint8_t g_activeCpuCount;
+#define AP_TRAMPOLINE_BASE	0x8000
+#define LAPIC_TIMER_VECTOR	0xF0
+#define RESCHED_VECTOR		0xF1
+
+extern volatile atomic_count_t g_activeCpuCount;
 
 void SmpInit();
+void ap_main(uint32_t index);

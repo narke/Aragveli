@@ -7,6 +7,8 @@
 
 #include <arch/x86-pc/bootstrap/multiboot.h>
 #include <arch/x86/paging.h>
+#include <arch/x86/spinlock.h>
+#include <arch/x86/smp.h>
 #include <lib/queue.h>
 #include <lib/types.h>
 #include <lib/c/string.h>
@@ -17,11 +19,11 @@ typedef struct frame
 {
 	uint32_t address;
 	uint32_t ref_count;
-	SLIST_ENTRY(frame) next;
+	LIST_ENTRY(frame) next;
 } frame_t;
 
-SLIST_HEAD(, frame) free_frames;
-SLIST_HEAD(, frame) used_frames;
+LIST_HEAD(, frame) free_frames;
+static spinlock_t frame_lock = SPINLOCK_INIT;
 
 extern char __kernel_start, __kernel_end;
 
@@ -42,8 +44,7 @@ frame_setup(size_t ram_size,
 
 #define FRAMES_ARRAY_ADDRSS PAGE_ALIGN_UP(initrd_end)
 
-	SLIST_INIT(&free_frames);
-	SLIST_INIT(&used_frames);
+	LIST_INIT(&free_frames);
 
 	ram_size = PAGE_ALIGN_DOWN(ram_size);
 
@@ -79,7 +80,8 @@ frame_setup(size_t ram_size,
 		memset(frame, 0, sizeof(frame_t));
 		frame->address = frame_address;
 
-		if (frame_address < physical_memory_start)
+		if (frame_address < physical_memory_start
+			|| frame_address == AP_TRAMPOLINE_BASE)
 		{
 			action = RESERVED;
 		}
@@ -116,13 +118,12 @@ frame_setup(size_t ram_size,
 		{
 			case FREE:
 				frame->ref_count = 0;
-				SLIST_INSERT_HEAD(&free_frames, frame, next);
+				LIST_INSERT_HEAD(&free_frames, frame, next);
 				break;
 
 			case HARDWARE:
 			case KERNEL:
 				frame->ref_count = 1;
-				SLIST_INSERT_HEAD(&used_frames, frame, next);
 				break;
 
 			default:
@@ -151,26 +152,27 @@ paddr_t
 frame_alloc(void)
 {
 	frame_t *frame;
+	uint32_t flags = spinlock_lock_irqsave(&frame_lock);
 
-	if (SLIST_EMPTY(&free_frames))
-		return (paddr_t)NULL;
+	frame = LIST_FIRST(&free_frames);
 
-	frame = SLIST_FIRST(&free_frames);
-	SLIST_REMOVE(&free_frames, frame, frame, next);
+	if (frame)
+	{
+		LIST_REMOVE(frame, next);
+		assert(frame->ref_count == 0);
+		frame->ref_count = 1;
+	}
 
-	assert(frame->ref_count == 0);
-
-	frame->ref_count++;
-
-	SLIST_INSERT_HEAD(&used_frames, frame, next);
-
-	return frame->address;
+	spinlock_unlock_irqrestore(&frame_lock, flags);
+	return frame ? frame->address : (paddr_t)NULL;
 }
 
 paddr_t
 frame_alloc_contiguous(size_t nb_pages)
 {
 	paddr_t candidate;
+	paddr_t result = (paddr_t)NULL;
+	uint32_t flags;
 	size_t i;
 
 	if (nb_pages == 0)
@@ -178,6 +180,8 @@ frame_alloc_contiguous(size_t nb_pages)
 
 	if (nb_pages == 1)
 		return frame_alloc();
+
+	flags = spinlock_lock_irqsave(&frame_lock);
 
 	for (candidate = physical_memory_start;
 		candidate + nb_pages * PAGE_SIZE <= physical_memory_end;
@@ -198,35 +202,39 @@ frame_alloc_contiguous(size_t nb_pages)
 		{
 			frame_t *frame = frame_at_address(candidate + i * PAGE_SIZE);
 
-			SLIST_REMOVE(&free_frames, frame, frame, next);
+			LIST_REMOVE(frame, next);
 			frame->ref_count = 1;
-			SLIST_INSERT_HEAD(&used_frames, frame, next);
 		}
 
-		return candidate;
+		result = candidate;
+		break;
 	}
 
-	return (paddr_t)NULL;
+	spinlock_unlock_irqrestore(&frame_lock, flags);
+	return result;
 }
 
 status_t
 frame_free(paddr_t frame_address)
 {
 	status_t status = !KERNEL_OK;
-
 	frame_t *frame = frame_at_address(frame_address);
+	uint32_t flags;
 
 	if (!frame)
 		return -KERNEL_INVALID_VALUE;
 
-	frame->ref_count--;
+	flags = spinlock_lock_irqsave(&frame_lock);
 
-	if (frame->ref_count == 0)
+	assert(frame->ref_count > 0);
+
+	if (--frame->ref_count == 0)
 	{
-		SLIST_REMOVE(&used_frames, frame, frame, next);
-		SLIST_INSERT_HEAD(&free_frames, frame, next);
+		LIST_INSERT_HEAD(&free_frames, frame, next);
 		status = KERNEL_OK;
 	}
+
+	spinlock_unlock_irqrestore(&frame_lock, flags);
 
 	return status;
 }

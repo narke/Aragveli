@@ -19,6 +19,7 @@ typedef struct process {
 	int		exit_status;
 	uint32_t	page_directory;	/* physical, matches page_* API */
 	uint32_t	entry;		/* user-mode entry point (virtual address) */
+	volatile uint32_t vm_cpus;	/* bit i = CPU i has this CR3 loaded */
 	uint32_t	user_stack_top;
 	thread_t	*thread;	/* the 1:1 kernel thread */
 	struct process	*parent;

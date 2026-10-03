@@ -21,15 +21,18 @@
 extern void enter_user_mode(uint32_t, uint32_t);
 
 static TAILQ_HEAD(, thread) zombie_threads;
+static spinlock_t zombie_lock = SPINLOCK_INIT;
 
 static void
 thread_reap(void)
 {
+	TAILQ_HEAD(, thread) dead;
 	uint32_t flags;
 	thread_t *zombie_thread;
 	thread_t *tmp;
 
-	X86_IRQs_DISABLE(flags);
+	TAILQ_INIT(&dead);
+	flags = spinlock_lock_irqsave(&zombie_lock);
 
 	for (zombie_thread = TAILQ_FIRST(&zombie_threads);
 		zombie_thread != NULL;
@@ -43,11 +46,17 @@ thread_reap(void)
 		}
 
 		TAILQ_REMOVE(&zombie_threads, zombie_thread, zombie);
+		TAILQ_INSERT_TAIL(&dead, zombie_thread, zombie);
+	}
+
+	spinlock_unlock_irqrestore(&zombie_lock, flags);
+
+	while ((zombie_thread = TAILQ_FIRST(&dead)) != NULL)
+	{
+		TAILQ_REMOVE(&dead, zombie_thread, zombie);
 		free((void *)zombie_thread->stack_base_address);
 		free(zombie_thread);
 	}
-
-	X86_IRQs_ENABLE(flags);
 }
 
 static void
@@ -141,11 +150,16 @@ thread_get_current(void)
 void
 threading_setup(void)
 {
-	struct cpu *cpu = this_cpu();
-
 	TAILQ_INIT(&zombie_threads);
+	threading_setup_cpu();
+}
 
+void
+threading_setup_cpu(void)
+{
+	struct cpu *cpu = this_cpu();
 	thread_t *idle = thread_alloc("idle", idle_thread, NULL);
+
 	assert(idle != NULL);
 
 	idle->state  = THREAD_RUNNING;
@@ -245,7 +259,10 @@ thread_exit(void)
 	}
 
 	self->state = THREAD_ZOMBIE;
+
+	spinlock_lock(&zombie_lock);
 	TAILQ_INSERT_TAIL(&zombie_threads, self, zombie);
+	spinlock_unlock(&zombie_lock);
 
 	/* Never returns: switches to the next ready thread. */
 	scheduler_switch_to_next(self);

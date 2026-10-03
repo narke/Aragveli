@@ -52,6 +52,7 @@ static size_t ring_count;
 static int shift_down;
 static int e0_prefix;
 static TAILQ_HEAD(, thread) waiters;
+static spinlock_t kbd_lock = SPINLOCK_INIT;
 
 static int
 ring_push(uint8_t c)
@@ -145,8 +146,14 @@ keyboard_irq(int irq_level)
 	if (!c)
 		return;
 
+	spinlock_lock(&kbd_lock);
+
 	if (ring_push((uint8_t)c) == 0)
+	{
 		wake_one_waiter();
+	}
+
+	spinlock_unlock(&kbd_lock);
 }
 
 static void
@@ -180,18 +187,16 @@ keyboard_read(void *buf, size_t len)
 	while (n < len)
 	{
 		uint8_t c;
-		uint32_t flags;
+		uint32_t flags = spinlock_lock_irqsave(&kbd_lock);
 
-		X86_IRQs_DISABLE(flags);
 		while (ring_pop(&c) != 0)
 		{
-			thread_t *current = thread_get_current();
-
-			current->state = THREAD_BLOCKED;
-			TAILQ_INSERT_TAIL(&waiters, current, next);
-			schedule();
+			TAILQ_INSERT_TAIL(&waiters, thread_get_current(), next);
+			sched_sleep(&kbd_lock);
+			spinlock_lock(&kbd_lock);
 		}
-		X86_IRQs_ENABLE(flags);
+
+		spinlock_unlock_irqrestore(&kbd_lock, flags);
 
 		dst[n++] = c;
 	}

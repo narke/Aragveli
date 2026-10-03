@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Konstantin Tcholokachvili.
+ * Copyright (c) 2018, 2026 Konstantin Tcholokachvili.
  * Copyright (c) 2012 Patrick Doane and others.  See AUTHORS file for list.
  *
  * This software is provided 'as-is', without any express or implied warranty.
@@ -32,3 +32,6 @@ void LocalApicInit();
 uint32_t LocalApicGetId();
 void LocalApicSendInit(uint32_t apic_id);
 void LocalApicSendStartup(uint32_t apic_id, uint32_t vector);
+void LocalApicSendIpi(uint32_t apic_id, uint32_t vector);
+void LocalApicEoi(void);
+void LocalApicTimerInit(uint32_t hz);

@@ -59,12 +59,17 @@ typedef struct x86_idt_entry
 } __attribute__((packed)) x86_idt_entry_t;
 
 static x86_idt_entry_t idt_array[INTERRUPTS_MAX_LIMIT];
+static x86_idtr_t idtr;
+
+void
+x86_idt_load(void)
+{
+	asm volatile ("lidt %0\n"::"m"(idtr):"memory");
+}
 
 void
 x86_idt_setup(void)
 {
-	x86_idtr_t idtr;
-
 	for (uint16_t i = 0; i < INTERRUPTS_MAX_LIMIT; i++)
 	{
 		x86_idt_entry_t *idt_entry = idt_array+i;
@@ -85,7 +90,7 @@ x86_idt_setup(void)
 	idtr.base_address = (uint32_t)idt_array;
 	idtr.limit        = sizeof(idt_array) - 1;
 
-	asm volatile ("lidt %0\n"::"m"(idtr):"memory");
+	x86_idt_load();
 }
 
 

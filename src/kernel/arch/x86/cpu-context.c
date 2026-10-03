@@ -57,7 +57,7 @@ core_routine(cpu_kstate_function_arg1_t *start_func,
 		cpu_kstate_function_arg1_t *exit_func,
 		uint32_t exit_arg)
 {
-	sched_finish_switch();
+	sched_thread_entry();
 	start_func(start_arg);
 	exit_func(exit_arg);
 
@@ -123,9 +123,9 @@ cpu_kstate_init(struct cpu_state **ctx,
 	/* fs and gs unused for the moment. */
 
 	/* The newly created context is initially interruptible */
-	kctx->regs.eflags = (1 << 9); /* set IF bit */
+	kctx->regs.eflags = 0;
 
-	/* Finally, update the generic kernel thread context */
+	/* IF clear: sched_thread_entry() drops sched_lock, then enables IRQs. */
 	*ctx = (struct cpu_state *)kctx;
 }
 

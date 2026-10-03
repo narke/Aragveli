@@ -84,7 +84,6 @@ timer_interrupt_handler(int number)
 	if (g_pit_ticks % 100 == 0)
 	{
 		seconds++;
-		g_pit_ticks = 0;
 	}
 
 	X86_IRQs_DISABLE(flags);

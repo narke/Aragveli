@@ -17,6 +17,7 @@
 #define SEGMENT_TYPE_TSS	0x9	// 32-bit available TSS
 
 struct cpu g_cpus[MAX_CPU_COUNT];
+volatile uint32_t g_online_cpus;
 
 static const struct x86_gdt_entry gdt[GDT_ENTRIES] = {
 	[NULL_SEGMENT]  = (struct x86_gdt_entry){ 0, },

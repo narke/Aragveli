@@ -8,6 +8,7 @@
 #pragma once
 
 #include <lib/types.h>
+#include <arch/x86/spinlock.h>
 
 typedef struct
 {
@@ -17,6 +18,7 @@ typedef struct
 	uint32_t 	nb_initialized_blocks;
 	unsigned char 	*mem_pool_start;
 	unsigned char 	*next_mem_pool;
+	spinlock_t	lock;
 } pool_t;
 
 

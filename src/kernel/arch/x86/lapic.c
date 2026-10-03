@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Konstantin Tcholokachvili.
+ * Copyright (c) 2018, 2026 Konstantin Tcholokachvili.
  * Copyright (c) 2012 Patrick Doane and others.  See AUTHORS file for list.
  *
  * This software is provided 'as-is', without any express or implied warranty.
@@ -26,6 +26,7 @@
 #include "mmio.h"
 #include "acpi.h"
 #include "lapic.h"
+#include "smp.h"
 
 // ------------------------------------------------------------------------------------------------
 // Local APIC Registers
@@ -91,8 +92,13 @@
 // Destination Field
 #define ICR_DESTINATION_SHIFT           24
 
+#define LAPIC_TIMER_MASKED              0x00010000
+#define LAPIC_TIMER_PERIODIC            0x00020000
+#define LAPIC_TIMER_DIV16               0x3
+extern volatile uint32_t g_pit_ticks;
+
 uint8_t *g_localApicAddr;
-uint32_t g_activeCpuCount;
+volatile atomic_count_t g_activeCpuCount;
 
 // ------------------------------------------------------------------------------------------------
 static uint32_t LocalApicIn(uint32_t reg)
@@ -147,4 +153,53 @@ void LocalApicSendStartup(uint32_t apic_id, uint32_t vector)
 
     while (LocalApicIn(LAPIC_ICRLO) & ICR_SEND_PENDING)
         ;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Caller must have IRQs disabled: ICRHI/ICRLO are written as a pair.
+void LocalApicSendIpi(uint32_t apic_id, uint32_t vector)
+{
+    while (LocalApicIn(LAPIC_ICRLO) & ICR_SEND_PENDING)
+        ;
+
+    LocalApicOut(LAPIC_ICRHI, apic_id << ICR_DESTINATION_SHIFT);
+    LocalApicOut(LAPIC_ICRLO, vector | ICR_FIXED | ICR_PHYSICAL
+        | ICR_ASSERT | ICR_EDGE | ICR_NO_SHORTHAND);
+}
+
+// ------------------------------------------------------------------------------------------------
+void LocalApicEoi(void)
+{
+    LocalApicOut(LAPIC_EOI, 0);
+}
+
+void LocalApicTimerInit(uint32_t hz)
+{
+    uint32_t t;
+    uint32_t ticks_per_pit_tick;
+
+    LocalApicOut(LAPIC_TDCR, LAPIC_TIMER_DIV16);
+    LocalApicOut(LAPIC_TIMER, LAPIC_TIMER_VECTOR | LAPIC_TIMER_MASKED);
+
+    // Count local APIC ticks across exactly one 10 ms PIT period
+    t = g_pit_ticks;
+
+    while (g_pit_ticks == t)
+    {
+        asm volatile("pause");
+    }
+
+    LocalApicOut(LAPIC_TICR, 0xFFFFFFFF);
+
+    t = g_pit_ticks;
+
+    while (g_pit_ticks == t)
+    {
+        asm volatile("pause");
+    }
+
+    ticks_per_pit_tick = 0xFFFFFFFF - LocalApicIn(LAPIC_TCCR);
+
+    LocalApicOut(LAPIC_TIMER, LAPIC_TIMER_VECTOR | LAPIC_TIMER_PERIODIC);
+    LocalApicOut(LAPIC_TICR, ticks_per_pit_tick * 100 / hz);
 }

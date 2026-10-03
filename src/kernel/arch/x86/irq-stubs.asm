@@ -22,6 +22,12 @@ PER_CPU_SELECTOR     equ 0x30
 [global pit_interrupt]
 [global spurious_interrupt_handler]
 [extern timer_interrupt_handler]
+[global tlb_shootdown_interrupt]
+[extern tlb_shootdown_irq]
+[global lapic_timer_interrupt]
+[global resched_interrupt]
+[extern lapic_timer_handler]
+[extern resched_handler]
 
 ; Same packed layout of cpu_state, other irq wrappers (o16)
 %macro SAVE_REGISTERS 0
@@ -129,6 +135,21 @@ PER_CPU_SELECTOR     equ 0x30
 		iret
 %endmacro
 
+%macro LAPIC_STUB 2
+%1:
+	push 0
+	push ebp
+	mov  ebp, esp
+	SAVE_REGISTERS
+	call %2
+	RESTORE_REGISTERS
+	add  esp, 4
+	iret
+%endmacro
+
+LAPIC_STUB lapic_timer_interrupt, lapic_timer_handler
+LAPIC_STUB resched_interrupt, resched_handler
+
 X86_IRQ_WRAPPER_MASTER 0
 X86_IRQ_WRAPPER_MASTER 1
 X86_IRQ_WRAPPER_MASTER 2
@@ -172,6 +193,21 @@ pit_interrupt:
 
 ; Spurious interrupt
 spurious_interrupt_handler:
+	iret
+
+; TLB shootdown IPI
+tlb_shootdown_interrupt:
+	push 0
+	push ebp
+	mov  ebp, esp
+	SAVE_REGISTERS
+
+	call tlb_shootdown_irq
+
+	RESTORE_REGISTERS
+
+	; Remove fake error code
+	add  esp, 4
 	iret
 
 section .rodata

@@ -66,3 +66,4 @@ thread_t *thread_fork_create(const char *name, struct process *process,
 			     struct syscall_frame *parent_frame);
 void thread_exit(void) __attribute__((noreturn));
 thread_t *thread_get_current(void);
+void threading_setup_cpu(void);

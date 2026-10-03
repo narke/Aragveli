@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <arch/x86/spinlock.h>
 #include <lib/types.h>
 #include "thread.h"
 
@@ -14,4 +15,5 @@ void scheduler_setup(void);
 void scheduler_insert_thread(thread_t * t);
 void scheduler_start(void) __attribute__((noreturn));
 void schedule(void);
+void sched_sleep(spinlock_t *wq_lock);
 void scheduler_switch_to_next(thread_t *dying) __attribute__((noreturn));

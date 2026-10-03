@@ -63,3 +63,17 @@ atomic_cmpxchg(volatile atomic_count_t *v,
 		: "memory", "cc");
 	return old;
 }
+
+static inline void
+atomic_set_bit(volatile uint32_t *v, uint32_t bit)
+{
+	asm volatile("lock btsl %1, %0"
+		: "+m"(*v) : "Ir"(bit) : "memory", "cc");
+}
+
+static inline void
+atomic_clear_bit(volatile uint32_t *v, uint32_t bit)
+{
+	asm volatile("lock btrl %1, %0"
+		: "+m"(*v) : "Ir"(bit) : "memory", "cc");
+}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2020 Konstantin Tcholokachvili.
+ * Copyright (c) 2017, 2020, 2026 Konstantin Tcholokachvili.
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
@@ -25,6 +25,7 @@
 #include <arch/x86/lapic.h>
 #include <arch/x86/acpi.h>
 #include <arch/x86/smp.h>
+#include <arch/x86/tlb.h>
 #include <memory/frame.h>
 #include <memory/heap.h>
 #include <arch/x86/paging.h>
@@ -46,6 +47,9 @@ struct superblock *root_fs;
 
 extern void pit_interrupt();
 extern void spurious_interrupt_handler();
+extern void tlb_shootdown_interrupt();
+extern void lapic_timer_interrupt();
+extern void resched_interrupt();
 
 void
 interrupts_setup(void)
@@ -53,6 +57,9 @@ interrupts_setup(void)
 	// Spurious interrupt
 	x86_idt_set_handler(TIMER_INTERRUPT, (uint32_t)pit_interrupt, 0);
 	x86_idt_set_handler(SPURIOUS_INTERRUPT, (uint32_t)spurious_interrupt_handler, 0);
+	x86_idt_set_handler(TLB_SHOOTDOWN_VECTOR, (uint32_t)tlb_shootdown_interrupt, 0);
+	x86_idt_set_handler(LAPIC_TIMER_VECTOR, (uint32_t)lapic_timer_interrupt, 0);
+	x86_idt_set_handler(RESCHED_VECTOR, (uint32_t)resched_interrupt, 0);
 
 	// Disable PIC to use Local APIC
 	x86_pic_disable();
@@ -94,6 +101,13 @@ extra_kernel(uint32_t initrd_start, uint32_t initrd_end)
 	vbe_set_color(NORMAL_GREEN);
 }
 
+static void
+smp_init_thread(uint32_t arg)
+{
+	(void)arg;
+	SmpInit();
+}
+
 // The kernel entry point. All starts from here!
 void
 aragveli_main(uint32_t magic, uint32_t address)
@@ -129,6 +143,11 @@ aragveli_main(uint32_t magic, uint32_t address)
 	// Interrupts
 	interrupts_setup();
 
+	// Boot CPU identity, needed by TLB shootdown and the scheduler
+	g_cpus[0].id      = 0;
+	g_cpus[0].apic_id = LocalApicGetId();
+	g_online_cpus     = 1u << 0;
+
 	// Initrd
 	uint32_t initrd_start = *(uint32_t *)mbi->mods_addr;
 	uint32_t initrd_end   = *(uint32_t *)(mbi->mods_addr + 4);
@@ -162,7 +181,7 @@ aragveli_main(uint32_t magic, uint32_t address)
 	system_calls_setup();
 
 	// SMP
-	//SmpInit();
+	thread_kernel_create("smp-init", smp_init_thread, NULL);
 
 	uint32_t kernel_stack = frame_alloc();
 	set_kernel_stack((uint32_t)PA2VA(kernel_stack) + PAGE_SIZE);

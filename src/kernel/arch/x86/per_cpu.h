@@ -22,12 +22,14 @@ struct cpu
 	struct thread	*idle;
 	uint32_t	 boot_stack_top;
 	struct thread	*prev;
+	volatile uint32_t tlb_pending;
 
 	struct x86_gdt_entry	gdt[GDT_ENTRIES] __attribute__((aligned(8)));
 	struct x86_tss		tss;
 };
 
 extern struct cpu g_cpus[MAX_CPU_COUNT];
+extern volatile uint32_t g_online_cpus; // bit i set = g_cpus[i] is running
 
 static inline struct cpu *
 this_cpu(void)
