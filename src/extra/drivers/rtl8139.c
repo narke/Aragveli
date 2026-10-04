@@ -1,10 +1,11 @@
 /*
- * Copyright (c) 2018 Konstantin Tcholokachvili.
+ * Copyright (c) 2018, 2026 Konstantin Tcholokachvili.
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
  */
 
+#include <arch/x86/spinlock.h>
 #include <arch/x86/io-ports.h>
 #include <lib/c/stdlib.h>
 #include <lib/c/string.h>
@@ -70,6 +71,7 @@
 
 pci_device_t  pci_rtl8139_device;
 rtl8139_dev_t rtl8139_device;
+static spinlock_t tx_lock = SPINLOCK_INIT;
 
 static void
 handle_rx(void)
@@ -183,10 +185,8 @@ read_mac_address(void)
 ssize_t
 send_packet(const void *data, size_t length)
 {
-	uint32_t flags;
+	uint32_t flags = spinlock_lock_irqsave(&tx_lock);
 	bool is_available = false;
-
-	X86_IRQs_DISABLE(flags);
 
 	if (in32((uint16_t)(rtl8139_device.io_base + TX_STATUS + (rtl8139_device.tx_buffer_idx * 4))) & TX_HOST_OWNS)
 	{
@@ -220,7 +220,7 @@ send_packet(const void *data, size_t length)
 		is_available = true;
 	}
 
-	X86_IRQs_ENABLE(flags);
+	spinlock_unlock_irqrestore(&tx_lock, flags);
 
 	if (is_available)
 	{

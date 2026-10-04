@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2017 Konstantin Tcholokachvili.
+ * Copyright (c) 2015, 2017, 2026 Konstantin Tcholokachvili.
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
@@ -46,9 +46,54 @@ struct path_node
 };
 
 STAILQ_HEAD(, path_node) path_nodes;
+spinlock_t tarfs_ns_lock = SPINLOCK_INIT;
 
 static status_t path_nodes_list_delete(void);
 
+struct node *
+node_get(struct node *n)
+{
+	if (n)
+	{
+		atomic_inc(&n->refcount);
+	}
+
+	return n;
+}
+void
+node_put(struct node *n)
+{
+	if (n && atomic_dec_and_test(&n->refcount))
+	{
+		free(n);
+	}
+}
+
+static struct node *
+folder_lookup(struct node *folder, const char *name, size_t len)
+{
+	struct node *child;
+	uint32_t flags;
+
+	if (folder->type != TMPFS_FOLDER)
+	{
+		return NULL;
+	}
+
+	flags = spinlock_lock_irqsave(&folder->lock);
+
+	LIST_FOREACH(child, &folder->u.folder.nodes, next)
+	{
+		if (strncmp(child->name, name, len) == 0 && child->name[len] == '\0')
+		{
+			node_get(child);
+			break;
+		}
+	}
+
+	spinlock_unlock_irqrestore(&folder->lock, flags);
+	return child;
+}
 
 /*
  * TAR file decoding functions.
@@ -198,36 +243,40 @@ path_nodes_list_delete(void)
 struct node *
 resolve_node(const char *path, struct node *root_node)
 {
-	struct node *tmp_node, *node;
-	bool found = false;
+	struct node *current_node = node_get(root_node);
 
-	// Create a list of node names separated by '/'
-	path_nodes_to_list(path);
-
-	tmp_node = root_node;
-
-	struct path_node *pn;
-	STAILQ_FOREACH(pn, &path_nodes, next)
+	while (current_node && *path)
 	{
-		LIST_FOREACH(node, &tmp_node->u.folder.nodes, next)
+		const char *end;
+		struct node *next;
+
+		while (*path == '/')
 		{
-			if (strncmp(pn->name, node->name, strnlen(pn->name, NODE_NAME_LENGTH)+1) == 0)
-			{
-				tmp_node = node;
-				found = true;
-			}
+			path++;
 		}
 
-		if (!found)
+		if (*path == '\0')
 		{
-			tmp_node = NULL;
 			break;
 		}
+
+		for (end = path; *end && *end != '/'; end++)
+		{
+			;
+		}
+
+		if ((size_t)(end - path) >= NODE_NAME_LENGTH)
+		{
+			node_put(current_node);
+			return NULL;
+		}
+
+		next = folder_lookup(current_node, path, (size_t)(end - path));
+		node_put(current_node);
+		current_node = next;
+		path = end;
 	}
-
-	path_nodes_list_delete();
-
-	return tmp_node;
+	return current_node;
 }
 
 static char *
@@ -313,6 +362,7 @@ add_node(const char *path, uint8_t type, size_t file_size, void *archive,
 		return -KERNEL_NO_MEMORY;
 
 	memset(new_node, 0, sizeof(struct node));
+	new_node->refcount = 1;
 	strzcpy(new_node->name, filename, sizeof(new_node->name));
 	new_node->name_length = strnlen(new_node->name, NODE_NAME_LENGTH) + 1;
 
@@ -456,8 +506,12 @@ tarfs_mount(const char *root_device, const char *mount_point,
 	struct node *root_node = malloc(sizeof(struct node));
 
 	if (!root_node)
+	{
 		return -KERNEL_NO_MEMORY;
+	}
 
+	memset(root_node, 0, sizeof(*root_node));
+	root_node->refcount = 1;
 	root_node->type = TMPFS_FOLDER;
 	root_node->name_length = strnlen("/", NODE_NAME_LENGTH)+1;
 	strzcpy(root_node->name, "/", root_node->name_length);

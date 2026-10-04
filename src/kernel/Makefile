@@ -91,6 +91,7 @@ run:
 		-netdev user,id=net0 \
 		-device rtl8139,netdev=net0 \
 		-smp cores=4,threads=2 \
+		-monitor stdio \
 		-cdrom $(MULTIBOOT_IMAGE)
 
 clean:

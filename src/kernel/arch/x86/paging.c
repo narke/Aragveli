@@ -2,6 +2,7 @@
 #include <lib/c/string.h>
 #include <memory/frame.h>
 
+#include "tlb.h"
 #include "paging.h"
 
 // Mask that clears the low 12 flag bits, keeping the page frame address
@@ -190,7 +191,7 @@ page_directory_switch(uint32_t pd_physical)
 }
 
 void
-page_directory_clear_user(uint32_t pd_physical)
+page_directory_clear_user(uint32_t pd_physical, uint32_t cpus)
 {
 	if (!pd_physical)
 	{
@@ -199,15 +200,23 @@ page_directory_clear_user(uint32_t pd_physical)
 
 	uint32_t *pd = (uint32_t *)PA2VA(pd_physical);
 
-	/* Only the user half is private; the kernel half is shared, never freed. */
+	/* Frames may be reused only once no CPU can translate through them. */
 	for (uint32_t i = 0; i < KERNEL_PDE_START; i++)
 	{
-		if (!(pd[i] & PAGE_PRESENT))
+		pd[i] &= ~(uint32_t)PAGE_PRESENT;
+	}
+
+	tlb_shootdown(cpus, 0, TLB_FLUSH_ALL);
+
+	for (uint32_t i = 0; i < KERNEL_PDE_START; i++)
+	{
+		uint32_t pt_physical = pd[i] & PAGE_FRAME_MASK;
+
+		if (!pt_physical)
 		{
 			continue;
 		}
 
-		uint32_t pt_physical = pd[i] & PAGE_FRAME_MASK;
 		uint32_t *pt = (uint32_t *)PA2VA(pt_physical);
 
 		for (uint32_t j = 0; j < 1024; j++)
@@ -231,7 +240,7 @@ page_directory_destroy(uint32_t pd_physical)
 		return;
 	}
 
-	page_directory_clear_user(pd_physical);
+	page_directory_clear_user(pd_physical, 0);
 	frame_free(pd_physical);
 }
 

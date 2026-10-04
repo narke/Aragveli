@@ -1,16 +1,19 @@
 /*
- * Copyright (c) 2017 Konstantin Tcholokachvili
+ * Copyright (c) 2017, 2026 Konstantin Tcholokachvili
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
  */
 
+#include <arch/x86/spinlock.h>
 #include <drivers/vbe.h>
 #include <lib/types.h>
 #include "stdio.h"
 #include "string.h"
 #include "stdarg.h"
 #include "stdbool.h"
+
+static spinlock_t console_lock = SPINLOCK_INIT;
 
 static void
 print_hex(unsigned long int number)
@@ -209,8 +212,12 @@ void
 vbe_console_format(const char *fmt, ...)
 {
 	va_list args;
+	uint32_t flags = spinlock_lock_irqsave(&console_lock);
+
 
 	va_start(args, fmt);
 	__vprintf(fmt, args);
 	va_end(args);
+
+	spinlock_unlock_irqrestore(&console_lock, flags);
 }

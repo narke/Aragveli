@@ -3,6 +3,7 @@
 #include <lib/types.h>
 #include <lib/queue.h>
 #include <fs/tarfs.h>
+#include <process/mutex.h>
 
 #include "thread.h"
 
@@ -20,6 +21,7 @@ typedef struct process {
 	uint32_t	page_directory;	/* physical, matches page_* API */
 	uint32_t	entry;		/* user-mode entry point (virtual address) */
 	volatile uint32_t vm_cpus;	/* bit i = CPU i has this CR3 loaded */
+	mutex_t		vm_lock;	/* page_directory and its page tables */
 	uint32_t	user_stack_top;
 	thread_t	*thread;	/* the 1:1 kernel thread */
 	struct process	*parent;
@@ -42,4 +44,3 @@ int process_exec_elf(process_t *p, const char *path, char *const argv[],
 int process_fork(process_t *parent, struct syscall_frame *frame);
 void process_exit(process_t *p, int status) __attribute__((noreturn));
 int process_wait(process_t *parent, int *status);
-void process_wake_waiters(process_t *parent);

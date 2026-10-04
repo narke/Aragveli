@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2017 Konstantin Tcholokachvili.
+ * Copyright (c) 2015, 2017, 2026 Konstantin Tcholokachvili.
  * Copyright (c) 2009 Martin Decky.
  * Copyright (c) 2008 Jakub Jermar.
  * All rights reserved.
@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <arch/x86/atomic.h>
+#include <arch/x86/spinlock.h>
 #include <lib/c/stdbool.h>
 #include <lib/queue.h>
 #include <lib/types.h>
@@ -162,6 +164,9 @@ struct node
 		struct folder folder;
 		struct file   file;
 	} u;
+	atomic_count_t	refcount;	/* +1 for the link in the parent folder */
+	spinlock_t	lock;		/* folders: u.folder.nodes against lookups */
+	bool		unlinked;	/* protected by tarfs_ns_lock */
 	LIST_ENTRY(node) next;
 };
 

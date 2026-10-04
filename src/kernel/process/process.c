@@ -4,7 +4,9 @@
 #include <lib/status.h>
 #include <arch/x86/paging.h>
 #include <arch/x86/syscall.h>
+#include <arch/x86/per_cpu.h>
 #include <memory/frame.h>
+#include <fs/vfs.h>
 
 #include "process.h"
 #include "elf_loader.h"
@@ -17,8 +19,16 @@
 #define USER_STACK_BASE		(USER_STACK_TOP - (USER_STACK_PAGES - 1) * PAGE_SIZE)
 #define USER_STACK_ARG_MAX	32
 
-static int g_next_pid = 1;
+static atomic_count_t g_next_pid = 1;
+/* parent, children, sibling, state, exit_status, thread, waiters */
+static spinlock_t proc_tree_lock = SPINLOCK_INIT;
 static process_t *g_init_process = NULL;
+
+static int
+pid_alloc(void)
+{
+	return (int)atomic_fetch_add(&g_next_pid, 1);
+}
 
 void
 process_init(void)
@@ -28,9 +38,10 @@ process_init(void)
 	assert(init != NULL);
 	memset(init, 0, sizeof(*init));
 
-	init->pid   = g_next_pid++;
+	init->pid   = pid_alloc();
 	init->ppid  = 0;
 	init->state = PROC_LIVE;
+	mutex_init(&init->vm_lock);
 	LIST_INIT(&init->children);
 	TAILQ_INIT(&init->waiters);
 
@@ -43,13 +54,10 @@ process_get_init(void)
 	return g_init_process;
 }
 
-void
-process_wake_waiters(process_t *parent)
+static void
+process_wake_waiters_locked(process_t *parent)
 {
 	thread_t *t;
-
-	if (!parent)
-		return;
 
 	while ((t = TAILQ_FIRST(&parent->waiters)) != NULL)
 	{
@@ -62,9 +70,12 @@ int
 process_wait(process_t *parent, int *status)
 {
 	process_t *child;
+	uint32_t flags;
 
 	if (!parent)
 		return -1;
+
+	flags = spinlock_lock_irqsave(&proc_tree_lock);
 
 	for (;;)
 	{
@@ -78,19 +89,22 @@ process_wait(process_t *parent, int *status)
 					*status = child->exit_status;
 
 				LIST_REMOVE(child, sibling);
+				spinlock_unlock_irqrestore(&proc_tree_lock, flags);
 				free(child);
 				return pid;
 			}
 		}
 
 		if (LIST_EMPTY(&parent->children))
+		{
+			spinlock_unlock_irqrestore(&proc_tree_lock, flags);
 			return -1;
+		}
 
 		thread_t *current = thread_get_current();
-
-		current->state = THREAD_BLOCKED;
 		TAILQ_INSERT_TAIL(&parent->waiters, current, next);
-		schedule();
+		sched_sleep(&proc_tree_lock);
+		spinlock_lock(&proc_tree_lock);
 	}
 }
 
@@ -197,16 +211,27 @@ process_image_load(uint32_t pd, const char *path, char *const argv[],
 		return -1;
 
 	file = resolve_node(path, root);
+
 	if (!file || file->type != TMPFS_FILE)
+	{
+		node_put(file);
 		return -1;
+	}
 
 	entry = elf_load_file(file->u.file.data, file->u.file.size, pd);
+	node_put(file);
+
 	if (!entry)
+	{
 		return -1;
+	}
 
 	esp = user_stack_build(pd, argv);
+
 	if (!esp)
+	{
 		return -1;
+	}
 
 	*entry_out = (uint32_t)entry;
 	*esp_out = esp;
@@ -216,19 +241,61 @@ process_image_load(uint32_t pd, const char *path, char *const argv[],
 void
 process_exit(process_t *p, int status)
 {
-	p->exit_status = status;
-	p->state = PROC_ZOMBIE;
+	thread_t *self = thread_get_current();
+	process_t *init = process_get_init();
+	process_t *child;
+	bool init_has_zombie = false;
+	uint32_t pd;
+	uint32_t flags;
 
+	mutex_lock(&p->vm_lock);
+	pd = p->page_directory;
+	X86_IRQs_DISABLE(flags);
+	p->page_directory = 0;
 	page_directory_switch(page_directory_kernel());
-	if (p->page_directory)
+	atomic_clear_bit(&p->vm_cpus, this_cpu()->id);
+	X86_IRQs_ENABLE(flags);
+	mutex_unlock(&p->vm_lock);
+
+	page_directory_destroy(pd);
+
+	node_put(p->cwd);
+	p->cwd = NULL;
+
+	flags = spinlock_lock_irqsave(&proc_tree_lock);
+
+	while ((child = LIST_FIRST(&p->children)) != NULL)
 	{
-		page_directory_destroy(p->page_directory);
-		p->page_directory = 0;
+		LIST_REMOVE(child, sibling);
+		child->parent = init;
+		child->ppid   = init->pid;
+		LIST_INSERT_HEAD(&init->children, child, sibling);
+
+		if (child->state == PROC_ZOMBIE)
+			init_has_zombie = true;
 	}
 
-	process_wake_waiters(p->parent);
+	if (init_has_zombie)
+	{
+		process_wake_waiters_locked(init);
+	}
+
+	p->exit_status = status;
+	p->thread = NULL;
+	self->process = NULL;
+	/* Last write to *p: the parent may free it once proc_tree_lock drops. */
+	p->state = PROC_ZOMBIE;
+
+	if (p->parent)
+	{
+		process_wake_waiters_locked(p->parent);
+	}
+
+	spinlock_unlock_irqrestore(&proc_tree_lock, flags);
+
 	thread_exit();
 }
+
 
 int
 process_exec_elf(process_t *p, const char *path, char *const argv[],
@@ -240,11 +307,18 @@ process_exec_elf(process_t *p, const char *path, char *const argv[],
 	if (!p || !p->page_directory || !path || !argv || !root)
 		return -1;
 
-	page_directory_clear_user(p->page_directory);
+	mutex_lock(&p->vm_lock);
+	page_directory_clear_user(p->page_directory, p->vm_cpus);
 
-	if (process_image_load(p->page_directory, path, argv, root,
-			       &entry, &esp) != 0)
+	int status = process_image_load(p->page_directory, path, argv, root,
+			       &entry, &esp);
+
+	mutex_unlock(&p->vm_lock);
+
+	if (status != 0)
+	{
 		process_exit(p, -1);
+	}
 
 	p->entry = entry;
 	p->user_stack_top = esp;
@@ -260,11 +334,15 @@ process_fork(process_t *parent, struct syscall_frame *frame)
 	process_t *child;
 	thread_t *t;
 	int pid;
+	uint32_t flags;
 
 	if (!parent || !frame || !parent->page_directory)
 		return -1;
 
+	mutex_lock(&parent->vm_lock);
 	pd = page_directory_clone(parent->page_directory);
+	mutex_unlock(&parent->vm_lock);
+
 	if (!pd)
 		return -1;
 
@@ -277,24 +355,32 @@ process_fork(process_t *parent, struct syscall_frame *frame)
 
 	memset(child, 0, sizeof(*child));
 
-	pid = g_next_pid++;
+	pid = pid_alloc();
 	child->pid = pid;
 	child->ppid = parent->pid;
 	child->parent = parent;
 	child->state = PROC_LIVE;
 	child->exit_status = 0;
 	child->page_directory = pd;
-	child->cwd = parent->cwd;
+	child->cwd = node_get(parent->cwd);
+	mutex_init(&child->vm_lock);
+
 	memcpy(child->fds, parent->fds, sizeof(child->fds));
 	LIST_INIT(&child->children);
 	TAILQ_INIT(&child->waiters);
 
+	flags = spinlock_lock_irqsave(&proc_tree_lock);
 	LIST_INSERT_HEAD(&parent->children, child, sibling);
+	spinlock_unlock_irqrestore(&proc_tree_lock, flags);
 
 	t = thread_fork_create("fork", child, frame);
+
 	if (!t)
 	{
+		flags = spinlock_lock_irqsave(&proc_tree_lock);
 		LIST_REMOVE(child, sibling);
+		spinlock_unlock_irqrestore(&proc_tree_lock, flags);
+		node_put(child->cwd);
 		page_directory_destroy(pd);
 		free(child);
 		return -1;
@@ -314,6 +400,7 @@ process_create_from_elf(const char *path, struct node *root)
 	process_t *parent;
 	thread_t *current;
 	thread_t *t;
+	uint32_t flags;
 
 	if (!path || !root)
 		return NULL;
@@ -344,7 +431,7 @@ process_create_from_elf(const char *path, struct node *root)
 
 	assert(parent != NULL);
 
-	p->pid            = g_next_pid++;
+	p->pid            = pid_alloc();
 	p->ppid           = parent->pid;
 	p->parent         = parent;
 	p->state          = PROC_LIVE;
@@ -355,11 +442,14 @@ process_create_from_elf(const char *path, struct node *root)
 	p->fds[0]         = FD_CONSOLE;
 	p->fds[1]         = FD_CONSOLE;
 	p->fds[2]         = FD_CONSOLE;
-	p->cwd            = root;
+	p->cwd            = node_get(root);
+	mutex_init(&p->vm_lock);
 	LIST_INIT(&p->children);
 	TAILQ_INIT(&p->waiters);
 
+	flags = spinlock_lock_irqsave(&proc_tree_lock);
 	LIST_INSERT_HEAD(&parent->children, p, sibling);
+	spinlock_unlock_irqrestore(&proc_tree_lock, flags);
 
 	t = thread_user_create(path, p);
 	if (!t)
@@ -368,8 +458,12 @@ process_create_from_elf(const char *path, struct node *root)
 	return p;
 
 fail_proc:
+	flags = spinlock_lock_irqsave(&proc_tree_lock);
 	LIST_REMOVE(p, sibling);
+	spinlock_unlock_irqrestore(&proc_tree_lock, flags);
+	node_put(p->cwd);
 	free(p);
+
 fail_pd:
 	page_directory_destroy(pd);
 	return NULL;

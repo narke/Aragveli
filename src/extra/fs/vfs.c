@@ -13,6 +13,7 @@
 #include <lib/c/stdlib.h>
 
 LIST_HEAD(, file_system) file_systems;
+static spinlock_t fs_list_lock = SPINLOCK_INIT;
 
 status_t
 vfs_list_init(void)
@@ -29,49 +30,89 @@ vfs_init(const char        *root_device,
 	struct superblock **result_rootfs)
 {
 	struct file_system *fs;
+	status_t status;
+	uint32_t flags = spinlock_lock_irqsave(&fs_list_lock);
 
 	LIST_FOREACH(fs, &file_systems, next)
 	{
 		if (strncmp(fs_name, fs->name, strnlen(fs->name, FS_NAME_MAXLEN)+1) == 0)
 		{
-			return fs->mount(root_device, mount_point, mount_args,
-					result_rootfs);
+			atomic_inc(&fs->refcount);
+			break;
 		}
 	}
 
-	return -KERNEL_NO_SUCH_DEVICE;
+	spinlock_unlock_irqrestore(&fs_list_lock, flags);
+
+	if (!fs)
+	{
+		return -KERNEL_NO_SUCH_DEVICE;
+	}
+
+	status = fs->mount(root_device, mount_point, mount_args, result_rootfs);
+
+	if (status != KERNEL_OK)
+	{
+		atomic_dec(&fs->refcount);
+	}
+
+	return status;
 }
 
 status_t
 fs_register(struct file_system *fs)
 {
 	struct file_system *fs_item;
+	status_t status = KERNEL_OK;
+	uint32_t flags = spinlock_lock_irqsave(&fs_list_lock);
 
 	LIST_FOREACH(fs_item, &file_systems, next)
 	{
 		if (!strncmp(fs->name, fs_item->name, strnlen(fs_item->name, FS_NAME_MAXLEN)+1))
-			return -KERNEL_FILE_ALREADY_EXISTS;
+		{
+			status = -KERNEL_FILE_ALREADY_EXISTS;
+			break;
+		}
 	}
 
-	LIST_INSERT_HEAD(&file_systems, fs, next);
+	if (status == KERNEL_OK)
+	{
+		LIST_INSERT_HEAD(&file_systems, fs, next);
+	}
 
-	return KERNEL_OK;
+	spinlock_unlock_irqrestore(&fs_list_lock, flags);
+	return status;
 }
 
 status_t
 fs_unregister(struct file_system *fs)
 {
 	struct file_system *fs_item;
+	status_t status = -KERNEL_INVALID_VALUE;
+	uint32_t flags = spinlock_lock_irqsave(&fs_list_lock);
 
 	LIST_FOREACH(fs_item, &file_systems, next)
 	{
 		if (!strncmp(fs->name, fs_item->name, NAME_MAX))
 		{
+			if (atomic_read(&fs->refcount) != 0)
+			{
+				status = -KERNEL_BUSY;
+				break;
+			}
+
 			LIST_REMOVE(fs, next);
-			free(fs);
-			return KERNEL_OK;
+			status = KERNEL_OK;
+			break;
 		}
 	}
 
-	return -KERNEL_INVALID_VALUE;
+	spinlock_unlock_irqrestore(&fs_list_lock, flags);
+
+	if (status == KERNEL_OK)
+	{
+		free(fs);
+	}
+
+	return status;
 }

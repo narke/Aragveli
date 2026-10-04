@@ -24,4 +24,9 @@ typedef enum
 struct tarfs_node;
 
 status_t tarfs_init(vaddr_t initrd_start, vaddr_t initrd_end);
+
+extern spinlock_t tarfs_ns_lock;
+struct node *node_get(struct node *n);
+void node_put(struct node *n);
+/* Returns a referenced node; the caller must node_put() it. */
 struct node *resolve_node(const char *path, struct node *root_node);

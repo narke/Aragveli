@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Konstantin Tcholokachvili.
+ * Copyright (c) 2017, 2026 Konstantin Tcholokachvili.
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
@@ -16,17 +16,24 @@
 
 #include "mutex.h"
 
+void
+mutex_init(mutex_t *mtx)
+{
+	mtx->owner = NULL;
+	mtx->count = 0;
+	spinlock_init(&mtx->lock);
+	TAILQ_INIT(&mtx->waitqueue);
+}
+
 mutex_t *
 mutex_create(void)
 {
 	mutex_t *mtx = malloc(sizeof(mutex_t));
 
-	if (!mtx)
-		return NULL;
-
-	mtx->owner = NULL;
-	mtx->count = 0;
-	TAILQ_INIT(&mtx->waitqueue);
+	if (mtx)
+	{
+		mutex_init(mtx);
+	}
 
 	return mtx;
 }
@@ -42,43 +49,38 @@ mutex_destroy(mutex_t *mtx)
 status_t
 mutex_lock(mutex_t *mtx)
 {
-	uint32_t flags;
 	thread_t *current_thread = thread_get_current();
-
-	X86_IRQs_DISABLE(flags);
+	uint32_t flags = spinlock_lock_irqsave(&mtx->lock);
 
 	if (mtx->owner == current_thread)
 	{
-		X86_IRQs_ENABLE(flags);
+		spinlock_unlock_irqrestore(&mtx->lock, flags);
 		return -KERNEL_BUSY;
 	}
 
 	if (mtx->owner == NULL)
 	{
 		mtx->owner = current_thread;
-	}
-	else
-	{
-		current_thread->state = THREAD_BLOCKED;
-		TAILQ_INSERT_TAIL(&mtx->waitqueue, current_thread, next);
-		schedule();
+		spinlock_unlock_irqrestore(&mtx->lock, flags);
+		return KERNEL_OK;
 	}
 
+	TAILQ_INSERT_TAIL(&mtx->waitqueue, current_thread, next);
+	sched_sleep(&mtx->lock);
 	X86_IRQs_ENABLE(flags);
+
 	return KERNEL_OK;
 }
 
 status_t
 mutex_unlock(mutex_t *mtx)
 {
-	uint32_t flags;
 	thread_t *next_owner;
-
-	X86_IRQs_DISABLE(flags);
+	uint32_t flags = spinlock_lock_irqsave(&mtx->lock);
 
 	if (mtx->owner != thread_get_current())
 	{
-		X86_IRQs_ENABLE(flags);
+		spinlock_unlock_irqrestore(&mtx->lock, flags);
 		return -KERNEL_PERMISSION_ERROR;
 	}
 
@@ -87,11 +89,16 @@ mutex_unlock(mutex_t *mtx)
 	if (next_owner)
 	{
 		TAILQ_REMOVE(&mtx->waitqueue, next_owner, next);
-		scheduler_insert_thread(next_owner);
 	}
 
 	mtx->owner = next_owner;
 
-	X86_IRQs_ENABLE(flags);
+	spinlock_unlock_irqrestore(&mtx->lock, flags);
+
+	if (next_owner)
+	{
+		scheduler_insert_thread(next_owner);
+	}
+
 	return KERNEL_OK;
 }
