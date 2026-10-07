@@ -8,8 +8,9 @@
 #include <lib/types.h>
 #include <lib/c/assert.h>
 #include <lib/c/stdio.h>
+#include <lib/c/string.h>
 #include <lib/queue.h>
-#include <arch/x86-pc/vbe.h>
+#include <drivers/vbe.h>
 #include <memory/frame.h>
 
 #include "frame-test.h"
@@ -82,6 +83,6 @@ void test_frame_allocator(void)
 	assert(nb_allocated_physical_pages == nb_free_physical_pages);
 
 	kprintf("Can allocate %u bytes and free %u bytes \n",
-		nb_allocated_physical_pages << PAGE_SHIFT,
-		nb_free_physical_pages << PAGE_SHIFT);
+		(unsigned int)(nb_allocated_physical_pages << PAGE_SHIFT),
+		(unsigned int)(nb_free_physical_pages << PAGE_SHIFT));
 }

@@ -14,48 +14,9 @@ BOOTLOADER_PATH = arch/x86-pc/bootstrap
 INITRD_DST = arch/x86-pc/bootstrap/iso
 INITRD_PATH = ..
 
-OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
-	  arch/x86/gdt.o \
-	  arch/x86/idt.o \
-	  arch/x86/isr-stubs.o \
-	  arch/x86/isr.o \
-	  arch/x86/pic.o \
-	  arch/x86/irq-stubs.o \
-	  arch/x86/irq.o \
-	  arch/x86/pit.o \
-	  arch/x86/acpi.o \
-	  arch/x86/ioapic.o \
-	  arch/x86/lapic.o \
-	  arch/x86/paging-stubs.o \
-	  arch/x86/paging.o \
-	  arch/x86/user-mode.o \
-	  arch/x86/syscall-entry.o \
-	  arch/x86/syscall.o \
-	  arch/x86/tlb.o \
-	  arch/x86/ap-trampoline.o \
-	  arch/x86/smp.o \
-	  lib/c/stdio.o \
-	  lib/c/string.o \
-	  memory/frame.o \
-	  memory/heap.o \
-	  memory/pool.o \
-	  lib/c/stdlib.o \
-	  arch/x86/cpu-context.o \
-	  arch/x86/cpu-context-switch.o \
-	  process/thread.o \
-	  process/process.o \
-	  process/semaphore.o \
-	  process/mutex.o \
-	  process/sched_rr.o \
-	  process/elf_loader.o \
-	  drivers/vbe.o \
-	  drivers/pci.o \
-	  drivers/rtl8139.o \
-	  drivers/ps2_keyboard.o \
-	  fs/vfs.o \
-	  fs/tarfs.o \
-	  fs/commands.o \
-	  arch/x86-pc/startup.o
+ASM_SOURCES=$(shell find . -name "*.asm")
+C_SOURCES=$(shell find . -name "*.c")
+OBJECTS=$(ASM_SOURCES:.asm=.o) $(C_SOURCES:.c=.o)
 
 KERNEL          = aragveli.elf
 MULTIBOOT_IMAGE	= aragveli.iso
