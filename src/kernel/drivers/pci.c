@@ -12,29 +12,6 @@
 #include "pci.h"
 
 // https://wiki.osdev.org/PCI
-
-const char* PCI_CLASS_IDS[18] =
-{
-    "no class specification",
-    "Mass Storage Controller",
-    "Network Controller",
-    "Display Controller",
-    "Multimedia Device",
-    "Memory Controller",
-    "Bridge Device",
-    "Simple Communication Controller",
-    "Base System Peripheral",
-    "Input Device",
-    "Docking Station",
-    "Processor",
-    "Serial Bus Controller",
-    "Wireless Controller",
-    "Intelligent I/O Controller",
-    "Satellite Communication Controller",
-    "Encryption/Decryption Controller",
-    "Data Acquisition and Signal Processing Controller"
-};
-
 pci_device_t pci_devices[16];
 uint8_t pci_devices_idx = 0;
 
@@ -161,26 +138,6 @@ pci_device_lookup(uint16_t vendor_id, uint16_t device_id)
 	}
 
 	return (pci_device_t){0, 0, 0, 0, 0, 0};
-}
-
-void
-pci_devices_print(void)
-{
-	vbe_set_color(NORMAL_CYAN);
-
-	for (int i = 0; i < 15; i++)
-	{
-		if (pci_devices[i].vendor_id == 0
-			&& pci_devices[i].device_id == 0)
-		{
-			return;
-		}
-
-		kprintf("PCI Vendor ID:%x Device ID:%x Class:%s\n",
-				pci_devices[i].vendor_id,
-				pci_devices[i].device_id,
-				PCI_CLASS_IDS[pci_devices[i].class_id]);
-	}
 }
 
 void

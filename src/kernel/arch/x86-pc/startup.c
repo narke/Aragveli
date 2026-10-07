@@ -90,7 +90,6 @@ extra_kernel(uint32_t initrd_start, uint32_t initrd_end)
 
 	// PCI devices
 	pci_scan();
-	pci_devices_print();
 
 	// RTL8139 network card
 	rtl8139_setup();

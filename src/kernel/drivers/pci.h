@@ -27,5 +27,4 @@ uint32_t pci_config_read_dword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t 
 void pci_config_write_dword (uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint32_t value);
 void pci_scan(void);
 pci_device_t pci_device_lookup(uint16_t vendor_id, uint16_t device_id);
-void pci_devices_print(void);
 void pci_devices_copy(pci_device_t *pci_devices_out, uint8_t *count_out);
