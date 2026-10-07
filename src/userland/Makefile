@@ -14,15 +14,18 @@ all: hello.elf shell.elf lspci.elf
 
 hello.elf: hello.o $(COMMON) user.ld
 	$(LD) -m elf_i386 -nostdlib -static -T user.ld -o hello.elf hello.o $(COMMON)
-	cp hello.elf ../extra/initrd/
+	mkdir -p ../initrd
+	cp hello.elf ../initrd/
 
 shell.elf: shell.o $(COMMON) user.ld
 	$(LD) -m elf_i386 -nostdlib -static -T user.ld -o shell.elf shell.o $(COMMON)
-	cp shell.elf ../extra/initrd/
+	mkdir -p ../initrd
+	cp shell.elf ../initrd/
 
 lspci.elf: lspci.o $(COMMON) user.ld
 	$(LD) -m elf_i386 -nostdlib -static -T user.ld -o lspci.elf lspci.o $(COMMON)
-	cp lspci.elf ../extra/initrd/
+	mkdir -p ../initrd
+	cp lspci.elf ../initrd/
 
 hello.o: hello.c
 	$(CC) $(CFLAGS) -Ilibc hello.c -o hello.o

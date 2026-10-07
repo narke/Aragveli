@@ -7,12 +7,12 @@ CC      = gcc
 PWD    := $(shell pwd)
 CFLAGS  = -Wall -Wextra -Wconversion -Wsign-conversion -Wformat-security -fgnu89-inline \
 	  -m32 -Wa,--32 -nostdlib -nostdinc \
-	  -ffreestanding -Wimplicit-fallthrough=0 -I$(PWD) -I../extra
+	  -ffreestanding -Wimplicit-fallthrough=0 -I$(PWD)
 LDFLAGS = --warn-common -melf_i386 --strip-all
 
 BOOTLOADER_PATH = arch/x86-pc/bootstrap
 INITRD_DST = arch/x86-pc/bootstrap/iso
-INITRD_PATH = ../extra/
+INITRD_PATH = ..
 
 OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  arch/x86/gdt.o \
@@ -48,17 +48,19 @@ OBJECTS = $(BOOTLOADER_PATH)/multiboot.o \
 	  process/mutex.o \
 	  process/sched_rr.o \
 	  process/elf_loader.o \
-	  ../extra/drivers/vbe.o \
-	  ../extra/drivers/pci.o \
-	  ../extra/drivers/rtl8139.o \
-	  ../extra/drivers/ps2_keyboard.o \
-	  ../extra/fs/vfs.o \
-	  ../extra/fs/tarfs.o \
-	  ../extra/fs/commands.o \
+	  drivers/vbe.o \
+	  drivers/pci.o \
+	  drivers/rtl8139.o \
+	  drivers/ps2_keyboard.o \
+	  fs/vfs.o \
+	  fs/tarfs.o \
+	  fs/commands.o \
 	  arch/x86-pc/startup.o
 
 KERNEL          = aragveli.elf
 MULTIBOOT_IMAGE	= aragveli.iso
+
+.PHONY: all kernel initrd cdrom run clean
 
 all: cdrom
 
