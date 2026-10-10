@@ -70,9 +70,38 @@
 #define ETH_MIN_LENGTH 60
 #define ETH_FRAME_LEGTH 1514
 
+#define CMD_TE 0x04 /* Transmitter Enable */
+#define CMD_RE 0x08 /* Receiver Enable */
+
+#define RCR_CONFIG (RCR_AAP | RCR_APM | RCR_AM | RCR_AB | RCR_WRAP)
+
 pci_device_t  pci_rtl8139_device;
 rtl8139_dev_t rtl8139_device;
 static spinlock_t tx_lock = SPINLOCK_INIT;
+
+static void
+rx_reset(void)
+{
+	uint16_t io = rtl8139_device.io_base;
+
+	out8(io + CMD, CMD_TE);
+
+	for (int i = 0; i < 1000 && (in8(io + CMD) & CMD_RE); i++)
+	{
+		;
+	}
+
+	out8(io + CMD, CMD_RE | CMD_TE);
+
+	for (int i = 0; i < 1000 && !(in8(io + CMD) & CMD_RE); i++)
+	{
+		;
+	}
+
+	out32(io + RCR, RCR_CONFIG);
+
+	rtl8139_device.rx_buffer_idx = 0;
+}
 
 static void
 handle_rx(void)
@@ -91,6 +120,7 @@ handle_rx(void)
 			(rx_size > ETH_FRAME_LEGTH + 4)) // 4-byte checksum
 		{
 			kprintf("RTL8139 packet error.\n");
+			rx_reset();
 			return;
 		}
 
@@ -301,7 +331,7 @@ rtl8139_setup(void)
 	out16(rtl8139_device.io_base + IMR, RX_OK | TX_OK | TX_ERR);
 
 	// 7. Set RCR (Receive Configuration Register)
-	out32(rtl8139_device.io_base + RCR, RCR_AAP | RCR_APM | RCR_AM | RCR_AB | RCR_WRAP);
+	out32(rtl8139_device.io_base + RCR, RCR_CONFIG);
 
 	// 8. Enable RX and TX
 	out32(rtl8139_device.io_base + RX_MISSED, 0x0);
