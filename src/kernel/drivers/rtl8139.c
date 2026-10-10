@@ -170,12 +170,11 @@ packet_handler(int number)
 
 	if (status & (RX_OK | RX_ERR))
 	{
-		kprintf("Packet received.\n");
 		handle_rx();
 	}
-	else if (status & (TX_OK | TX_ERR))
+
+	if (status & (TX_OK | TX_ERR))
 	{
-		kprintf("Packet sent.\n");
 		handle_tx();
 	}
 }
@@ -229,10 +228,6 @@ send_packet(const void *data, size_t length)
 
 		// Move TX buffer's content to the internal transmission FIFO
 		// and then to PCI bus.
-		out32((uint16_t)(rtl8139_device.io_base + TX_ADDRESS + rtl8139_device.tx_buffer_idx * 4),
-				(uint32_t)(rtl8139_device.tx_buffer +
-					(TX_BUFFER_SIZE * rtl8139_device.tx_buffer_idx)));
-
 		out32((uint16_t)(rtl8139_device.io_base + TX_STATUS + rtl8139_device.tx_buffer_idx * 4),
 				((TX_FIFO_THRESHOLD << 11) & 0x003F0000) | length);
 
@@ -328,7 +323,7 @@ rtl8139_setup(void)
 	}
 
 	// 6. Set IMR + ISR, enable some interrupts
-	out16(rtl8139_device.io_base + IMR, RX_OK | TX_OK | TX_ERR);
+	out16(rtl8139_device.io_base + IMR, RX_OK | RX_ERR | TX_OK | TX_ERR);
 
 	// 7. Set RCR (Receive Configuration Register)
 	out32(rtl8139_device.io_base + RCR, RCR_CONFIG);
