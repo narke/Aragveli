@@ -52,7 +52,8 @@
 
 #define CMD_NOT_EMPTY 0x01
 
-#define RX_BUFFER_LENGTH 8192 + 16 + 1500
+#define RX_RING_SIZE 8192
+#define RX_BUFFER_LENGTH (RX_RING_SIZE + 16 + 2048)
 
 #define RX_STATUS_OK 0x1
 #define RX_BAD_ALIGN 0x2
@@ -78,7 +79,7 @@ handle_rx(void)
 {
 	while ((in8(rtl8139_device.io_base + CMD) & CMD_NOT_EMPTY) == 0)
 	{
-		uint32_t offset = rtl8139_device.rx_buffer_idx % RX_BUFFER_LENGTH;
+		uint32_t offset = rtl8139_device.rx_buffer_idx;
 
 		uint32_t rx_status = *(uint32_t *)(rtl8139_device.rx_buffer + offset);
 		uint32_t rx_size = rx_status >> 16;
@@ -87,7 +88,7 @@ handle_rx(void)
 		if ((rx_status & (RX_BAD_SYMBOL | RX_RUNT | RX_TOO_LONG |
 			RX_CRC_ERR | RX_BAD_ALIGN)) ||
 			(rx_size < ETH_MIN_LENGTH) ||
-			(rx_size > ETH_FRAME_LEGTH))
+			(rx_size > ETH_FRAME_LEGTH + 4)) // 4-byte checksum
 		{
 			kprintf("RTL8139 packet error.\n");
 			return;
@@ -105,20 +106,11 @@ handle_rx(void)
 			return;
 		}
 
-		if (offset + 4 + rx_size - 4 > RX_BUFFER_LENGTH)
-		{
-			uint32_t semi_count = RX_BUFFER_LENGTH - offset - 4;
-			memcpy_s(packet->data, semi_count, rtl8139_device.rx_buffer + offset + 4, semi_count);
-			memcpy_s(packet->data + semi_count, rx_size - 4 - semi_count, rtl8139_device.rx_buffer, rx_size - 4 - semi_count);
-		}
-		else
-		{
-			memcpy_s(packet->data, packet->length, rtl8139_device.rx_buffer + offset + 4, packet->length);
-		}
+		memcpy_s(packet->data, packet->length, rtl8139_device.rx_buffer + offset + 4, packet->length);
 
 		// Align on 4 bytes
-		rtl8139_device.rx_buffer_idx = ((uint32_t)rtl8139_device.rx_buffer_idx + (uint32_t)rx_size + 4 + 3) & ~ 3UL;
-		out16(rtl8139_device.io_base + RX_BUF_PTR, (uint16_t)((uint32_t)rtl8139_device.rx_buffer_idx - 0x10i));
+		rtl8139_device.rx_buffer_idx = ((rtl8139_device.rx_buffer_idx + rx_size + 4 + 3) & ~3UL) % RX_RING_SIZE;
+		out16(rtl8139_device.io_base + RX_BUF_PTR, (uint16_t)(rtl8139_device.rx_buffer_idx - 0x10));
 
 		free(packet);
 	}
