@@ -1,5 +1,4 @@
 #pragma once
 
 #include <lib/c/stdlib.h>
-
-int atoi(const char *s);
+#include <lib/c/string.h> /* atoi */

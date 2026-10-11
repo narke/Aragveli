@@ -17,9 +17,9 @@ void *memcpy_s(void *dst, size_t dst_size, const void *src, size_t src_size);
 int memcmp(const void *s1, const void *s2, size_t n);
 void *memmove(void *dst, const void *src, size_t size);
 char *strzcpy(char *dst, const char *src, size_t len);
-size_t strlen(const char *s);
+size_t strlen(const char *s); /* Flawfinder: ignore */
 size_t strnlen(const char *s, size_t max_length);
 int strncmp(const char *s1, const char *s2, size_t n);
 char *strchr(const char *s, int c);
 char *strrchr(const char *s, int c);
-int atoi(const char *s);
+int atoi(const char *s); /* Flawfinder: ignore */

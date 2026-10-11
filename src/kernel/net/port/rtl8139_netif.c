@@ -52,7 +52,8 @@ rtl8139_netif_init(struct netif *netif)
 	netif->name[0] = 'e';
 	netif->name[1] = 'n';
 	netif->hwaddr_len = sizeof(rtl8139_device.mac_addr);
-	memcpy(netif->hwaddr, rtl8139_device.mac_addr, sizeof(rtl8139_device.mac_addr));
+	memcpy_s(netif->hwaddr, sizeof(netif->hwaddr),
+		 rtl8139_device.mac_addr, sizeof(rtl8139_device.mac_addr));
 	netif->mtu = 1500;
 	netif->flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP |
 		NETIF_FLAG_ETHERNET | NETIF_FLAG_LINK_UP;

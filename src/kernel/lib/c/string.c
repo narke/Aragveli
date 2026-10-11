@@ -5,6 +5,7 @@
  * found in the LICENSE file.
  */
 
+#include "limits.h"
 #include "string.h"
 
 void *
@@ -125,27 +126,20 @@ strzcpy(char *dst, const char *src, size_t len)
 }
 
 size_t
-strlen(const char *s)
+strnlen(const char *s, size_t max_length)
 {
 	size_t length = 0;
 
-	while (s[length])
-	{
+	while (length < max_length && s[length] != '\0')
 		length++;
-	}
 
 	return length;
 }
 
 size_t
-strnlen(const char *s, size_t max_length)
+strlen(const char *s) /* Flawfinder: ignore */
 {
-	size_t length = 0;
-
-	while (*s++ && length < max_length)
-		length++;
-
-	return length;
+	return strnlen(s, (size_t)-1);
 }
 
 int
@@ -194,28 +188,34 @@ strrchr(const char *s, int c)
 }
 
 int
-atoi(const char *s)
+atoi(const char *s) /* Flawfinder: ignore */
 {
-	int n = 0;
+	int64_t n = 0;
 	int sign = 1;
+	int digit;
+
+	if (s == NULL)
+		return 0;
 
 	while (*s == ' ' || *s == '\t')
-	{
 		s++;
-	}
 
 	if (*s == '-' || *s == '+')
 	{
 		if (*s++ == '-')
-		{
 			sign = -1;
-		}
 	}
 
 	while (*s >= '0' && *s <= '9')
 	{
-		n = n * 10 + (*s++ - '0');
+		digit = *s++ - '0';
+		n = n * 10 + digit;
+
+		if (sign > 0 && n > INT_MAX)
+			return (int)INT_MAX;
+		if (sign < 0 && n > (int64_t)INT_MAX + 1)
+			return (int)INT_MIN;
 	}
 
-	return sign * n;
+	return (int)(sign * n);
 }
