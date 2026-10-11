@@ -11,6 +11,7 @@
 #include <arch/x86/io-ports.h>
 #include <arch/x86//irq.h>
 #include <process/scheduler.h>
+#include <net/net.h>
 
 #include "pit.h"
 
@@ -80,6 +81,11 @@ timer_interrupt_handler(int number)
 	(void)number; // Avoid a useless warning ;-)
 
 	g_pit_ticks++;
+
+	if (g_pit_ticks % 10 == 0)
+	{
+		net_wakeup();
+	}
 
 	if (g_pit_ticks % 100 == 0)
 	{

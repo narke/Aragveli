@@ -14,6 +14,10 @@
 #include <arch/x86/irq.h>
 #include <arch/x86/paging.h>
 #include <drivers/vbe.h>
+#include <arch/x86/acpi.h>
+#include <arch/x86/idt.h>
+#include <arch/x86/ioapic.h>
+
 #include "rtl8139.h"
 #include "pci.h"
 
@@ -78,38 +82,15 @@
 pci_device_t  pci_rtl8139_device;
 rtl8139_dev_t rtl8139_device;
 static spinlock_t tx_lock = SPINLOCK_INIT;
+static void (*rx_notify)(void);
 
-static void
-rx_reset(void)
-{
-	uint16_t io = rtl8139_device.io_base;
 
-	out8(io + CMD, CMD_TE);
-
-	for (int i = 0; i < 1000 && (in8(io + CMD) & CMD_RE); i++)
-	{
-		;
-	}
-
-	out8(io + CMD, CMD_RE | CMD_TE);
-
-	for (int i = 0; i < 1000 && !(in8(io + CMD) & CMD_RE); i++)
-	{
-		;
-	}
-
-	out32(io + RCR, RCR_CONFIG);
-
-	rtl8139_device.rx_buffer_idx = 0;
-}
-
-static void
-handle_rx(void)
+void
+rtl8139_receive(rtl8139_rx_handler_t deliver)
 {
 	while ((in8(rtl8139_device.io_base + CMD) & CMD_NOT_EMPTY) == 0)
 	{
 		uint32_t offset = rtl8139_device.rx_buffer_idx;
-
 		uint32_t rx_status = *(uint32_t *)(rtl8139_device.rx_buffer + offset);
 		uint32_t rx_size = rx_status >> 16;
 		rx_status &= 0xFFFF;
@@ -120,30 +101,22 @@ handle_rx(void)
 			(rx_size > ETH_FRAME_LEGTH + 4)) // 4-byte checksum
 		{
 			kprintf("RTL8139 packet error.\n");
-			rx_reset();
 			return;
 		}
-
-		rxpacket_t *packet = malloc(sizeof(rxpacket_t) - 1 + rx_size - 4);
-		if (packet == NULL)
-			return;
 
 		// Discard FCS
-		packet->length = rx_size - 4;
-		if (packet->length <= 0)
-		{
-			free(packet);
-			return;
-		}
-
-		memcpy_s(packet->data, packet->length, rtl8139_device.rx_buffer + offset + 4, packet->length);
+		deliver(rtl8139_device.rx_buffer + offset + 4, rx_size - 4);
 
 		// Align on 4 bytes
-		rtl8139_device.rx_buffer_idx = ((rtl8139_device.rx_buffer_idx + rx_size + 4 + 3) & ~3UL) % RX_RING_SIZE;
+		rtl8139_device.rx_buffer_idx = ((offset + rx_size + 4 + 3) & ~3UL) % RX_RING_SIZE;
 		out16(rtl8139_device.io_base + RX_BUF_PTR, (uint16_t)(rtl8139_device.rx_buffer_idx - 0x10));
-
-		free(packet);
 	}
+}
+
+void
+rtl8139_set_rx_notify(void (*notify)(void))
+{
+	rx_notify = notify;
 }
 
 static void
@@ -170,7 +143,10 @@ packet_handler(int number)
 
 	if (status & (RX_OK | RX_ERR))
 	{
-		handle_rx();
+		if (rx_notify != NULL)
+		{
+			rx_notify();
+		}
 	}
 
 	if (status & (TX_OK | TX_ERR))
@@ -222,8 +198,7 @@ send_packet(const void *data, size_t length)
 		// Padding
 		while (length < ETH_MIN_LENGTH)
 		{
-			(rtl8139_device.tx_buffer +
-			 (TX_BUFFER_SIZE * rtl8139_device.tx_buffer_idx))[length++] = '\0';
+			(rtl8139_device.tx_buffer + (TX_BUFFER_SIZE * rtl8139_device.tx_buffer_idx))[length++] = '\0';
 		}
 
 		// Move TX buffer's content to the internal transmission FIFO
@@ -337,6 +312,10 @@ rtl8139_setup(void)
 			pci_rtl8139_device.slot, pci_rtl8139_device.func, 0x3c) & 0xff;
 
 	x86_irq_set_routine(irq_number, packet_handler);
+
+	// PCI interrupts are level-triggered.
+	IoApicSetEntry(g_ioApicAddr, AcpiRemapIrq((uint8_t)irq_number),
+		(X86_IRQ_BASE + irq_number) | (1 << 15));
 
 	read_mac_address();
 }

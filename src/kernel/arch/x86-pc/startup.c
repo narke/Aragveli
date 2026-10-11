@@ -37,6 +37,7 @@
 #include <drivers/pci.h>
 #include <drivers/rtl8139.h>
 #include <drivers/ps2_keyboard.h>
+#include <net/net.h>
 #include <process/elf_loader.h>
 
 #define TIMER_INTERRUPT    0x20
@@ -93,6 +94,7 @@ extra_kernel(uint32_t initrd_start, uint32_t initrd_end)
 
 	// RTL8139 network card
 	rtl8139_setup();
+	net_setup();
 
 	// PS/2 keyboard
 	keyboard_setup();

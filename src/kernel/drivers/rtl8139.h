@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Konstantin Tcholokachvili.
+ * Copyright (c) 2018, 2026 Konstantin Tcholokachvili.
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <lib/c/stdbool.h>
 #include <lib/types.h>
 
 #define RTL8139_VENDOR_ID 0x10EC
@@ -24,12 +25,10 @@ typedef struct rtl8139_dev {
 	volatile uint32_t tx_buffer_idx;
 } rtl8139_dev_t;
 
-typedef struct rxpacket
-{
-	size_t length;
-	uint16_t type;
-	uint8_t data[1];
-} rxpacket_t;
+typedef void (*rtl8139_rx_handler_t)(const uint8_t *frame, size_t length);
+extern rtl8139_dev_t rtl8139_device;
 
 void rtl8139_setup(void);
 ssize_t send_packet(const void *data, size_t length);
+void rtl8139_receive(rtl8139_rx_handler_t deliver);
+void rtl8139_set_rx_notify(void (*notify)(void));

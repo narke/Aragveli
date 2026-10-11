@@ -5,9 +5,11 @@ include messages.make
 
 CC      = gcc
 PWD    := $(shell pwd)
+LWIP_DIR      = net/lwip/src
+LWIP_INCLUDES = -isystem $(PWD)/net/port/include -isystem $(PWD)/$(LWIP_DIR)/include
 CFLAGS  = -Wall -Wextra -Wconversion -Wsign-conversion -Wformat-security \
 	  -m32 -Wa,--32 -nostdlib -nostdinc \
-	  -ffreestanding -Wimplicit-fallthrough=0 -I$(PWD)
+	  -ffreestanding -Wimplicit-fallthrough=0 -I$(PWD) $(LWIP_INCLUDES)
 LDFLAGS = --warn-common -melf_i386 --strip-all
 
 BOOTLOADER_PATH = arch/x86-pc/bootstrap
@@ -15,8 +17,18 @@ INITRD_DST = arch/x86-pc/bootstrap/iso
 INITRD_PATH = ..
 
 ASM_SOURCES=$(shell find . -name "*.asm")
-C_SOURCES=$(shell find . -name "*.c")
+C_SOURCES=$(shell find . -name "*.c" -not -path "./net/lwip/*")
+LWIP_SOURCES = $(wildcard $(LWIP_DIR)/core/*.c) \
+               $(wildcard $(LWIP_DIR)/core/ipv4/*.c) \
+               $(LWIP_DIR)/netif/ethernet.c
 OBJECTS=$(ASM_SOURCES:.asm=.o) $(C_SOURCES:.c=.o)
+OBJECTS += $(LWIP_SOURCES:.c=.o)
+
+LWIP_CFLAGS = -m32 -Wa,--32 -nostdlib -nostdinc -ffreestanding \
+	  -I$(PWD) $(LWIP_INCLUDES)
+
+$(LWIP_DIR)/%.o: $(LWIP_DIR)/%.c
+	$(CC) -c $< -o $@ $(LWIP_CFLAGS)
 
 KERNEL          = aragveli.elf
 MULTIBOOT_IMAGE	= aragveli.iso
@@ -39,6 +51,9 @@ $(KERNEL): $(OBJECTS)
 	$(assembling) '$< > $@'
 	nasm -f elf $<
 
+$(LWIP_DIR)/%.o: $(LWIP_DIR)/%.c
+	$(CC) -c $< -o $@ $(LWIP_CFLAGS)
+
 initrd:
 	$(generating) '$@'
 	tar cvf initrd.tar -C $(INITRD_PATH) initrd/
@@ -49,7 +64,7 @@ cdrom: kernel initrd
 	mv $(KERNEL) $(BOOTLOADER_PATH)/iso/boot/
 	grub-mkrescue -o $(MULTIBOOT_IMAGE) $(BOOTLOADER_PATH)/iso/
 
-run:
+run: cdrom
 	qemu-system-i386 -m 256 -vga std \
 		-netdev user,id=net0 \
 		-device rtl8139,netdev=net0 \
