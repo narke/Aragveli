@@ -365,7 +365,7 @@ process_fork(process_t *parent, struct syscall_frame *frame)
 	child->cwd = node_get(parent->cwd);
 	mutex_init(&child->vm_lock);
 
-	memcpy(child->fds, parent->fds, sizeof(child->fds));
+	memcpy_s(child->fds, sizeof(child->fds), parent->fds, sizeof(parent->fds));
 	LIST_INIT(&child->children);
 	TAILQ_INIT(&child->waiters);
 
