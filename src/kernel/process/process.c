@@ -175,9 +175,6 @@ user_stack_build(uint32_t pd, char *const argv[])
 			top_frame = frame;
 	}
 
-	if (!top_frame)
-		return 0;
-
 	top_page = (uint8_t *)PA2VA(top_frame);
 	str_va = sp + (uint32_t)ptr_bytes;
 	words = (uint32_t *)(top_page + (sp - USER_STACK_TOP));
