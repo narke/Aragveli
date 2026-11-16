@@ -5,3 +5,7 @@
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/9117101368db467480ee78550a0d0d49)](https://app.codacy.com/gh/narke/Aragveli/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
 Real-Time operating system. Work in progress...
+
+# Dependencies to install on Debian-based distros
+
+    sudo apt install build-essential make nasm grub2-common xorriso mtools grub-pc-bin qemu-system-x86
