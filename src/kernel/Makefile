@@ -16,8 +16,13 @@ BOOTLOADER_PATH = arch/x86-pc/bootstrap
 INITRD_DST = arch/x86-pc/bootstrap/iso
 INITRD_PATH = ..
 
+FATFS_DIR      = fs/fatfs
+FATFS_INCLUDES = -isystem $(PWD)/$(FATFS_DIR)/port/include
+CFLAGS  += $(FATFS_INCLUDES)
+
 ASM_SOURCES=$(shell find . -name "*.asm")
-C_SOURCES=$(shell find . -name "*.c" -not -path "./net/lwip/*")
+C_SOURCES=$(shell find . -name "*.c" -not -path "./net/lwip/*" \
+	  -not -path "./$(FATFS_DIR)/ff.c" -not -path "./$(FATFS_DIR)/ffunicode.c")
 LWIP_SOURCES = $(wildcard $(LWIP_DIR)/core/*.c) \
                $(wildcard $(LWIP_DIR)/core/ipv4/*.c) \
                $(LWIP_DIR)/netif/ethernet.c
@@ -29,6 +34,12 @@ LWIP_CFLAGS = -m32 -Wa,--32 -nostdlib -nostdinc -ffreestanding \
 
 $(LWIP_DIR)/%.o: $(LWIP_DIR)/%.c
 	$(CC) -c $< -o $@ $(LWIP_CFLAGS)
+
+FATFS_SOURCES = $(FATFS_DIR)/ff.c $(FATFS_DIR)/ffunicode.c
+FATFS_OBJECTS = $(FATFS_SOURCES:.c=.o)
+OBJECTS += $(FATFS_OBJECTS)
+FATFS_CFLAGS = -m32 -Wa,--32 -nostdlib -nostdinc -ffreestanding \
+               -I$(PWD) $(FATFS_INCLUDES)
 
 KERNEL          = aragveli.elf
 MULTIBOOT_IMAGE	= aragveli.iso
@@ -53,6 +64,10 @@ $(KERNEL): $(OBJECTS)
 
 $(LWIP_DIR)/%.o: $(LWIP_DIR)/%.c
 	$(CC) -c $< -o $@ $(LWIP_CFLAGS)
+
+$(FATFS_OBJECTS): %.o: %.c
+	$(compiling) '$< > $@'
+	$(CC) -c $< -o $@ $(FATFS_CFLAGS)
 
 initrd:
 	$(generating) '$@'
