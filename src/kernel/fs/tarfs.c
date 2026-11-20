@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2017, 2026 Konstantin Tcholokachvili.
+ * Copyright (c) 2015-2026 Konstantin Tcholokachvili.
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
@@ -15,25 +15,6 @@
 #include "vfs.h"
 #include "tarfs.h"
 
-/* TMPFS node operations */
-node_ops_t tarfs_node_ops =
-{
-	.root_get     = NULL,
-	.match        = NULL,
-	.node_get     = NULL,
-	.node_open    = NULL,
-	.node_put     = NULL,
-	.create       = NULL,
-	.destroy      = NULL,
-	.link         = NULL,
-	.unlink       = NULL,
-	.has_children = NULL,
-	.index_get    = NULL,
-	.size_get     = NULL,
-	.lnkcnt_get   = NULL,
-	.is_directory = NULL,
-	.is_file      = NULL
-};
 
 static struct file_system tarfs;
 static paddr_t initrd_start, initrd_end;
@@ -70,7 +51,7 @@ node_put(struct node *n)
 }
 
 static struct node *
-folder_lookup(struct node *folder, const char *name, size_t len)
+folder_lookup(struct node *folder, const char *name, size_t length)
 {
 	struct node *child;
 	uint32_t flags;
@@ -84,7 +65,7 @@ folder_lookup(struct node *folder, const char *name, size_t len)
 
 	LIST_FOREACH(child, &folder->u.folder.nodes, next)
 	{
-		if (strncmp(child->name, name, len) == 0 && child->name[len] == '\0')
+		if (strncmp(child->name, name, length) == 0 && child->name[length] == '\0')
 		{
 			node_get(child);
 			break;
@@ -495,13 +476,9 @@ untar(void *ramdisk_address, struct node *root_node)
 }
 
 static status_t
-tarfs_mount(const char *root_device, const char *mount_point,
-		const char *mount_args, struct superblock **result_rootfs)
+tarfs_build(void)
 {
 	void *ramdisk_address = (void *)initrd_start;
-	(void)root_device;
-	(void)mount_point;
-	(void)mount_args;
 
 	struct node *root_node = malloc(sizeof(struct node));
 
@@ -528,8 +505,8 @@ tarfs_mount(const char *root_device, const char *mount_point,
 		return -KERNEL_NO_MEMORY;
 	}
 
+	tarfs_superblock->filesystem = &tarfs;
 	tarfs_superblock->root = root_node;
-	*result_rootfs = tarfs_superblock;
 	mounted_superblock = tarfs_superblock;
 
 	return KERNEL_OK;
@@ -556,8 +533,10 @@ free_node_tree(struct node *node)
 }
 
 static status_t
-tarfs_umount(void)
+tarfs_vfs_umount(struct mountpoint *mp)
 {
+	(void)mp;
+
 	if (mounted_superblock)
 	{
 		free_node_tree(mounted_superblock->root);
@@ -568,12 +547,323 @@ tarfs_umount(void)
 	return KERNEL_OK;
 }
 
+static const struct vnode_ops tarfs_vnode_ops;
+
+static vfs_node_type_t
+tarfs_vtype(const struct node *n)
+{
+	return n->type == TMPFS_FOLDER ? VFS_NODE_DIRECTORY
+				       : VFS_NODE_REGULAR_FILE;
+}
+
+/* Consumes the caller's reference on n. */
+static struct vnode *
+tarfs_vnode_new(struct mountpoint *mp, struct node *n)
+{
+	struct vnode *vn = vnode_alloc(mp, tarfs_vtype(n),
+			n->type == TMPFS_FILE ? n->u.file.size : 0,
+			&tarfs_vnode_ops, n);
+
+	if (!vn)
+	{
+		node_put(n);
+	}
+
+	return vn;
+}
+
+static bool
+tarfs_name_exists(struct node *directory, const char *name)
+{
+	struct node *n;
+
+	LIST_FOREACH(n, &directory->u.folder.nodes, next)
+	{
+		if (!strncmp(n->name, name, NODE_NAME_LENGTH))
+			return true;
+	}
+
+	return false;
+}
+
+static status_t
+tarfs_vop_lookup(struct vnode *directory, const char *name, struct vnode **result)
+{
+	size_t length = strnlen(name, NODE_NAME_LENGTH);
+	struct node *child;
+
+	if (length >= NODE_NAME_LENGTH)
+	{
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+	}
+
+	child = folder_lookup(directory->data, name, length);
+
+	if (!child)
+	{
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+	}
+
+	*result = tarfs_vnode_new(directory->mp, child);
+	return *result ? KERNEL_OK : -KERNEL_NO_MEMORY;
+}
+
+static ssize_t
+tarfs_vop_read(struct vnode *vn, void *buf, size_t length, loff_t offset) /* Flawfinder: ignore */
+{
+	struct node *n = vn->data;
+	size_t available;
+
+	if ((uint64_t)offset >= n->u.file.size)
+	{
+		return 0;
+	}
+
+	available = n->u.file.size - (size_t)offset;
+
+	if (length > available)
+	{
+		length = available;
+	}
+
+	memcpy_s(buf, length, n->u.file.data + (size_t)offset, length);
+	return (ssize_t)length;
+}
+
+static int
+tarfs_vop_readdir(struct vnode *directory, uint32_t index, struct dirent *entry)
+{
+	struct node *folder = directory->data;
+	struct node *child;
+	uint32_t i = 0;
+	uint32_t flags = spinlock_lock_irqsave(&folder->lock);
+
+	LIST_FOREACH(child, &folder->u.folder.nodes, next)
+	{
+		if (i++ == index)
+		{
+			break;
+		}
+	}
+
+	if (child)
+	{
+		entry->d_type = tarfs_vtype(child);
+		entry->d_size = child->type == TMPFS_FILE ? child->u.file.size : 0;
+		strzcpy(entry->d_name, child->name, sizeof(entry->d_name));
+	}
+
+	spinlock_unlock_irqrestore(&folder->lock, flags);
+	return child ? 1 : 0;
+}
+
+static status_t
+tarfs_vop_create(struct vnode *directory, const char *name, vfs_node_type_t type)
+{
+	struct node *parent = directory->data;
+	struct node *new_node;
+	status_t status;
+	uint32_t flags;
+
+	if (strnlen(name, NODE_NAME_LENGTH) >= NODE_NAME_LENGTH)
+	{
+		return -KERNEL_INVALID_VALUE;
+	}
+
+	new_node = malloc(sizeof(struct node));
+
+	if (!new_node)
+	{
+		return -KERNEL_NO_MEMORY;
+	}
+
+	memset(new_node, 0, sizeof(struct node));
+	strzcpy(new_node->name, name, sizeof(new_node->name));
+	new_node->name_length = strnlen(new_node->name, NODE_NAME_LENGTH) + 1;
+	new_node->type = type == VFS_NODE_DIRECTORY ? TMPFS_FOLDER : TMPFS_FILE;
+	new_node->refcount = 1;
+
+	if (new_node->type == TMPFS_FOLDER)
+	{
+		LIST_INIT(&new_node->u.folder.nodes);
+	}
+
+	flags = spinlock_lock_irqsave(&tarfs_ns_lock);
+
+	if (parent->unlinked)
+	{
+		status = -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+	}
+	else if (tarfs_name_exists(parent, name))
+	{
+		status = -KERNEL_FILE_ALREADY_EXISTS;
+	}
+	else
+	{
+		spinlock_lock(&parent->lock);
+		LIST_INSERT_HEAD(&parent->u.folder.nodes, new_node, next);
+		spinlock_unlock(&parent->lock);
+		status = KERNEL_OK;
+	}
+
+	spinlock_unlock_irqrestore(&tarfs_ns_lock, flags);
+
+	if (status != KERNEL_OK)
+	{
+		free(new_node);
+	}
+
+	return status;
+}
+
+static status_t
+tarfs_vop_remove(struct vnode *directory, const char *name, vfs_node_type_t type)
+{
+	struct node *parent = directory->data;
+	struct node *node;
+	uint8_t tarfs_type = type == VFS_NODE_DIRECTORY ? TMPFS_FOLDER
+							: TMPFS_FILE;
+	status_t status = -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+	uint32_t flags = spinlock_lock_irqsave(&tarfs_ns_lock);
+
+	LIST_FOREACH(node, &parent->u.folder.nodes, next)
+	{
+		if (strncmp(node->name, name, NODE_NAME_LENGTH) != 0)
+		{
+			continue;
+		}
+
+		if (node->type != tarfs_type)
+		{
+			break;
+		}
+
+		if (tarfs_type == TMPFS_FOLDER && !LIST_EMPTY(&node->u.folder.nodes))
+		{
+			status = -KERNEL_BUSY;
+			break;
+		}
+
+		node->unlinked = true;
+		spinlock_lock(&parent->lock);
+		LIST_REMOVE(node, next);
+		spinlock_unlock(&parent->lock);
+		status = KERNEL_OK;
+		break;
+	}
+
+	spinlock_unlock_irqrestore(&tarfs_ns_lock, flags);
+
+	if (status == KERNEL_OK)
+	{
+		node_put(node);		/* drop the folder link; freed when unused */
+	}
+
+	return status;
+}
+
+static status_t
+tarfs_vop_rename(struct vnode *old_dir, const char *old_name,
+		struct vnode *new_dir, const char *new_name)
+{
+	struct node *src_parent = old_dir->data;
+	struct node *dst_parent = new_dir->data;
+	struct node *src = NULL;
+	struct node *n;
+	status_t status = KERNEL_OK;
+	uint32_t flags;
+
+	if (strnlen(new_name, NODE_NAME_LENGTH) >= NODE_NAME_LENGTH)
+	{
+		return -KERNEL_INVALID_VALUE;
+	}
+
+	flags = spinlock_lock_irqsave(&tarfs_ns_lock);
+
+	LIST_FOREACH(n, &src_parent->u.folder.nodes, next)
+	{
+		if (!strncmp(n->name, old_name, NODE_NAME_LENGTH))
+		{
+			src = n;
+			break;
+		}
+	}
+
+	if (!src || dst_parent->unlinked)
+	{
+		status = -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+	}
+	else if (tarfs_name_exists(dst_parent, new_name))
+	{
+		status = -KERNEL_FILE_ALREADY_EXISTS;
+	}
+	else
+	{
+		spinlock_lock(&src_parent->lock);
+		LIST_REMOVE(src, next);
+		spinlock_unlock(&src_parent->lock);
+
+		strzcpy(src->name, new_name, NODE_NAME_LENGTH);
+		src->name_length = strnlen(src->name, NODE_NAME_LENGTH) + 1;
+
+		spinlock_lock(&dst_parent->lock);
+		LIST_INSERT_HEAD(&dst_parent->u.folder.nodes, src, next);
+		spinlock_unlock(&dst_parent->lock);
+	}
+
+	spinlock_unlock_irqrestore(&tarfs_ns_lock, flags);
+	return status;
+}
+
+static void
+tarfs_vop_release(struct vnode *vn)
+{
+	node_put(vn->data);
+}
+
+static const struct vnode_ops tarfs_vnode_ops =
+{
+	.lookup  = tarfs_vop_lookup,
+	.read    = tarfs_vop_read,
+	.readdir = tarfs_vop_readdir,
+	.create  = tarfs_vop_create,
+	.remove  = tarfs_vop_remove,
+	.rename  = tarfs_vop_rename,
+	.release = tarfs_vop_release,
+};
+
+static status_t
+tarfs_vfs_mount(struct mountpoint *mp, const char *source, const char *args)
+{
+	(void)source;
+	(void)args;
+
+	if (!mounted_superblock)
+	{
+		status_t status = tarfs_build();
+
+		if (status != KERNEL_OK)
+		{
+			return status;
+		}
+	}
+
+	mp->root = tarfs_vnode_new(mp, node_get(mounted_superblock->root));
+	return mp->root ? KERNEL_OK : -KERNEL_NO_MEMORY;
+}
+
+struct superblock *
+tarfs_superblock(void)
+{
+	return mounted_superblock;
+}
+
 status_t
 tarfs_init(paddr_t start, paddr_t end)
 {
 	strzcpy(tarfs.name, "tarfs", sizeof(tarfs.name));
-	tarfs.mount  = tarfs_mount;
-	tarfs.umount = tarfs_umount;
+	tarfs.mount  = tarfs_vfs_mount;
+	tarfs.umount = tarfs_vfs_umount;
 
 	initrd_start = start;
 	initrd_end   = end;
@@ -581,15 +871,3 @@ tarfs_init(paddr_t start, paddr_t end)
 	return fs_register(&tarfs);
 }
 
-
-vfs_ops_t
-tarfs_ops = {
-	.mount    = tarfs_mount,
-	.umount   = tarfs_umount,
-	.read     = NULL,
-	.write    = NULL,
-	.truncate = NULL,
-	.close    = NULL,
-	.destroy  = NULL,
-	.sync     = NULL
-};

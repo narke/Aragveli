@@ -96,44 +96,41 @@ interrupts_setup(void)
 static void
 fatfs_smoke_test(void)
 {
-	static const char *const devs[] = { "fat16", "fat32", "exfat" };
-	static const char *const roots[] = { "0:/", "1:/", "2:/" };
-	static const char *const tests[] = { "0:/test.txt", "1:/test.txt", "2:/test.txt" };
-	static const char msg[] = "written by Aragveli";
-	char buf[32]; /* Flawfinder: ignore */
-	UINT n;
-	for (BYTE i = 0; i < 3; i++)
+	struct dirent entry;
+	struct vnode *vn;
+	char magic[4]; /* Flawfinder: ignore */
+	uint32_t i;
+
+	kprintf("mkdir:  %d\n", vfs_create("/", "/vfs-test", VFS_NODE_DIRECTORY));
+	kprintf("touch:  %d\n", vfs_create("/vfs-test", "a.txt", VFS_NODE_REGULAR_FILE));
+	kprintf("rename: %d\n", vfs_rename("/", "/vfs-test/a.txt",
+				"/vfs-test/../vfs-test/./b.txt"));
+	if (vfs_lookup("/", "/vfs-test", &vn) == KERNEL_OK)
 	{
-		FATFS *fs = malloc(sizeof(FATFS));
-		DIR *dir = malloc(sizeof(DIR));
-		FILINFO *fno = malloc(sizeof(FILINFO));
-		FIL *fil = malloc(sizeof(FIL));
-		FRESULT res;
-		diskio_bind(i, blockdev_find(devs[i]));
-		res = f_mount(fs, roots[i], 1);
-		kprintf("%s: f_mount=%d fs_type=%d\n", devs[i], res, fs->fs_type);
-		if (res != FR_OK)
-			continue;
-		if (f_opendir(dir, roots[i]) == FR_OK)
-		{
-			while (f_readdir(dir, fno) == FR_OK && fno->fname[0])
-				kprintf("  %s\n", fno->fname);
-			f_closedir(dir);
-		}
-		res = f_open(fil, tests[i], FA_CREATE_ALWAYS | FA_WRITE);
-		if (res == FR_OK)
-		{
-			f_write(fil, msg, sizeof(msg), &n);
-			f_close(fil);
-		}
-		memset(buf, 0, sizeof(buf));
-		if (f_open(fil, tests[i], FA_READ) == FR_OK)
-		{
-			f_read(fil, buf, sizeof(buf) - 1, &n);
-			f_close(fil);
-		}
-		kprintf("  read back: %s\n", buf);
+		for (i = 0; vfs_readdir(vn, i, &entry) == 1; i++)
+			kprintf("  /vfs-test/%s\n", entry.d_name);
+		vnode_put(vn);
 	}
+
+	kprintf("rm:     %d\n", vfs_remove("/", "/vfs-test/b.txt", VFS_NODE_REGULAR_FILE));
+	kprintf("rmdir:  %d\n", vfs_remove("/", "/vfs-test", VFS_NODE_DIRECTORY));
+
+	if (vfs_lookup("/", "/", &vn) == KERNEL_OK)
+	{
+		for (i = 0; vfs_readdir(vn, i, &entry) == 1; i++)
+			kprintf("  /%s (%d bytes)\n", entry.d_name, (int)entry.d_size);
+		vnode_put(vn);
+	}
+
+	if (vfs_lookup("/", "shell.elf", &vn) == KERNEL_OK)
+	{
+		ssize_t n = vfs_read(vn, magic, sizeof(magic), 0);
+		kprintf("shell.elf: read %d, magic %x %c%c%c\n", (int)n,
+				magic[0] & 0xff, magic[1], magic[2], magic[3]);
+		vnode_put(vn);
+	}
+
+	kprintf("missing: %d\n", vfs_lookup("/", "/nope/x", &vn));
 }
 
 void
@@ -145,8 +142,9 @@ extra_kernel(uint32_t initrd_start, uint32_t initrd_end)
 	status_t status = tarfs_init(initrd_start, initrd_end);
 	assert(status == KERNEL_OK);
 
-	status = vfs_init("initrd", "tarfs", "/", NULL, &root_fs);
+	status = vfs_mount("initrd", "/", "tarfs", NULL);
 	assert(status == KERNEL_OK);
+	root_fs = tarfs_superblock();
 
 	// Create one RAM disk per recorded module
 	for (uint32_t i = 0; i < boot_modules_count; i++)

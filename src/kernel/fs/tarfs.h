@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2017 Konstantin Tcholokachvili.
+ * Copyright (c) 2015-2026 Konstantin Tcholokachvili.
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
@@ -30,3 +30,4 @@ struct node *node_get(struct node *n);
 void node_put(struct node *n);
 /* Returns a referenced node; the caller must node_put() it. */
 struct node *resolve_node(const char *path, struct node *root_node);
+struct superblock *tarfs_superblock(void);
