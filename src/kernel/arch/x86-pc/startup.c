@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2020, 2026 Konstantin Tcholokachvili.
+ * Copyright (c) 2017-2026 Konstantin Tcholokachvili.
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
@@ -40,11 +40,27 @@
 #include <net/net.h>
 #include <process/elf_loader.h>
 
+#include <fs/fatfs/ff.h>
+#include <fs/fatfs/fatfs_port.h>
+#include <drivers/blockdev.h>
+#include <drivers/ramdisk.h>
+#include <lib/c/stdlib.h>
+
 #define TIMER_INTERRUPT    0x20
 #define SPURIOUS_INTERRUPT 0xff
 
+#define MAX_BOOT_MODULES 8
 
 struct superblock *root_fs;
+
+struct boot_module
+{
+	char    name[16]; /* Flawfinder: ignore */
+	paddr_t start, end;
+};
+
+static struct boot_module boot_modules[MAX_BOOT_MODULES];
+static uint32_t boot_modules_count;
 
 extern void pit_interrupt();
 extern void spurious_interrupt_handler();
@@ -77,6 +93,49 @@ interrupts_setup(void)
 	IoApicSetEntry(g_ioApicAddr, AcpiRemapIrq(IRQ_TIMER), TIMER_INTERRUPT);
 }
 
+static void
+fatfs_smoke_test(void)
+{
+	static const char *const devs[] = { "fat16", "fat32", "exfat" };
+	static const char *const roots[] = { "0:/", "1:/", "2:/" };
+	static const char *const tests[] = { "0:/test.txt", "1:/test.txt", "2:/test.txt" };
+	static const char msg[] = "written by Aragveli";
+	char buf[32]; /* Flawfinder: ignore */
+	UINT n;
+	for (BYTE i = 0; i < 3; i++)
+	{
+		FATFS *fs = malloc(sizeof(FATFS));
+		DIR *dir = malloc(sizeof(DIR));
+		FILINFO *fno = malloc(sizeof(FILINFO));
+		FIL *fil = malloc(sizeof(FIL));
+		FRESULT res;
+		diskio_bind(i, blockdev_find(devs[i]));
+		res = f_mount(fs, roots[i], 1);
+		kprintf("%s: f_mount=%d fs_type=%d\n", devs[i], res, fs->fs_type);
+		if (res != FR_OK)
+			continue;
+		if (f_opendir(dir, roots[i]) == FR_OK)
+		{
+			while (f_readdir(dir, fno) == FR_OK && fno->fname[0])
+				kprintf("  %s\n", fno->fname);
+			f_closedir(dir);
+		}
+		res = f_open(fil, tests[i], FA_CREATE_ALWAYS | FA_WRITE);
+		if (res == FR_OK)
+		{
+			f_write(fil, msg, sizeof(msg), &n);
+			f_close(fil);
+		}
+		memset(buf, 0, sizeof(buf));
+		if (f_open(fil, tests[i], FA_READ) == FR_OK)
+		{
+			f_read(fil, buf, sizeof(buf) - 1, &n);
+			f_close(fil);
+		}
+		kprintf("  read back: %s\n", buf);
+	}
+}
+
 void
 extra_kernel(uint32_t initrd_start, uint32_t initrd_end)
 {
@@ -88,6 +147,16 @@ extra_kernel(uint32_t initrd_start, uint32_t initrd_end)
 
 	status = vfs_init("initrd", "tarfs", "/", NULL, &root_fs);
 	assert(status == KERNEL_OK);
+
+	// Create one RAM disk per recorded module
+	for (uint32_t i = 0; i < boot_modules_count; i++)
+	{
+		status = ramdisk_create(boot_modules[i].name,
+				boot_modules[i].start, boot_modules[i].end);
+		assert(status == KERNEL_OK);
+	}
+
+	fatfs_smoke_test();
 
 	// PCI devices
 	pci_scan();
@@ -131,6 +200,29 @@ aragveli_main(uint32_t magic, uint32_t address)
 
 	multiboot_info_t *mbi = (multiboot_info_t *)address;
 
+	// Record every module
+	multiboot_module_t *mods = (multiboot_module_t *)mbi->mods_addr;
+
+	uint32_t initrd_start = mods[0].mod_start;
+	uint32_t initrd_end   = mods[0].mod_end;
+	paddr_t modules_end   = initrd_end;
+
+	for (uint32_t i = 1; i < mbi->mods_count && i <= MAX_BOOT_MODULES; i++)
+	{
+		struct boot_module *bm = &boot_modules[boot_modules_count++];
+		const char *cmdline = (const char *)mods[i].string;
+		const char *last = strrchr(cmdline, ' ');
+
+		strzcpy(bm->name, last ? last + 1 : cmdline, sizeof(bm->name));
+		bm->start = mods[i].mod_start;
+		bm->end   = mods[i].mod_end;
+
+		if (bm->end > modules_end)
+		{
+			modules_end = bm->end;
+		}
+	}
+
 	// VBE
 	struct vbe_mode_info *vbe_mode_info =
 		(struct vbe_mode_info *)mbi->vbe_mode_info;
@@ -150,8 +242,8 @@ aragveli_main(uint32_t magic, uint32_t address)
 	g_online_cpus     = 1u << 0;
 
 	// Initrd
-	uint32_t initrd_start = *(uint32_t *)mbi->mods_addr;
-	uint32_t initrd_end   = *(uint32_t *)(mbi->mods_addr + 4);
+	initrd_start = *(uint32_t *)mbi->mods_addr;
+	initrd_end   = *(uint32_t *)(mbi->mods_addr + 4);
 
 	// Physical memory
 	paddr_t identity_mapping_start, identity_mapping_end;
@@ -160,7 +252,7 @@ aragveli_main(uint32_t magic, uint32_t address)
 			vbe_mode_info,
 			&identity_mapping_start,
 			&identity_mapping_end,
-			initrd_end);
+			modules_end);
 	assert(status == KERNEL_OK);
 
 	// Heap

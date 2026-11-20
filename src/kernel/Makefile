@@ -32,23 +32,48 @@ OBJECTS += $(LWIP_SOURCES:.c=.o)
 LWIP_CFLAGS = -m32 -Wa,--32 -nostdlib -nostdinc -ffreestanding \
 	  -I$(PWD) $(LWIP_INCLUDES)
 
-$(LWIP_DIR)/%.o: $(LWIP_DIR)/%.c
-	$(CC) -c $< -o $@ $(LWIP_CFLAGS)
-
 FATFS_SOURCES = $(FATFS_DIR)/ff.c $(FATFS_DIR)/ffunicode.c
 FATFS_OBJECTS = $(FATFS_SOURCES:.c=.o)
 OBJECTS += $(FATFS_OBJECTS)
 FATFS_CFLAGS = -m32 -Wa,--32 -nostdlib -nostdinc -ffreestanding \
                -I$(PWD) $(FATFS_INCLUDES)
 
+IMAGES_DST = $(BOOTLOADER_PATH)/iso
+FAT_IMAGES = $(IMAGES_DST)/fat16.img $(IMAGES_DST)/fat32.img $(IMAGES_DST)/exfat.img
+
 KERNEL          = aragveli.elf
 MULTIBOOT_IMAGE	= aragveli.iso
 
-.PHONY: all kernel initrd cdrom run clean
+.PHONY: all kernel initrd images cdrom run clean
 
 all: cdrom
 
 kernel: $(KERNEL)
+
+images: $(FAT_IMAGES)
+
+$(IMAGES_DST)/fat16.img:
+	$(generating) '$@'
+	dd if=/dev/zero of=$@ bs=1M count=16 status=none
+	/usr/sbin/mkfs.fat -F 16 -n FAT16 $@ > /dev/null
+	printf 'Hello from FAT16\n' > $@.txt
+	mcopy -i $@ $@.txt ::/hello.txt
+	mcopy -i $@ $@.txt "::/A long file name.txt"
+	rm $@.txt
+
+$(IMAGES_DST)/fat32.img:
+	$(generating) '$@'
+	dd if=/dev/zero of=$@ bs=1M count=40 status=none
+	/usr/sbin/mkfs.fat -F 32 -s 1 -n FAT32 $@ > /dev/null
+	printf 'Hello from FAT32\n' > $@.txt
+	mcopy -i $@ $@.txt ::/hello.txt
+	rm $@.txt
+
+$(IMAGES_DST)/exfat.img:
+	$(generating) '$@'
+	dd if=/dev/zero of=$@ bs=1M count=8 status=none
+	/usr/sbin/mkfs.exfat -L EXFAT $@ > /dev/null
+
 
 $(KERNEL): $(OBJECTS)
 	$(linking) '$^ > $@'
@@ -74,7 +99,7 @@ initrd:
 	tar cvf initrd.tar -C $(INITRD_PATH) initrd/
 	mv initrd.tar $(INITRD_DST)
 
-cdrom: kernel initrd
+cdrom: kernel initrd images
 	$(generating) '$@'
 	mv $(KERNEL) $(BOOTLOADER_PATH)/iso/boot/
 	grub-mkrescue -o $(MULTIBOOT_IMAGE) $(BOOTLOADER_PATH)/iso/
@@ -93,3 +118,4 @@ clean:
 	$(RM) $(BOOTLOADER_PATH)/iso/boot/$(KERNEL)
 	$(RM) $(MULTIBOOT_IMAGE)
 	$(RM) $(INITRD_DST)/initrd.tar
+	$(RM) $(FAT_IMAGES)

@@ -1,7 +1,7 @@
 #pragma once
 
 /*
- * Copyright (c) 2017 Konstantin Tcholokachvili.
+ * Copyright (c) 2017-2026 Konstantin Tcholokachvili.
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
@@ -35,3 +35,11 @@ typedef struct multiboot_info
 	unsigned short vbe_interface_off;
 	unsigned short vbe_interface_len;
 } multiboot_info_t;
+
+typedef struct multiboot_module
+{
+	unsigned long mod_start;
+	unsigned long mod_end;
+	unsigned long string;
+	unsigned long reserved;
+} multiboot_module_t;
