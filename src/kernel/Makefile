@@ -68,6 +68,7 @@ $(IMAGES_DST)/fat32.img:
 	printf 'Hello from FAT32\n' > $@.txt
 	mcopy -i $@ $@.txt ::/hello.txt
 	rm $@.txt
+	mcopy -i $@ $(INITRD_PATH)/initrd/hello.elf ::/hello.elf
 
 $(IMAGES_DST)/exfat.img:
 	$(generating) '$@'

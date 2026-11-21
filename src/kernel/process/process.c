@@ -19,6 +19,8 @@
 #define USER_STACK_BASE		(USER_STACK_TOP - (USER_STACK_PAGES - 1) * PAGE_SIZE)
 #define USER_STACK_ARG_MAX	32
 
+#define ELF_MAX_SIZE	(16u << 20)
+
 static atomic_count_t g_next_pid = 1;
 /* parent, children, sibling, state, exit_status, thread, waiters */
 static spinlock_t proc_tree_lock = SPINLOCK_INIT;
@@ -196,27 +198,60 @@ user_stack_build(uint32_t pd, char *const argv[])
 	return sp;
 }
 
+static void *
+file_read_all(const char *cwd, const char *path, size_t *size_out)
+{
+	struct vnode *vn;
+	void *buf = NULL;
+
+	if (vfs_lookup(cwd, path, &vn) != KERNEL_OK)
+	{
+		return NULL;
+	}
+
+	if (vn->type == VFS_NODE_REGULAR_FILE && vn->size > 0
+		&& vn->size <= ELF_MAX_SIZE)
+	{
+		size_t size = (size_t)vn->size;
+		buf = malloc(size);
+
+		if (buf && vfs_read(vn, buf, size, 0) != (ssize_t)size)
+		{
+			free(buf);
+			buf = NULL;
+		}
+
+		*size_out = size;
+	}
+
+	vnode_put(vn);
+	return buf;
+}
+
 int
 process_image_load(uint32_t pd, const char *path, char *const argv[],
-		   struct node *root, uint32_t *entry_out, uint32_t *esp_out)
+		   const char *cwd, uint32_t *entry_out, uint32_t *esp_out)
 {
-	struct node *file;
+	void *image;
 	void *entry;
+	size_t size = 0;
 	uint32_t esp;
 
-	if (!pd || !path || !argv || !root || !entry_out || !esp_out)
-		return -1;
-
-	file = resolve_node(path, root);
-
-	if (!file || file->type != TMPFS_FILE)
+	if (!pd || !path || !argv || !cwd || !entry_out || !esp_out)
 	{
-		node_put(file);
 		return -1;
 	}
 
-	entry = elf_load_file(file->u.file.data, file->u.file.size, pd);
-	node_put(file);
+	image = file_read_all(cwd, path, &size);
+
+	if (!image)
+	{
+		return -1;
+	}
+
+	/* elf_load_file copies the segments; the image is not kept. */
+	entry = elf_load_file(image, size, pd);
+	free(image);
 
 	if (!entry)
 	{
@@ -256,9 +291,6 @@ process_exit(process_t *p, int status)
 
 	page_directory_destroy(pd);
 
-	node_put(p->cwd);
-	p->cwd = NULL;
-
 	flags = spinlock_lock_irqsave(&proc_tree_lock);
 
 	while ((child = LIST_FIRST(&p->children)) != NULL)
@@ -295,19 +327,18 @@ process_exit(process_t *p, int status)
 
 
 int
-process_exec_elf(process_t *p, const char *path, char *const argv[],
-		 struct node *root)
+process_exec_elf(process_t *p, const char *path, char *const argv[])
 {
 	uint32_t entry;
 	uint32_t esp;
 
-	if (!p || !p->page_directory || !path || !argv || !root)
+	if (!p || !p->page_directory || !path || !argv)
 		return -1;
 
 	mutex_lock(&p->vm_lock);
 	page_directory_clear_user(p->page_directory, p->vm_cpus);
 
-	int status = process_image_load(p->page_directory, path, argv, root,
+	int status = process_image_load(p->page_directory, path, argv, p->cwd,
 			       &entry, &esp);
 
 	mutex_unlock(&p->vm_lock);
@@ -359,7 +390,7 @@ process_fork(process_t *parent, struct syscall_frame *frame)
 	child->state = PROC_LIVE;
 	child->exit_status = 0;
 	child->page_directory = pd;
-	child->cwd = node_get(parent->cwd);
+	strzcpy(child->cwd, parent->cwd, sizeof(child->cwd));
 	mutex_init(&child->vm_lock);
 
 	memcpy_s(child->fds, sizeof(child->fds), parent->fds, sizeof(parent->fds));
@@ -377,7 +408,6 @@ process_fork(process_t *parent, struct syscall_frame *frame)
 		flags = spinlock_lock_irqsave(&proc_tree_lock);
 		LIST_REMOVE(child, sibling);
 		spinlock_unlock_irqrestore(&proc_tree_lock, flags);
-		node_put(child->cwd);
 		page_directory_destroy(pd);
 		free(child);
 		return -1;
@@ -387,7 +417,7 @@ process_fork(process_t *parent, struct syscall_frame *frame)
 }
 
 process_t *
-process_create_from_elf(const char *path, struct node *root)
+process_create_from_elf(const char *path)
 {
 	uint32_t pd;
 	uint32_t entry;
@@ -399,7 +429,7 @@ process_create_from_elf(const char *path, struct node *root)
 	thread_t *t;
 	uint32_t flags;
 
-	if (!path || !root)
+	if (!path)
 		return NULL;
 
 	pd = page_directory_create();
@@ -409,7 +439,7 @@ process_create_from_elf(const char *path, struct node *root)
 	argv[0] = (char *)path;
 	argv[1] = NULL;
 
-	if (process_image_load(pd, path, argv, root, &entry, &esp) != 0)
+	if (process_image_load(pd, path, argv, "/", &entry, &esp) != 0)
 		goto fail_pd;
 
 	p = malloc(sizeof(process_t));
@@ -439,7 +469,7 @@ process_create_from_elf(const char *path, struct node *root)
 	p->fds[0]         = FD_CONSOLE;
 	p->fds[1]         = FD_CONSOLE;
 	p->fds[2]         = FD_CONSOLE;
-	p->cwd            = node_get(root);
+	strzcpy(p->cwd, "/", sizeof(p->cwd));
 	mutex_init(&p->vm_lock);
 	LIST_INIT(&p->children);
 	TAILQ_INIT(&p->waiters);
@@ -458,7 +488,6 @@ fail_proc:
 	flags = spinlock_lock_irqsave(&proc_tree_lock);
 	LIST_REMOVE(p, sibling);
 	spinlock_unlock_irqrestore(&proc_tree_lock, flags);
-	node_put(p->cwd);
 	free(p);
 
 fail_pd:

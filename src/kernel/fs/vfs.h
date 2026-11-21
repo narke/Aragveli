@@ -43,6 +43,7 @@ struct file
 {
 	char *data;
 	uint32_t size; // Limited to 4 GiB
+	bool heap;     // data was malloc'ed, not mapped from the initrd
 };
 
 struct node
@@ -59,15 +60,6 @@ struct node
 	spinlock_t	lock;		/* folders: u.folder.nodes against lookups */
 	bool		unlinked;	/* protected by tarfs_ns_lock */
 	LIST_ENTRY(node) next;
-};
-
-/* Transitional: still used by commands, syscalls and the ELF loader. */
-struct superblock
-{
-	struct file_system	*filesystem;
-	struct node		*root;
-
-	LIST_ENTRY(superblock)	next;
 };
 
 typedef enum

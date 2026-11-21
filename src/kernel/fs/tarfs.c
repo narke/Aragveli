@@ -18,7 +18,7 @@
 
 static struct file_system tarfs;
 static paddr_t initrd_start, initrd_end;
-static struct superblock *mounted_superblock;
+static struct node *tarfs_root;
 
 struct path_node
 {
@@ -27,11 +27,11 @@ struct path_node
 };
 
 STAILQ_HEAD(, path_node) path_nodes;
-spinlock_t tarfs_ns_lock = SPINLOCK_INIT;
+static spinlock_t tarfs_ns_lock = SPINLOCK_INIT;
 
 static status_t path_nodes_list_delete(void);
 
-struct node *
+static struct node *
 node_get(struct node *n)
 {
 	if (n)
@@ -41,11 +41,17 @@ node_get(struct node *n)
 
 	return n;
 }
-void
+
+static void
 node_put(struct node *n)
 {
 	if (n && atomic_dec_and_test(&n->refcount))
 	{
+		if (n->type == TMPFS_FILE && n->u.file.heap)
+		{
+			free(n->u.file.data);
+		}
+
 		free(n);
 	}
 }
@@ -219,45 +225,6 @@ path_nodes_list_delete(void)
 	}
 
 	return KERNEL_OK;
-}
-
-struct node *
-resolve_node(const char *path, struct node *root_node)
-{
-	struct node *current_node = node_get(root_node);
-
-	while (current_node && *path)
-	{
-		const char *end;
-		struct node *next;
-
-		while (*path == '/')
-		{
-			path++;
-		}
-
-		if (*path == '\0')
-		{
-			break;
-		}
-
-		for (end = path; *end && *end != '/'; end++)
-		{
-			;
-		}
-
-		if ((size_t)(end - path) >= NODE_NAME_LENGTH)
-		{
-			node_put(current_node);
-			return NULL;
-		}
-
-		next = folder_lookup(current_node, path, (size_t)(end - path));
-		node_put(current_node);
-		current_node = next;
-		path = end;
-	}
-	return current_node;
 }
 
 static char *
@@ -497,17 +464,7 @@ tarfs_build(void)
 	STAILQ_INIT(&path_nodes);
 	untar(ramdisk_address, root_node);
 
-	struct superblock *tarfs_superblock = malloc(sizeof(struct superblock));
-
-	if (!tarfs_superblock)
-	{
-		free(root_node);
-		return -KERNEL_NO_MEMORY;
-	}
-
-	tarfs_superblock->filesystem = &tarfs;
-	tarfs_superblock->root = root_node;
-	mounted_superblock = tarfs_superblock;
+	tarfs_root = root_node;
 
 	return KERNEL_OK;
 }
@@ -516,17 +473,25 @@ static void
 free_node_tree(struct node *node)
 {
 	if (!node)
+	{
 		return;
+	}
 
 	if (node->type == TMPFS_FOLDER)
 	{
 		struct node *child;
+
 		while (!LIST_EMPTY(&node->u.folder.nodes))
 		{
 			child = LIST_FIRST(&node->u.folder.nodes);
 			LIST_REMOVE(child, next);
 			free_node_tree(child);
 		}
+	}
+
+	if (node->type == TMPFS_FILE && node->u.file.heap)
+	{
+		free(node->u.file.data);
 	}
 
 	free(node);
@@ -537,11 +502,10 @@ tarfs_vfs_umount(struct mountpoint *mp)
 {
 	(void)mp;
 
-	if (mounted_superblock)
+	if (tarfs_root)
 	{
-		free_node_tree(mounted_superblock->root);
-		free(mounted_superblock);
-		mounted_superblock = NULL;
+		free_node_tree(tarfs_root);
+		tarfs_root = NULL;
 	}
 
 	return KERNEL_OK;
@@ -609,25 +573,83 @@ tarfs_vop_lookup(struct vnode *directory, const char *name, struct vnode **resul
 }
 
 static ssize_t
-tarfs_vop_read(struct vnode *vn, void *buf, size_t length, loff_t offset) /* Flawfinder: ignore */
+tarfs_vop_read(struct vnode *vn, void *buffer, size_t length, loff_t offset) /* Flawfinder: ignore */
 {
 	struct node *n = vn->data;
+	uint32_t flags = spinlock_lock_irqsave(&n->lock);
 	size_t available;
 
 	if ((uint64_t)offset >= n->u.file.size)
 	{
-		return 0;
+		length = 0;
 	}
-
-	available = n->u.file.size - (size_t)offset;
-
-	if (length > available)
+	else
 	{
-		length = available;
+		available = n->u.file.size - (size_t)offset;
+
+		if (length > available)
+		{
+			length = available;
+		}
+
+		memcpy_s(buffer, length, n->u.file.data + (size_t)offset, length);
 	}
 
-	memcpy_s(buf, length, n->u.file.data + (size_t)offset, length);
+	spinlock_unlock_irqrestore(&n->lock, flags);
 	return (ssize_t)length;
+}
+
+static ssize_t
+tarfs_vop_write(struct vnode *vn, const void *buf, size_t len, loff_t offset)
+{
+	struct node *n = vn->data;
+	char *old = NULL;
+	size_t end;
+	uint32_t flags;
+
+	if ((uint64_t)offset + len > 0xFFFFFFFFu)
+	{
+		return -KERNEL_INVALID_VALUE;
+	}
+
+	end = (size_t)offset + len;
+	flags = spinlock_lock_irqsave(&n->lock);
+
+	/* Initrd data is read-only: move the file to the heap on first write. */
+	if (!n->u.file.heap || end > n->u.file.size)
+	{
+		size_t new_size = end > n->u.file.size ? end : n->u.file.size;
+		char *data = malloc(new_size ? new_size : 1);
+
+		if (!data)
+		{
+			spinlock_unlock_irqrestore(&n->lock, flags);
+			return -KERNEL_NO_MEMORY;
+		}
+
+		memset(data, 0, new_size);
+
+		if (n->u.file.size)
+		{
+			memcpy_s(data, new_size, n->u.file.data, n->u.file.size);
+		}
+
+		if (n->u.file.heap)
+		{
+			old = n->u.file.data;
+		}
+
+		n->u.file.data = data;
+		n->u.file.size = (uint32_t)new_size;
+		n->u.file.heap = true;
+	}
+
+	memcpy_s(n->u.file.data + (size_t)offset,
+		 n->u.file.size - (size_t)offset, buf, len);
+	vn->size = n->u.file.size;
+	spinlock_unlock_irqrestore(&n->lock, flags);
+	free(old);
+	return (ssize_t)len;
 }
 
 static int
@@ -825,6 +847,7 @@ static const struct vnode_ops tarfs_vnode_ops =
 {
 	.lookup  = tarfs_vop_lookup,
 	.read    = tarfs_vop_read,
+	.write   = tarfs_vop_write,
 	.readdir = tarfs_vop_readdir,
 	.create  = tarfs_vop_create,
 	.remove  = tarfs_vop_remove,
@@ -838,7 +861,7 @@ tarfs_vfs_mount(struct mountpoint *mp, const char *source, const char *args)
 	(void)source;
 	(void)args;
 
-	if (!mounted_superblock)
+	if (!tarfs_root)
 	{
 		status_t status = tarfs_build();
 
@@ -848,14 +871,8 @@ tarfs_vfs_mount(struct mountpoint *mp, const char *source, const char *args)
 		}
 	}
 
-	mp->root = tarfs_vnode_new(mp, node_get(mounted_superblock->root));
+	mp->root = tarfs_vnode_new(mp, node_get(tarfs_root));
 	return mp->root ? KERNEL_OK : -KERNEL_NO_MEMORY;
-}
-
-struct superblock *
-tarfs_superblock(void)
-{
-	return mounted_superblock;
 }
 
 status_t

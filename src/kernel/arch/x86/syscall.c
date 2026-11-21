@@ -30,8 +30,6 @@
 #define READ_MAX	4096
 #define FS_PATH_MAX	256
 
-extern struct superblock *root_fs;
-
 // A system call handler receives the saved user frame and returns a value
 // that is written back into the user's eax.
 typedef uint32_t (*syscall_t)(struct syscall_frame *frame);
@@ -197,24 +195,35 @@ sys_read(struct syscall_frame *frame)
 	uint32_t i;
 
 	if (!p)
+	{
 		return (uint32_t)-1;
+	}
 
 	if (fd < 0 || fd >= PROC_NFDS || p->fds[fd] != FD_CONSOLE)
+	{
 		return (uint32_t)-1;
+	}
 
 	if (len == 0)
+	{
 		return 0;
+	}
 
 	if (!buf || len > READ_MAX)
+	{
 		return (uint32_t)-1;
+	}
 
 	for (i = 0; i < len; i++)
 	{
 		uint8_t c;
 
 		keyboard_read(&c, 1);
+
 		if (write_user_byte(p->page_directory, buf + i, c) != 0)
+		{
 			return (uint32_t)-1;
+		}
 	}
 
 	return len;
@@ -228,14 +237,18 @@ sys_wait(struct syscall_frame *frame)
 	int pid;
 
 	if (!p)
+	{
 		return (uint32_t)-1;
+	}
 
 	pid = process_wait(p, &status);
 
 	if (pid >= 0 && frame->ebx != 0
 	    && write_user_u32(p->page_directory, frame->ebx,
 			      (uint32_t)status) != 0)
+	{
 		return (uint32_t)-1;
+	}
 
 	return (uint32_t)pid;
 }
@@ -254,7 +267,7 @@ sys_exec(struct syscall_frame *frame)
 	uint32_t uarg;
 	int ret;
 
-	if (!p || !p->page_directory || !root_fs || !root_fs->root)
+	if (!p || !p->page_directory)
 		return (uint32_t)-1;
 
 	pd = p->page_directory;
@@ -291,7 +304,7 @@ sys_exec(struct syscall_frame *frame)
 
 	argv[argc] = NULL;
 
-	ret = process_exec_elf(p, path, argv, root_fs->root);
+	ret = process_exec_elf(p, path, argv);
 	if (ret != 0)
 		return (uint32_t)-1;	/* not reached on post-clear failure */
 
@@ -317,7 +330,7 @@ static int
 op_ls(process_t *p, const char *a1, const char *a2)
 {
 	(void)a2;
-	return cmd_ls(root_fs->root, p->cwd, a1);
+	return cmd_ls(p->cwd, a1);
 }
 
 static int
@@ -332,61 +345,61 @@ static int
 op_cd(process_t *p, const char *a1, const char *a2)
 {
 	(void)a2;
-	return cmd_cd(root_fs->root, &p->cwd, a1);
+	return cmd_cd(p->cwd, sizeof(p->cwd), a1);
 }
 
 static int
 op_mkdir(process_t *p, const char *a1, const char *a2)
 {
 	(void)a2;
-	return cmd_mkdir(root_fs->root, p->cwd, a1);
+	return cmd_mkdir(p->cwd, a1);
 }
 
 static int
 op_touch(process_t *p, const char *a1, const char *a2)
 {
 	(void)a2;
-	return cmd_touch(root_fs->root, p->cwd, a1);
+	return cmd_touch(p->cwd, a1);
 }
 
 static int
 op_rm(process_t *p, const char *a1, const char *a2)
 {
 	(void)a2;
-	return cmd_rm(root_fs->root, p->cwd, a1);
+	return cmd_rm(p->cwd, a1);
 }
 
 static int
 op_rmdir(process_t *p, const char *a1, const char *a2)
 {
 	(void)a2;
-	return cmd_rmdir(root_fs->root, p->cwd, a1);
+	return cmd_rmdir(p->cwd, a1);
 }
 
 static int
 op_cat(process_t *p, const char *a1, const char *a2)
 {
 	(void)a2;
-	return cmd_cat(root_fs->root, p->cwd, a1);
+	return cmd_cat(p->cwd, a1);
 }
 
 static int
 op_file(process_t *p, const char *a1, const char *a2)
 {
 	(void)a2;
-	return cmd_file(root_fs->root, p->cwd, a1);
+	return cmd_file(p->cwd, a1);
 }
 
 static int
 op_mv(process_t *p, const char *a1, const char *a2)
 {
-	return cmd_mv(root_fs->root, p->cwd, a1, a2);
+	return cmd_mv(p->cwd, a1, a2);
 }
 
 static int
 op_cp(process_t *p, const char *a1, const char *a2)
 {
-	return cmd_cp(root_fs->root, p->cwd, a1, a2);
+	return cmd_cp(p->cwd, a1, a2);
 }
 
 static const struct {
@@ -421,8 +434,10 @@ sys_fs(struct syscall_frame *frame)
 	const char *a2 = NULL;
 	unsigned int i;
 
-	if (!p || !p->cwd || !root_fs || !root_fs->root)
+	if (!p)
+	{
 		return (uint32_t)-1;
+	}
 
 	if (uarg1)
 	{

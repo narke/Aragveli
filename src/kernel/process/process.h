@@ -2,7 +2,7 @@
 
 #include <lib/types.h>
 #include <lib/queue.h>
-#include <fs/tarfs.h>
+#include <fs/vfs.h>
 #include <process/mutex.h>
 
 #include "thread.h"
@@ -29,18 +29,17 @@ typedef struct process {
 	LIST_ENTRY(process) sibling;	/* on parent's children */
 	TAILQ_HEAD(, thread) waiters;	/* parents blocked in wait */
 	uint8_t		fds[PROC_NFDS];
-	struct node	*cwd;		/* current working directory in tarfs */
+	char		cwd[PATH_MAX];	/* current working directory*/
 } process_t;
 
 struct syscall_frame;
 
 void process_init(void);
 process_t *process_get_init(void);
-process_t *process_create_from_elf(const char *path, struct node *root);
+process_t *process_create_from_elf(const char *path);
 int process_image_load(uint32_t pd, const char *path, char *const argv[],
-		       struct node *root, uint32_t *entry_out, uint32_t *esp_out);
-int process_exec_elf(process_t *p, const char *path, char *const argv[],
-		     struct node *root);
+		       const char *cwd, uint32_t *entry_out, uint32_t *esp_out);
+int process_exec_elf(process_t *p, const char *path, char *const argv[]);
 int process_fork(process_t *parent, struct syscall_frame *frame);
 void process_exit(process_t *p, int status) __attribute__((noreturn));
 int process_wait(process_t *parent, int *status);

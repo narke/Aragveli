@@ -50,8 +50,6 @@
 
 #define MAX_BOOT_MODULES 8
 
-struct superblock *root_fs;
-
 struct boot_module
 {
 	char    name[16]; /* Flawfinder: ignore */
@@ -120,86 +118,6 @@ mount_fat_volumes(void)
 	}
 }
 
-static void
-test_ls(const char *path)
-{
-	struct dirent entry;
-	struct vnode *vn;
-
-	if (vfs_lookup("/", path, &vn) != KERNEL_OK)
-	{
-		kprintf("ls %s: not found\n", path);
-		return;
-	}
-
-	kprintf("ls %s\n", path);
-	for (uint32_t i = 0; vfs_readdir(vn, i, &entry) == 1; i++)
-		kprintf("  %s%s (%d bytes)\n", entry.d_name,
-			entry.d_type == VFS_NODE_DIRECTORY ? "/" : "",
-			(int)entry.d_size);
-	vnode_put(vn);
-}
-
-static void
-test_cat(const char *path)
-{
-	char buf[64]; /* Flawfinder: ignore */
-	struct vnode *vn;
-	ssize_t n;
-
-	if (vfs_lookup("/", path, &vn) != KERNEL_OK)
-	{
-		kprintf("cat %s: not found\n", path);
-		return;
-	}
-
-	n = vfs_read(vn, buf, sizeof(buf) - 1, 0);
-	buf[n > 0 ? n : 0] = '\0';
-	kprintf("cat %s (size %d): %s\n", path, (int)vn->size, buf);
-	vnode_put(vn);
-}
-
-static void
-fatfs_vfs_test(void)
-{
-	static const char msg[] = "hello through the VFS";
-	struct vnode *vn;
-
-	test_ls("/mnt");
-	test_ls("/mnt/fat16");
-	test_cat("/mnt/fat16/hello.txt");
-	test_cat("/mnt/fat16/A long file name.txt");
-	test_cat("/mnt/fat32/hello.txt");
-
-	kprintf("mkdir:  %d\n", vfs_create("/", "/mnt/exfat/dir", VFS_NODE_DIRECTORY));
-	kprintf("touch:  %d\n", vfs_create("/mnt/exfat/dir", "note.txt", VFS_NODE_REGULAR_FILE));
-
-	if (vfs_lookup("/", "/mnt/exfat/dir/note.txt", &vn) == KERNEL_OK)
-	{
-		kprintf("write:  %d\n", (int)vfs_write(vn, msg, sizeof(msg) - 1, 0));
-		vnode_put(vn);
-	}
-	test_cat("/mnt/exfat/dir/note.txt");
-
-	kprintf("rename: %d\n", vfs_rename("/", "/mnt/exfat/dir/note.txt",
-				"/mnt/exfat/dir/renamed.txt"));
-	kprintf("xmount: %d\n", vfs_rename("/", "/mnt/exfat/dir/renamed.txt",
-				"/mnt/fat32/x.txt"));
-	kprintf("rmdir non-empty: %d\n", vfs_remove("/", "/mnt/exfat/dir", VFS_NODE_DIRECTORY));
-	test_ls("/mnt/exfat/dir/../dir");
-	kprintf("rm:     %d\n", vfs_remove("/", "/mnt/exfat/dir/renamed.txt", VFS_NODE_REGULAR_FILE));
-	kprintf("rmdir:  %d\n", vfs_remove("/", "/mnt/exfat/dir", VFS_NODE_DIRECTORY));
-	kprintf("rmdir mountpoint: %d\n", vfs_remove("/", "/mnt/fat32", VFS_NODE_DIRECTORY));
-
-	if (vfs_lookup("/", "/mnt/fat32/hello.txt", &vn) == KERNEL_OK)
-	{
-		kprintf("umount busy: %d\n", vfs_umount("/mnt/fat32"));
-		vnode_put(vn);
-	}
-	kprintf("umount: %d\n", vfs_umount("/mnt/fat32"));
-	kprintf("remount: %d\n", vfs_mount("fat32", "/mnt/fat32", "fatfs", NULL));
-}
-
 void
 extra_kernel(uint32_t initrd_start, uint32_t initrd_end)
 {
@@ -211,7 +129,6 @@ extra_kernel(uint32_t initrd_start, uint32_t initrd_end)
 
 	status = vfs_mount("initrd", "/", "tarfs", NULL);
 	assert(status == KERNEL_OK);
-	root_fs = tarfs_superblock();
 
 	// Create one RAM disk per recorded module
 	for (uint32_t i = 0; i < boot_modules_count; i++)
@@ -222,7 +139,6 @@ extra_kernel(uint32_t initrd_start, uint32_t initrd_end)
 	}
 
 	mount_fat_volumes();
-	fatfs_vfs_test();
 
 	// PCI devices
 	pci_scan();
@@ -350,6 +266,6 @@ aragveli_main(uint32_t magic, uint32_t address)
 	process_init();
 
 	/* ELF loading (IRQs stay off until the first scheduled thread irets) */
-	process_create_from_elf("/shell.elf", root_fs->root);
+	process_create_from_elf("/shell.elf");
 	scheduler_start();
 }

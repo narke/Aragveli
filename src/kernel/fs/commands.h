@@ -1,18 +1,15 @@
 #pragma once
 
 #include <lib/types.h>
-#include <fs/tarfs.h>
 
-int cmd_cat(struct node *root, struct node *cwd, const char *path);
-int cmd_cd(struct node *root, struct node **cwd, const char *path);
-int cmd_cp(struct node *root, struct node *cwd, const char *src_path,
-		const char *dst_path);
-int cmd_file(struct node *root, struct node *cwd, const char *path);
-int cmd_ls(struct node *root, struct node *cwd, const char *path);
-int cmd_mkdir(struct node *root, struct node *cwd, const char *path);
-int cmd_mv(struct node *root, struct node *cwd, const char *src_path,
-		const char *dst_path);
-int cmd_pwd(struct node *cwd);
-int cmd_rm(struct node *root, struct node *cwd, const char *path);
-int cmd_rmdir(struct node *root, struct node *cwd, const char *path);
-int cmd_touch(struct node *root, struct node *cwd, const char *path);
+int cmd_cat(const char *cwd, const char *path);
+int cmd_cd(char *cwd, size_t size, const char *path);
+int cmd_cp(const char *cwd, const char *src_path, const char *dst_path);
+int cmd_file(const char *cwd, const char *path);
+int cmd_ls(const char *cwd, const char *path);
+int cmd_mkdir(const char *cwd, const char *path);
+int cmd_mv(const char *cwd, const char *src_path, const char *dst_path);
+int cmd_pwd(const char *cwd);
+int cmd_rm(const char *cwd, const char *path);
+int cmd_rmdir(const char *cwd, const char *path);
+int cmd_touch(const char *cwd, const char *path);

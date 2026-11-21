@@ -2,537 +2,414 @@
 #include <lib/c/string.h>
 #include <lib/c/stdlib.h>
 #include <lib/c/stdbool.h>
+#include <fs/vfs.h>
 
-#include "tarfs.h"
 #include "commands.h"
 
-#define FS_PATH_MAX 256
+#define CAT_CHUNK 512
+#define CP_CHUNK  4096
 
-static int
-is_directory(struct node *n)
+static const char *
+path_or_dot(const char *path)
 {
-	return n && n->type == TMPFS_FOLDER;
+	return (path && path[0]) ? path : ".";
 }
 
-static struct node *
-resolve_node_wrapper(const char *path, struct node *root, struct node *cwd)
+static const char *
+path_basename(const char *path)
 {
-	if (!path || path[0] == '\0' || (path[0] == '.' && path[1] == '\0'))
-	{
-		return node_get(cwd);
-	}
+	const char *slash = strrchr(path, '/');
 
-	if (path[0] == '/')
-	{
-		if (!root)
-			return NULL;
-		return resolve_node(path, root);
-	}
-
-	if (!cwd)
-	{
-		return NULL;
-	}
-
-	return resolve_node(path, cwd);
-}
-
-/*
- * Split path into parent directory and basename.
- * "test.txt" -> ".", "test.txt"
- * "/file"    -> "/", "file"
- * "/docs/a"  -> "/docs", "a"
- * "foo/bar"  -> "foo", "bar"
- */
-static int
-fs_split_path(const char *path, char *dir, char *base, size_t n)
-{
-	/* Length-validated against n and FS_PATH_MAX before any copy. */
-	char copy[FS_PATH_MAX]; /* Flawfinder: ignore */
-	size_t len;
-	char *slash;
-
-	if (!path || !dir || !base || n == 0)
-		return -1;
-
-	len = strnlen(path, FS_PATH_MAX);
-
-	if (len == 0 || len >= n || len >= FS_PATH_MAX)
-		return -1;
-
-	strzcpy(copy, path, len + 1);
-
-	if (len > 1 && copy[len - 1] == '/')
-	{
-		copy[len - 1] = '\0';
-		len--;
-	}
-
-	if (len == 1 && copy[0] == '/')
-	{
-		strzcpy(dir, "/", 2);
-		strzcpy(base, "/", 2);
-		return 0;
-	}
-
-	slash = strrchr(copy, '/');
-
-	if (!slash)
-	{
-		strzcpy(dir, ".", 2);
-		strzcpy(base, copy, n);
-		return 0;
-	}
-
-	if (slash == copy)
-	{
-		strzcpy(dir, "/", 2);
-		strzcpy(base, slash + 1, n);
-		return 0;
-	}
-
-	*slash = '\0';
-	strzcpy(dir, copy, n);
-	strzcpy(base, slash + 1, n);
-	return 0;
-}
-
-static int
-name_exists(struct node *dir, const char *name)
-{
-	struct node *n;
-
-	LIST_FOREACH(n, &dir->u.folder.nodes, next)
-	{
-		if (!strncmp(n->name, name, NODE_NAME_LENGTH))
-			return 1;
-	}
-
-	return 0;
+	return slash ? slash + 1 : path;
 }
 
 int
-cmd_ls(struct node *root, struct node *cwd, const char *path)
+cmd_ls(const char *cwd, const char *path)
 {
-	struct node *tmp_node;
-	struct node *folder_node = resolve_node_wrapper(path, root, cwd);
-	uint32_t flags;
-
-	if (!folder_node)
-	{
-		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
-	}
-
-	if (is_directory(folder_node))
-	{
-		flags = spinlock_lock_irqsave(&folder_node->lock);
-
-		LIST_FOREACH(tmp_node, &folder_node->u.folder.nodes, next)
-		{
-			kprintf("%s\n", tmp_node->name);
-		}
-
-		spinlock_unlock_irqrestore(&folder_node->lock, flags);
-	}
-	else
-	{
-		kprintf("%s\n", folder_node->name);
-	}
-
-	node_put(folder_node);
-
-	return KERNEL_OK;
-}
-
-int
-cmd_pwd(struct node *cwd)
-{
-	if (!cwd)
-		return -KERNEL_INVALID_VALUE;
-
-	kprintf("%s\n", cwd->name);
-	return KERNEL_OK;
-}
-
-int
-cmd_cd(struct node *root, struct node **cwd, const char *path)
-{
-	struct node *folder_node;
-
-	if (!cwd || !*cwd)
-		return -KERNEL_INVALID_VALUE;
-
-	if (!path || path[0] == '\0')
-		return KERNEL_OK;
-
-	folder_node = resolve_node_wrapper(path, root, *cwd);
-
-	if (!folder_node || !is_directory(folder_node))
-	{
-		node_put(folder_node);
-		kprintf("cd: no such directory\n");
-		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
-	}
-
-	struct node *old = *cwd;
-	*cwd = folder_node;
-	node_put(old);
-	return KERNEL_OK;
-}
-
-static int
-cmd_create(struct node *root, struct node *cwd, const char *path,
-		uint8_t type)
-{
-	/* Written only by fs_split_path(), bounded by the n argument. */
-	char dir[FS_PATH_MAX]; /* Flawfinder: ignore */
-	char base[FS_PATH_MAX]; /* Flawfinder: ignore */
-	struct node *parent;
-	struct node *new_node;
-
-	if (!path || fs_split_path(path, dir, base, FS_PATH_MAX) != 0)
-		return -KERNEL_INVALID_VALUE;
-
-	parent = resolve_node_wrapper(dir, root, cwd);
-
-	if (!is_directory(parent))
-	{
-		node_put(parent);
-		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
-	}
-
-	new_node = malloc(sizeof(struct node));
-
-	if (!new_node)
-	{
-		node_put(parent);
-		return -KERNEL_NO_MEMORY;
-	}
-
-	memset(new_node, 0, sizeof(struct node));
-	strzcpy(new_node->name, base, sizeof(new_node->name));
-	new_node->name_length = strnlen(new_node->name, NODE_NAME_LENGTH) + 1;
-	new_node->type = type;
-	new_node->refcount = 1;
-
-	if (type == TMPFS_FOLDER)
-		LIST_INIT(&new_node->u.folder.nodes);
-
-	uint32_t flags = spinlock_lock_irqsave(&tarfs_ns_lock);
-	int status;
-
-	if (parent->unlinked)
-	{
-		status = -KERNEL_NO_SUCH_FILE_OR_FOLDER;
-	}
-	else if (name_exists(parent, base))
-	{
-		status = -KERNEL_FILE_ALREADY_EXISTS;
-	}
-	else
-	{
-		spinlock_lock(&parent->lock);
-		LIST_INSERT_HEAD(&parent->u.folder.nodes, new_node, next);
-		spinlock_unlock(&parent->lock);
-		status = KERNEL_OK;
-	}
-
-	spinlock_unlock_irqrestore(&tarfs_ns_lock, flags);
+	struct dirent *entry;
+	struct vnode *vn;
+	int ret = 0;
+	int status = vfs_lookup(cwd, path_or_dot(path), &vn);
 
 	if (status != KERNEL_OK)
 	{
-		free(new_node);
-	}
-
-	node_put(parent);
-	return status;
-}
-
-int
-cmd_mkdir(struct node *root, struct node *cwd, const char *path)
-{
-	return cmd_create(root, cwd, path, TMPFS_FOLDER);
-}
-
-int
-cmd_touch(struct node *root, struct node *cwd, const char *path)
-{
-	return cmd_create(root, cwd, path, TMPFS_FILE);
-}
-
-static int
-folder_unlink(struct node *root, struct node *cwd, const char *path,
-		uint8_t type)
-{
-	char dir[FS_PATH_MAX]; /* Flawfinder: ignore */
-	char base[FS_PATH_MAX]; /* Flawfinder: ignore */
-	struct node *parent;
-	struct node *node;
-	uint32_t flags;
-	int status = -KERNEL_NO_SUCH_FILE_OR_FOLDER;
-
-	if (!path || fs_split_path(path, dir, base, FS_PATH_MAX) != 0)
-	{
-		return -KERNEL_INVALID_VALUE;
-	}
-
-	parent = resolve_node_wrapper(dir, root, cwd);
-
-	if (!is_directory(parent))
-	{
-		node_put(parent);
 		return status;
 	}
 
-	flags = spinlock_lock_irqsave(&tarfs_ns_lock);
-
-	LIST_FOREACH(node, &parent->u.folder.nodes, next)
+	if (vn->type != VFS_NODE_DIRECTORY)
 	{
-		if (strncmp(node->name, base, NODE_NAME_LENGTH) != 0)
-		{
-			continue;
-		}
-
-		if (node->type != type)
-		{
-			break;
-		}
-
-		if (type == TMPFS_FOLDER && !LIST_EMPTY(&node->u.folder.nodes))
-		{
-			status = -KERNEL_BUSY;
-			break;
-		}
-
-		node->unlinked = true;
-
-		spinlock_lock(&parent->lock);
-		LIST_REMOVE(node, next);
-		spinlock_unlock(&parent->lock);
-
-		status = KERNEL_OK;
-		break;
+		kprintf("%s\n", path);
+		vnode_put(vn);
+		return KERNEL_OK;
 	}
 
-	spinlock_unlock_irqrestore(&tarfs_ns_lock, flags);
+	entry = malloc(sizeof(struct dirent));
 
-	if (status == KERNEL_OK)
+	if (!entry)
 	{
-		node_put(node);		/* drop the folder link; freed when unused */
+		vnode_put(vn);
+		return -KERNEL_NO_MEMORY;
 	}
 
-	node_put(parent);
-	return status;
-}
-
-int
-cmd_rm(struct node *root, struct node *cwd, const char *path)
-{
-	return folder_unlink(root, cwd, path, TMPFS_FILE);
-}
-
-int
-cmd_rmdir(struct node *root, struct node *cwd, const char *path)
-{
-	return folder_unlink(root, cwd, path, TMPFS_FOLDER);
-}
-
-int
-cmd_cat(struct node *root, struct node *cwd, const char *path)
-{
-	struct node *node;
-	const uint8_t *data;
-	uint64_t i;
-
-	node = resolve_node_wrapper(path, root, cwd);
-
-	if (!node || node->type != TMPFS_FILE)
+	for (uint32_t i = 0; (ret = vfs_readdir(vn, i, entry)) == 1; i++)
 	{
-		node_put(node);
-		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+		kprintf("%s%s\n", entry->d_name,
+			entry->d_type == VFS_NODE_DIRECTORY ? "/" : "");
 	}
 
-	data = (const uint8_t *)node->u.file.data;
-
-	for (i = 0; data && i < node->u.file.size; i++)
-		kprintf("%c", data[i]);
-
-	kprintf("\n");
-	node_put(node);
-	return KERNEL_OK;
+	free(entry);
+	vnode_put(vn);
+	return ret < 0 ? ret : KERNEL_OK;
 }
 
 int
-cmd_file(struct node *root, struct node *cwd, const char *path)
+cmd_pwd(const char *cwd)
 {
-	struct node *node;
-
-	node = resolve_node_wrapper(path, root, cwd);
-
-	if (!node)
-		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
-
-	if (node->type == TMPFS_FILE)
-		kprintf("%s: file\n", node->name);
-	else
-		kprintf("%s: folder\n", node->name);
-
-	node_put(node);
-	return KERNEL_OK;
-}
-
-static int
-mv_cp_internal(struct node *root, struct node *cwd,
-		const char *src_path, const char *dst_path, bool is_mv)
-{
-	/* Written only by fs_split_path(), bounded by the n argument. */
-	char src_dir[FS_PATH_MAX]; /* Flawfinder: ignore */
-	char src_base[FS_PATH_MAX]; /* Flawfinder: ignore */
-	char dir[FS_PATH_MAX]; /* Flawfinder: ignore */
-	char base[FS_PATH_MAX]; /* Flawfinder: ignore */
-	struct node *src_parent;
-	struct node *src_node = NULL;
-	struct node *dst_dir = NULL;
-	struct node *new_node = NULL;
-	const char *new_name;
-	struct node *n;
-	uint32_t flags;
-	int status = KERNEL_OK;
-
-	if (!src_path || !dst_path
-		|| fs_split_path(src_path, src_dir, src_base, FS_PATH_MAX) != 0)
+	if (!cwd)
 	{
 		return -KERNEL_INVALID_VALUE;
 	}
 
-	if (!is_mv)
+	kprintf("%s\n", cwd);
+	return KERNEL_OK;
+}
+
+int
+cmd_cd(char *cwd, size_t size, const char *path)
+{
+	struct vnode *vn;
+	char *abs_path;
+	int status;
+
+	if (!cwd)
 	{
-		new_node = malloc(sizeof(struct node));
-		if (!new_node)
-			return -KERNEL_NO_MEMORY;
+		return -KERNEL_INVALID_VALUE;
 	}
 
-	flags = spinlock_lock_irqsave(&tarfs_ns_lock);
-
-	src_parent = resolve_node_wrapper(src_dir, root, cwd);
-
-	if (is_directory(src_parent))
+	if (!path || path[0] == '\0')
 	{
-		src_node = resolve_node(src_base, src_parent);
+		return KERNEL_OK;
 	}
 
-	if (!src_node)
+	abs_path = malloc(PATH_MAX);
+
+	if (!abs_path)
 	{
-		status = -KERNEL_NO_SUCH_FILE_OR_FOLDER;
-		goto out;
+		return -KERNEL_NO_MEMORY;
 	}
 
-	/* Destination may be a directory (keep basename) or a new path. */
-	dst_dir = resolve_node_wrapper(dst_path, root, cwd);
+	status = vfs_normalize(cwd, path, abs_path, PATH_MAX);
 
-	if (is_directory(dst_dir))
+	if (status == KERNEL_OK)
 	{
-		new_name = src_node->name;
+		status = vfs_lookup("/", abs_path, &vn);
 	}
-	else
-	{
-		node_put(dst_dir);
-		dst_dir = NULL;
 
-		if (fs_split_path(dst_path, dir, base, FS_PATH_MAX) != 0)
+	if (status == KERNEL_OK)
+	{
+		if (vn->type == VFS_NODE_DIRECTORY)
 		{
-			status = -KERNEL_INVALID_VALUE;
-			goto out;
-		}
-
-		dst_dir = resolve_node_wrapper(dir, root, cwd);
-
-		if (!is_directory(dst_dir))
-		{
-			status = -KERNEL_NO_SUCH_FILE_OR_FOLDER;
-			goto out;
-		}
-
-		new_name = base;
-	}
-
-	if (dst_dir->unlinked)
-	{
-		status = -KERNEL_NO_SUCH_FILE_OR_FOLDER;
-		goto out;
-	}
-
-	LIST_FOREACH(n, &dst_dir->u.folder.nodes, next)
-	{
-		if (n != src_node
-		    && !strncmp(n->name, new_name, NODE_NAME_LENGTH))
-		{
-			status = -KERNEL_FILE_ALREADY_EXISTS;
-			goto out;
-		}
-	}
-
-	if (!is_mv)
-	{
-		memset(new_node, 0, sizeof(struct node));
-		new_node->refcount = 1;
-		new_node->type = src_node->type;
-		strzcpy(new_node->name, new_name, sizeof(new_node->name));
-		new_node->name_length = strnlen(new_node->name, NODE_NAME_LENGTH) + 1;
-
-		if (src_node->type == TMPFS_FILE)
-		{
-			new_node->u.file.size = src_node->u.file.size;
-			new_node->u.file.data = src_node->u.file.data;
+			strzcpy(cwd, abs_path, size);
 		}
 		else
 		{
-			LIST_INIT(&new_node->u.folder.nodes);
+			status = -KERNEL_NO_SUCH_FILE_OR_FOLDER;
 		}
 
-		spinlock_lock(&dst_dir->lock);
-		LIST_INSERT_HEAD(&dst_dir->u.folder.nodes, new_node, next);
-		spinlock_unlock(&dst_dir->lock);
-
-		new_node = NULL;
-		goto out;
+		vnode_put(vn);
 	}
 
-	spinlock_lock(&src_parent->lock);
-	LIST_REMOVE(src_node, next);
-	spinlock_unlock(&src_parent->lock);
-
-	if (new_name != src_node->name)
+	if (status != KERNEL_OK)
 	{
-		strzcpy(src_node->name, new_name, NODE_NAME_LENGTH);
-		src_node->name_length = strnlen(new_name, NODE_NAME_LENGTH) + 1;
+		kprintf("cd: no such directory\n");
 	}
 
-	spinlock_lock(&dst_dir->lock);
-	LIST_INSERT_HEAD(&dst_dir->u.folder.nodes, src_node, next);
-	spinlock_unlock(&dst_dir->lock);
+	free(abs_path);
+	return status;
+}
 
-out:
-	spinlock_unlock_irqrestore(&tarfs_ns_lock, flags);
+int
+cmd_mkdir(const char *cwd, const char *path)
+{
+	return vfs_create(cwd, path, VFS_NODE_DIRECTORY);
+}
 
-	node_put(dst_dir);
-	node_put(src_node);
-	node_put(src_parent);
-	free(new_node);
+int
+cmd_touch(const char *cwd, const char *path)
+{
+	return vfs_create(cwd, path, VFS_NODE_REGULAR_FILE);
+}
+
+int
+cmd_rm(const char *cwd, const char *path)
+{
+	return vfs_remove(cwd, path, VFS_NODE_REGULAR_FILE);
+}
+
+int
+cmd_rmdir(const char *cwd, const char *path)
+{
+	return vfs_remove(cwd, path, VFS_NODE_DIRECTORY);
+}
+
+int
+cmd_cat(const char *cwd, const char *path)
+{
+	struct vnode *vn;
+	char *buf;
+	loff_t offset = 0;
+	ssize_t n = 0;
+	int status = vfs_lookup(cwd, path, &vn);
+
+	if (status != KERNEL_OK)
+	{
+		return status;
+	}
+
+	if (vn->type != VFS_NODE_REGULAR_FILE)
+	{
+		vnode_put(vn);
+		return -KERNEL_NO_SUCH_FILE_OR_FOLDER;
+	}
+
+	buf = malloc(CAT_CHUNK);
+
+	if (!buf)
+	{
+		vnode_put(vn);
+		return -KERNEL_NO_MEMORY;
+	}
+
+	while ((n = vfs_read(vn, buf, CAT_CHUNK, offset)) > 0)
+	{
+		for (ssize_t i = 0; i < n; i++)
+		{
+			kprintf("%c", buf[i]);
+		}
+
+		offset += n;
+	}
+
+	kprintf("\n");
+	free(buf);
+	vnode_put(vn);
+	return n < 0 ? (int)n : KERNEL_OK;
+}
+
+int
+cmd_file(const char *cwd, const char *path)
+{
+	struct vnode *vn;
+	int status = vfs_lookup(cwd, path, &vn);
+
+	if (status != KERNEL_OK)
+	{
+		return status;
+	}
+
+	kprintf("%s: %s\n", path_basename(path),
+		vn->type == VFS_NODE_DIRECTORY ? "folder" : "file");
+	vnode_put(vn);
+	return KERNEL_OK;
+}
+
+/* Absolute target of mv/cp: dst itself, or dst/basename(src) if dst is a folder. */
+static int
+target_path(const char *cwd, const char *src, const char *dst,
+		char *out, size_t size)
+{
+	struct vnode *vn;
+	char *src_abs = malloc(PATH_MAX);
+	int status;
+
+	if (!src_abs)
+	{
+		return -KERNEL_NO_MEMORY;
+	}
+
+	status = vfs_normalize(cwd, src, src_abs, PATH_MAX);
+
+	if (status == KERNEL_OK)
+	{
+		status = vfs_normalize(cwd, dst, out, size);
+	}
+
+	if (status == KERNEL_OK && vfs_lookup("/", out, &vn) == KERNEL_OK)
+	{
+		if (vn->type == VFS_NODE_DIRECTORY)
+		{
+			const char *base = path_basename(src_abs);
+			size_t len = strnlen(out, size);
+			size_t base_len = strnlen(base, NAME_MAX + 1);
+			size_t sep = len > 1 ? 1 : 0;
+
+			if (len + sep + base_len >= size)
+			{
+				status = -KERNEL_INVALID_VALUE;
+			}
+			else
+			{
+				if (sep)
+				{
+					out[len++] = '/';
+				}
+
+				strzcpy(out + len, base, size - len);
+			}
+		}
+
+		vnode_put(vn);
+	}
+
+	free(src_abs);
+	return status;
+}
+
+static int
+copy_file(struct vnode *src, const char *dst_path)
+{
+	struct vnode *dst;
+	char *buf;
+	loff_t offset = 0;
+	ssize_t n = 0;
+	int status = vfs_create("/", dst_path, VFS_NODE_REGULAR_FILE);
+
+	if (status != KERNEL_OK)
+	{
+		return status;
+	}
+
+	status = vfs_lookup("/", dst_path, &dst);
+
+	if (status != KERNEL_OK)
+	{
+		return status;
+	}
+
+	buf = malloc(CP_CHUNK);
+
+	if (!buf)
+	{
+		status = -KERNEL_NO_MEMORY;
+	}
+
+	while (status == KERNEL_OK
+		&& (n = vfs_read(src, buf, CP_CHUNK, offset)) > 0)
+	{
+		ssize_t written = vfs_write(dst, buf, (size_t)n, offset);
+
+		/* A short write means the destination volume is full. */
+		if (written != n)
+		{
+			status = written < 0 ? (int)written : -KERNEL_NO_MEMORY;
+		}
+
+		offset += n;
+	}
+
+	if (status == KERNEL_OK && n < 0)
+	{
+		status = (int)n;
+	}
+
+	free(buf);
+	vnode_put(dst);
+
+	if (status != KERNEL_OK)
+	{
+		vfs_remove("/", dst_path, VFS_NODE_REGULAR_FILE);
+	}
 
 	return status;
 }
 
 int
-cmd_mv(struct node *root, struct node *cwd, const char *src_path,
-		const char *dst_path)
+cmd_cp(const char *cwd, const char *src_path, const char *dst_path)
 {
-	return mv_cp_internal(root, cwd, src_path, dst_path, true);
+	struct vnode *src;
+	char *dst;
+	int status;
+
+	if (!src_path || !dst_path)
+	{
+		return -KERNEL_INVALID_VALUE;
+	}
+
+	dst = malloc(PATH_MAX);
+
+	if (!dst)
+	{
+		return -KERNEL_NO_MEMORY;
+	}
+
+	status = target_path(cwd, src_path, dst_path, dst, PATH_MAX);
+
+	if (status == KERNEL_OK)
+	{
+		status = vfs_lookup(cwd, src_path, &src);
+	}
+
+	if (status == KERNEL_OK)
+	{
+		if (src->type == VFS_NODE_DIRECTORY)
+		{
+			status = vfs_create("/", dst, VFS_NODE_DIRECTORY);
+		}
+		else
+		{
+			status = copy_file(src, dst);
+		}
+
+		vnode_put(src);
+	}
+
+	free(dst);
+	return status;
 }
 
 int
-cmd_cp(struct node *root, struct node *cwd, const char *src_path,
-		const char *dst_path)
+cmd_mv(const char *cwd, const char *src_path, const char *dst_path)
 {
-	return mv_cp_internal(root, cwd, src_path, dst_path, false);
+	struct vnode *src;
+	char *dst;
+	int status;
+
+	if (!src_path || !dst_path)
+	{
+		return -KERNEL_INVALID_VALUE;
+	}
+
+	dst = malloc(PATH_MAX);
+
+	if (!dst)
+	{
+		return -KERNEL_NO_MEMORY;
+	}
+
+	status = target_path(cwd, src_path, dst_path, dst, PATH_MAX);
+
+	if (status == KERNEL_OK)
+	{
+		status = vfs_rename(cwd, src_path, dst);
+	}
+
+	/* Across mounts: copy, then delete the source (files only). */
+	if (status == -KERNEL_OPERATION_NOT_SUPPORTED
+		&& vfs_lookup(cwd, src_path, &src) == KERNEL_OK)
+	{
+		if (src->type == VFS_NODE_REGULAR_FILE)
+		{
+			status = copy_file(src, dst);
+		}
+
+		vnode_put(src);
+
+		if (status == KERNEL_OK)
+		{
+			status = vfs_remove(cwd, src_path, VFS_NODE_REGULAR_FILE);
+		}
+	}
+
+	free(dst);
+	return status;
 }

@@ -202,6 +202,33 @@ run_lspci(void)
 	return 0;
 }
 
+static int
+run_program(char **argv)
+{
+	int status = 0;
+	int pid = fork();
+
+	if (pid == 0)
+	{
+		exec(argv[0], argv);
+		exit(1);
+	}
+
+	if (pid < 0)
+	{
+		printf("fork failed\n");
+		return -1;
+	}
+
+	wait(&status);
+
+	if (status != 0)
+	{
+		printf("%s: not found or failed (%d)\n", argv[0], status);
+	}
+
+	return 0;
+}
 
 static int
 run_builtin(int argc, char **argv)
@@ -249,7 +276,7 @@ main(int argc, char **argv)
 {
 	/* Filled only via read_line(line, sizeof(line)). */
 	char line[256]; /* Flawfinder: ignore */
-	char *args[MAX_ARGS]; /* Flawfinder: ignore */
+	char *args[MAX_ARGS + 1]; /* Flawfinder: ignore */
 	int n;
 	int rc;
 
@@ -262,6 +289,7 @@ main(int argc, char **argv)
 		read_line(line, sizeof(line));
 
 		n = tokenize(line, args, MAX_ARGS);
+		args[n] = 0;
 
 		if (n == 0)
 			continue;
@@ -294,7 +322,7 @@ main(int argc, char **argv)
 
 		if (rc == 1)
 		{
-			printf("unknown command: %s\n", args[0]);
+			run_program(args);
 			continue;
 		}
 
