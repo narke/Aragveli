@@ -40,8 +40,7 @@
 #include <net/net.h>
 #include <process/elf_loader.h>
 
-#include <fs/fatfs/ff.h>
-#include <fs/fatfs/fatfs_port.h>
+#include <fs/fatfs_vfs.h>
 #include <drivers/blockdev.h>
 #include <drivers/ramdisk.h>
 #include <lib/c/stdlib.h>
@@ -94,43 +93,111 @@ interrupts_setup(void)
 }
 
 static void
-fatfs_smoke_test(void)
+mount_fat_volumes(void)
+{
+	static const char *const mounts[][2] =
+	{
+		{ "fat16", "/mnt/fat16" },
+		{ "fat32", "/mnt/fat32" },
+		{ "exfat", "/mnt/exfat" },
+	};
+	status_t status = fatfs_init();
+
+	assert(status == KERNEL_OK);
+
+	status = vfs_create("/", "/mnt", VFS_NODE_DIRECTORY);
+	assert(status == KERNEL_OK || status == -KERNEL_FILE_ALREADY_EXISTS);
+
+	for (size_t i = 0; i < sizeof(mounts) / sizeof(mounts[0]); i++)
+	{
+		status = vfs_create("/", mounts[i][1], VFS_NODE_DIRECTORY);
+		if (status == KERNEL_OK || status == -KERNEL_FILE_ALREADY_EXISTS)
+			status = vfs_mount(mounts[i][0], mounts[i][1], "fatfs", NULL);
+
+		if (status != KERNEL_OK)
+			kprintf("mount %s on %s failed: %d\n",
+					mounts[i][0], mounts[i][1], status);
+	}
+}
+
+static void
+test_ls(const char *path)
 {
 	struct dirent entry;
 	struct vnode *vn;
-	char magic[4]; /* Flawfinder: ignore */
-	uint32_t i;
 
-	kprintf("mkdir:  %d\n", vfs_create("/", "/vfs-test", VFS_NODE_DIRECTORY));
-	kprintf("touch:  %d\n", vfs_create("/vfs-test", "a.txt", VFS_NODE_REGULAR_FILE));
-	kprintf("rename: %d\n", vfs_rename("/", "/vfs-test/a.txt",
-				"/vfs-test/../vfs-test/./b.txt"));
-	if (vfs_lookup("/", "/vfs-test", &vn) == KERNEL_OK)
+	if (vfs_lookup("/", path, &vn) != KERNEL_OK)
 	{
-		for (i = 0; vfs_readdir(vn, i, &entry) == 1; i++)
-			kprintf("  /vfs-test/%s\n", entry.d_name);
-		vnode_put(vn);
+		kprintf("ls %s: not found\n", path);
+		return;
 	}
 
-	kprintf("rm:     %d\n", vfs_remove("/", "/vfs-test/b.txt", VFS_NODE_REGULAR_FILE));
-	kprintf("rmdir:  %d\n", vfs_remove("/", "/vfs-test", VFS_NODE_DIRECTORY));
+	kprintf("ls %s\n", path);
+	for (uint32_t i = 0; vfs_readdir(vn, i, &entry) == 1; i++)
+		kprintf("  %s%s (%d bytes)\n", entry.d_name,
+			entry.d_type == VFS_NODE_DIRECTORY ? "/" : "",
+			(int)entry.d_size);
+	vnode_put(vn);
+}
 
-	if (vfs_lookup("/", "/", &vn) == KERNEL_OK)
+static void
+test_cat(const char *path)
+{
+	char buf[64]; /* Flawfinder: ignore */
+	struct vnode *vn;
+	ssize_t n;
+
+	if (vfs_lookup("/", path, &vn) != KERNEL_OK)
 	{
-		for (i = 0; vfs_readdir(vn, i, &entry) == 1; i++)
-			kprintf("  /%s (%d bytes)\n", entry.d_name, (int)entry.d_size);
-		vnode_put(vn);
+		kprintf("cat %s: not found\n", path);
+		return;
 	}
 
-	if (vfs_lookup("/", "shell.elf", &vn) == KERNEL_OK)
+	n = vfs_read(vn, buf, sizeof(buf) - 1, 0);
+	buf[n > 0 ? n : 0] = '\0';
+	kprintf("cat %s (size %d): %s\n", path, (int)vn->size, buf);
+	vnode_put(vn);
+}
+
+static void
+fatfs_vfs_test(void)
+{
+	static const char msg[] = "hello through the VFS";
+	struct vnode *vn;
+
+	test_ls("/mnt");
+	test_ls("/mnt/fat16");
+	test_cat("/mnt/fat16/hello.txt");
+	test_cat("/mnt/fat16/A long file name.txt");
+	test_cat("/mnt/fat32/hello.txt");
+
+	kprintf("mkdir:  %d\n", vfs_create("/", "/mnt/exfat/dir", VFS_NODE_DIRECTORY));
+	kprintf("touch:  %d\n", vfs_create("/mnt/exfat/dir", "note.txt", VFS_NODE_REGULAR_FILE));
+
+	if (vfs_lookup("/", "/mnt/exfat/dir/note.txt", &vn) == KERNEL_OK)
 	{
-		ssize_t n = vfs_read(vn, magic, sizeof(magic), 0);
-		kprintf("shell.elf: read %d, magic %x %c%c%c\n", (int)n,
-				magic[0] & 0xff, magic[1], magic[2], magic[3]);
+		kprintf("write:  %d\n", (int)vfs_write(vn, msg, sizeof(msg) - 1, 0));
 		vnode_put(vn);
 	}
+	test_cat("/mnt/exfat/dir/note.txt");
 
-	kprintf("missing: %d\n", vfs_lookup("/", "/nope/x", &vn));
+	kprintf("rename: %d\n", vfs_rename("/", "/mnt/exfat/dir/note.txt",
+				"/mnt/exfat/dir/renamed.txt"));
+	kprintf("xmount: %d\n", vfs_rename("/", "/mnt/exfat/dir/renamed.txt",
+				"/mnt/fat32/x.txt"));
+	kprintf("rmdir non-empty: %d\n", vfs_remove("/", "/mnt/exfat/dir", VFS_NODE_DIRECTORY));
+	test_ls("/mnt/exfat/dir/../dir");
+	kprintf("rm:     %d\n", vfs_remove("/", "/mnt/exfat/dir/renamed.txt", VFS_NODE_REGULAR_FILE));
+	kprintf("rmdir:  %d\n", vfs_remove("/", "/mnt/exfat/dir", VFS_NODE_DIRECTORY));
+	kprintf("rmdir mountpoint: %d\n", vfs_remove("/", "/mnt/fat32", VFS_NODE_DIRECTORY));
+
+	if (vfs_lookup("/", "/mnt/fat32/hello.txt", &vn) == KERNEL_OK)
+	{
+		kprintf("umount busy: %d\n", vfs_umount("/mnt/fat32"));
+		vnode_put(vn);
+	}
+	kprintf("umount: %d\n", vfs_umount("/mnt/fat32"));
+	kprintf("remount: %d\n", vfs_mount("fat32", "/mnt/fat32", "fatfs", NULL));
 }
 
 void
@@ -154,7 +221,8 @@ extra_kernel(uint32_t initrd_start, uint32_t initrd_end)
 		assert(status == KERNEL_OK);
 	}
 
-	fatfs_smoke_test();
+	mount_fat_volumes();
+	fatfs_vfs_test();
 
 	// PCI devices
 	pci_scan();
