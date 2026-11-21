@@ -15,6 +15,7 @@
 #include <lib/queue.h>
 #include <lib/types.h>
 #include <lib/status.h>
+#include <lib/datetime.h>
 
 #define FS_NAME_MAXLEN  20
 
@@ -74,6 +75,7 @@ struct dirent
 {
 	vfs_node_type_t d_type;
 	uint64_t        d_size;
+	struct datetime d_mtime;
 	char            d_name[NAME_MAX + 1]; /* Flawfinder: ignore */
 };
 

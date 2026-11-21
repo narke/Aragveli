@@ -422,6 +422,7 @@ vfs_readdir(struct vnode *dir, uint32_t index, struct dirent *entry)
 		return -KERNEL_OPERATION_NOT_SUPPORTED;
 	}
 
+	memset(entry, 0, sizeof(struct dirent));
 	return dir->ops->readdir(dir, index, entry);
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Konstantin Tcholokachvili.
+ * Copyright (c) 2018-2026 Konstantin Tcholokachvili.
  * Copyright (c) 2012 Patrick Doane and others.  See AUTHORS file for list.
  *
  * This software is provided 'as-is', without any express or implied warranty.
@@ -138,6 +138,10 @@ static AcpiMadt *g_madt;
 static uint16_t g_pm1a_cnt;
 static uint16_t g_pm1b_cnt;
 
+#define FADT_CENTURY_OFFSET 108
+
+static uint8_t g_century_reg;
+
 // ------------------------------------------------------------------------------------------------
 
 static void
@@ -160,6 +164,11 @@ AcpiParseFacp(AcpiFadt *facp)
 	{
 		kprintf("Enabling ACPI\n");
 		out8((uint16_t)facp->smiCommandPort, facp->acpiEnable);
+	}
+
+	if (facp->header.length > FADT_CENTURY_OFFSET)
+	{
+		g_century_reg = ((const uint8_t *)facp)[FADT_CENTURY_OFFSET];
 	}
 
 	kprintf("ACPI: PM1a_CNT=0x%x\n", (unsigned int)g_pm1a_cnt);
@@ -406,4 +415,10 @@ AcpiReboot(void)
 	out8(RESET_PORT, RESET_VALUE);
 	kprintf("Reboot via 0xCF9 failed\n");
 	hang();
+}
+
+uint8_t
+AcpiCenturyRegister(void)
+{
+	return g_century_reg;
 }

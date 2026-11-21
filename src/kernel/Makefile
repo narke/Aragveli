@@ -108,6 +108,7 @@ cdrom: kernel initrd images
 run: cdrom
 	qemu-system-i386 -m 256 -vga std \
 		-netdev user,id=net0 \
+		-rtc base=localtime \
 		-device rtl8139,netdev=net0 \
 		-smp cores=4,threads=2 \
 		-monitor stdio \

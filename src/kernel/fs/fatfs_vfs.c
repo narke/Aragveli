@@ -317,6 +317,17 @@ fatfs_vop_readdir(struct vnode *dir, uint32_t index, struct dirent *entry)
 		entry->d_type = (fno->fattrib & AM_DIR) ? VFS_NODE_DIRECTORY
 							: VFS_NODE_REGULAR_FILE;
 		entry->d_size = fno->fsize;
+
+		if (fno->fdate != 0)
+		{
+			entry->d_mtime.year   = (uint16_t)((fno->fdate >> 9) + 1980);
+			entry->d_mtime.month  = (uint8_t)((fno->fdate >> 5) & 0x0F);
+			entry->d_mtime.day    = (uint8_t)(fno->fdate & 0x1F);
+			entry->d_mtime.hour   = (uint8_t)(fno->ftime >> 11);
+			entry->d_mtime.minute = (uint8_t)((fno->ftime >> 5) & 0x3F);
+			entry->d_mtime.second = (uint8_t)((fno->ftime & 0x1F) * 2);
+		}
+
 		strzcpy(entry->d_name, fno->fname, sizeof(entry->d_name));
 		ret = 1;
 	}

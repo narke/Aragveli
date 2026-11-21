@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Konstantin Tcholokachvili.
+ * Copyright (c) 2018-2026 Konstantin Tcholokachvili.
  * Copyright (c) 2012 Patrick Doane and others.  See AUTHORS file for list.
  *
  * This software is provided 'as-is', without any express or implied warranty.
@@ -37,3 +37,4 @@ uint8_t AcpiRemapIrq(uint8_t irq);
 /* Power management (noreturn). */
 void AcpiPowerOff(void) __attribute__((noreturn));
 void AcpiReboot(void) __attribute__((noreturn));
+uint8_t AcpiCenturyRegister(void);

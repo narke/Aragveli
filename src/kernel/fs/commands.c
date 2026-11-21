@@ -23,6 +23,26 @@ path_basename(const char *path)
 	return slash ? slash + 1 : path;
 }
 
+static void
+print_2digits(unsigned int v)
+{
+	kprintf("%u%u", v / 10, v % 10);
+}
+
+static void
+print_datetime(const struct datetime *dt)
+{
+	kprintf("%u-", (unsigned int)dt->year);
+	print_2digits(dt->month);
+	kprintf("-");
+	print_2digits(dt->day);
+	kprintf(" ");
+	print_2digits(dt->hour);
+	kprintf(":");
+	print_2digits(dt->minute);
+	kprintf("  ");
+}
+
 int
 cmd_ls(const char *cwd, const char *path)
 {
@@ -53,6 +73,11 @@ cmd_ls(const char *cwd, const char *path)
 
 	for (uint32_t i = 0; (ret = vfs_readdir(vn, i, entry)) == 1; i++)
 	{
+		if (entry->d_mtime.year)
+		{
+			print_datetime(&entry->d_mtime);
+		}
+
 		kprintf("%s%s\n", entry->d_name,
 			entry->d_type == VFS_NODE_DIRECTORY ? "/" : "");
 	}
