@@ -45,6 +45,8 @@
 #include <drivers/ramdisk.h>
 #include <lib/c/stdlib.h>
 
+#include <usb/usb.h>
+
 #define TIMER_INTERRUPT    0x20
 #define SPURIOUS_INTERRUPT 0xff
 
@@ -146,6 +148,9 @@ extra_kernel(uint32_t initrd_start, uint32_t initrd_end)
 	// RTL8139 network card
 	rtl8139_setup();
 	net_setup();
+
+	// USB (OHCI)
+	usb_setup();
 
 	// PS/2 keyboard
 	keyboard_setup();

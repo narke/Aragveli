@@ -156,6 +156,19 @@ keyboard_irq(int irq_level)
 	spinlock_unlock(&kbd_lock);
 }
 
+void
+keyboard_push(char c)
+{
+	uint32_t flags = spinlock_lock_irqsave(&kbd_lock);
+
+	if (ring_push((uint8_t)c) == 0)
+	{
+		wake_one_waiter();
+	}
+
+	spinlock_unlock_irqrestore(&kbd_lock, flags);
+}
+
 static void
 drain_buffer(void)
 {

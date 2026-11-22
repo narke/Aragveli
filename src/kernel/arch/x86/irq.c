@@ -56,7 +56,7 @@ x86_irq_set_routine(uint32_t irq_level, x86_irq_handler_t routine)
 
 
 x86_irq_handler_t
-irq_get_routine(uint32_t irq_level)
+x86_irq_get_routine(uint32_t irq_level)
 {
 	if (irq_level >= X86_IRQ_NUM)
 		return NULL;

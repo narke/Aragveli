@@ -1,3 +1,6 @@
 [submodule "src/kernel/net/lwip"]
 	path = src/kernel/net/lwip
 	url = https://github.com/lwip-tcpip/lwip.git
+[submodule "src/kernel/usb/tinyusb"]
+	path = src/kernel/usb/tinyusb
+	url = https://github.com/hathach/tinyusb.git

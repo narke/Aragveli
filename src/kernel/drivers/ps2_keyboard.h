@@ -13,3 +13,4 @@ void keyboard_setup(void);
 
 /* Blocking read into a kernel buffer. Returns bytes read (0 if len == 0). */
 size_t keyboard_read(void *buf, size_t len);
+void keyboard_push(char c);

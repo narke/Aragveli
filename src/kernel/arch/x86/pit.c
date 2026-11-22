@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2020 Konstantin Tcholokachvili.
+ * Copyright (c) 2017-2026 Konstantin Tcholokachvili.
  * All rights reserved.
  * Use of this source code is governed by a MIT license that can be
  * found in the LICENSE file.
@@ -12,6 +12,7 @@
 #include <arch/x86//irq.h>
 #include <process/scheduler.h>
 #include <net/net.h>
+#include <usb/usb.h>
 
 #include "pit.h"
 
@@ -81,6 +82,8 @@ timer_interrupt_handler(int number)
 	(void)number; // Avoid a useless warning ;-)
 
 	g_pit_ticks++;
+
+	usb_tick();
 
 	if (g_pit_ticks % 10 == 0)
 	{

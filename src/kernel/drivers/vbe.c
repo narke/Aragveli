@@ -54,18 +54,17 @@ box_fill(int x0, int y0, int x1, int y1)
 static void
 vbe_scroll_up(void)
 {
-	int row, col;
+	size_t shift = LINE_HEIGHT * (size_t)screen_width;
+	size_t count = (size_t)(screen_height - LINE_HEIGHT) * (size_t)screen_width;
 	uint32_t *dst = vram;
-	uint32_t *src = vram + LINE_HEIGHT * screen_width;
-	size_t row_bytes = (size_t)screen_width * sizeof(uint32_t);
+	const uint32_t *src = vram + shift;
 
-	for (row = 0; row < screen_height - LINE_HEIGHT; row++)
-		memcpy_s(dst + row * screen_width, row_bytes,
-			 src + row * screen_width, row_bytes);
+	asm volatile("cld; rep movsl"
+		     : "+D"(dst), "+S"(src), "+c"(count) : : "memory");
 
-	for (row = screen_height - LINE_HEIGHT; row < screen_height; row++)
-		for (col = 0; col < screen_width; col++)
-			vram[row * screen_width + col] = NORMAL_BLACK;
+	count = shift;
+	asm volatile("rep stosl"
+		     : "+D"(dst), "+c"(count) : "a"(NORMAL_BLACK) : "memory");
 }
 
 void
