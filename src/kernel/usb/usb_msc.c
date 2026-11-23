@@ -28,6 +28,14 @@ static uint8_t *bounce;
 static mutex_t *msc_lock;
 static semaphore_t *msc_done;
 static struct msc_request *volatile pending;
+static struct msc_request *inflight;
+
+static void
+msc_finish(struct msc_request *req, bool ok)
+{
+	req->ok = ok;
+	semaphore_up(msc_done);
+}
 
 static bool
 msc_complete(uint8_t dev_addr, const tuh_msc_complete_data_t *cb_data)
@@ -36,8 +44,13 @@ msc_complete(uint8_t dev_addr, const tuh_msc_complete_data_t *cb_data)
 
 	(void)dev_addr;
 
-	req->ok = cb_data->csw->status == MSC_CSW_STATUS_PASSED;
-	semaphore_up(msc_done);
+	if (req != inflight)
+	{
+		return true;
+	}
+
+	inflight = NULL;
+	msc_finish(req, cb_data->csw->status == MSC_CSW_STATUS_PASSED);
 
 	return true;
 }
@@ -55,12 +68,25 @@ usb_msc_service(void)
 	struct msc_request *req = pending;
 	bool ok;
 
-	if (req == NULL || !tuh_msc_ready(req->dev_addr))
+	if (req == NULL)
+	{
+		return;
+	}
+
+	if (!tuh_msc_mounted(req->dev_addr))
+	{
+		pending = NULL;
+		msc_finish(req, false);
+		return;
+	}
+
+	if (!tuh_msc_ready(req->dev_addr))
 	{
 		return;
 	}
 
 	pending = NULL;
+	inflight = req;
 
 	if (req->write)
 	{
@@ -75,8 +101,8 @@ usb_msc_service(void)
 
 	if (!ok)
 	{
-		req->ok = false;
-		semaphore_up(msc_done);
+		inflight = NULL;
+		msc_finish(req, false);
 	}
 }
 
@@ -220,8 +246,15 @@ tuh_msc_mount_cb(uint8_t dev_addr)
 void
 tuh_msc_umount_cb(uint8_t dev_addr)
 {
-	(void)dev_addr;
-
 	msc_addr = 0;
+
+	if (inflight != NULL && inflight->dev_addr == dev_addr)
+	{
+		struct msc_request *req = inflight;
+
+		inflight = NULL;
+		msc_finish(req, false);
+	}
+
 	kprintf("USB storage removed\n");
 }
