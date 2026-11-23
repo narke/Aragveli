@@ -313,9 +313,7 @@ rtl8139_setup(void)
 
 	x86_irq_set_routine(irq_number, packet_handler);
 
-	// PCI interrupts are level-triggered.
-	IoApicSetEntry(g_ioApicAddr, AcpiRemapIrq((uint8_t)irq_number),
-		(X86_IRQ_BASE + irq_number) | (1 << 15));
+	IoApicEnablePciIrq((uint8_t)irq_number);
 
 	read_mac_address();
 }

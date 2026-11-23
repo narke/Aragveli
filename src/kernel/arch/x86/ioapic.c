@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Konstantin Tcholokachvili.
+ * Copyright (c) 2018-2026 Konstantin Tcholokachvili.
  * Copyright (c) 2012 Patrick Doane and others.  See AUTHORS file for list.
  *
  * This software is provided 'as-is', without any express or implied warranty.
@@ -24,6 +24,8 @@
 #include <lib/c/stdio.h>
 #include "ioapic.h"
 #include "mmio.h"
+#include "acpi.h"
+#include "idt.h"
 
 // ------------------------------------------------------------------------------------------------
 // Globals
@@ -76,4 +78,11 @@ void IoApicInit()
     {
         IoApicSetEntry(g_ioApicAddr, i, 1 << 16);
     }
+}
+
+// Shared PCI lines: every driver on the line writes this same unmasked entry
+void IoApicEnablePciIrq(uint8_t irq)
+{
+	IoApicSetEntry(g_ioApicAddr, AcpiRemapIrq(irq),
+			(X86_IRQ_BASE + irq) | AcpiIrqFlags(irq, true));
 }

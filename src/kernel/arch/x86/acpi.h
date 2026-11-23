@@ -24,6 +24,7 @@
 #pragma once
 
 #include <lib/types.h>
+#include <lib/c/stdbool.h>
 
 
 #define MAX_CPU_COUNT 16
@@ -33,6 +34,7 @@ extern uint8_t g_acpiCpuIds[MAX_CPU_COUNT];
 
 void AcpiInit(void);
 uint8_t AcpiRemapIrq(uint8_t irq);
+uint32_t AcpiIrqFlags(uint8_t irq, bool pci);
 
 /* Power management (noreturn). */
 void AcpiPowerOff(void) __attribute__((noreturn));

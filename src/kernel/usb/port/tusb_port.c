@@ -18,11 +18,16 @@
 #define PCI_PROGIF_OHCI      0x10
 #define PCI_CMD_MEMORY       (1 << 1)
 #define PCI_CMD_BUS_MASTER   (1 << 2)
-#define IOAPIC_LEVEL         (1 << 15)
-#define IOAPIC_MASKED        (1 << 16)
+
+#define OHCI_HC_INTERRUPT_ENABLE  0x10
+#define OHCI_HC_INTERRUPT_DISABLE 0x14
+#define OHCI_INT_MIE              (1u << 31)
+#define OHCI_INT_ALL              0xc000007fu
+
 volatile uint32_t g_ohci_mmio;
 static uint8_t ohci_irq;
 static x86_irq_handler_t ohci_chained_isr;
+static volatile bool ohci_enabled;
 
 extern volatile uint32_t g_pit_ticks;
 
@@ -52,25 +57,33 @@ tusb_app_phys_to_virt(void *phys_addr)
 }
 
 static void
-ohci_ioapic_write(uint64_t flags)
+ohci_reg_write(uint32_t offset, uint32_t value)
 {
-	IoApicSetEntry(g_ioApicAddr, AcpiRemapIrq(ohci_irq),
-		(X86_IRQ_BASE + ohci_irq) | IOAPIC_LEVEL | flags);
+	MmioWrite32((void *)(g_ohci_mmio + offset), value);
 }
+
+/* Masks at the controller: the I/O APIC line may be shared */
 void
 ohci_irq_mask(void)
 {
-	ohci_ioapic_write(IOAPIC_MASKED);
+	ohci_enabled = false;
+	ohci_reg_write(OHCI_HC_INTERRUPT_DISABLE, OHCI_INT_MIE);
 }
+
 void
 ohci_irq_unmask(void)
 {
-	ohci_ioapic_write(0);
+	ohci_reg_write(OHCI_HC_INTERRUPT_ENABLE, OHCI_INT_MIE);
+	ohci_enabled = true;
 }
+
 static void
 ohci_isr(int irq)
 {
-	tuh_int_handler(0, true);
+	if (ohci_enabled)
+	{
+		tuh_int_handler(0, true);
+	}
 
 	// PCI INTx lines are often shared (e.g. with the RTL8139 in QEMU)
 	if (ohci_chained_isr != NULL)
@@ -136,10 +149,14 @@ ohci_pci_probe(void)
 		}
 		
 		ohci_irq = (uint8_t)(pci_config_read_dword(dev->bus, dev->slot,
-				dev->func, 0x3c) & 0xff);
+					dev->func, 0x3c) & 0xff);
+
+		// Silence whatever the BIOS left enabled until hcd_init() runs
+		ohci_reg_write(OHCI_HC_INTERRUPT_DISABLE, OHCI_INT_ALL);
+
 		ohci_chained_isr = x86_irq_get_routine(ohci_irq);
 		x86_irq_set_routine(ohci_irq, ohci_isr);
-		ohci_irq_mask();	// TinyUSB unmasks it via hcd_int_enable()
+		IoApicEnablePciIrq(ohci_irq);
 
 		kprintf("OHCI at %lx, IRQ %u\n", g_ohci_mmio, ohci_irq);
 

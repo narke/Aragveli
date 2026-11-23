@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Konstantin Tcholokachvili.
+ * Copyright (c) 2018-2026 Konstantin Tcholokachvili.
  * Copyright (c) 2012 Patrick Doane and others.  See AUTHORS file for list.
  *
  * This software is provided 'as-is', without any express or implied warranty.
@@ -29,3 +29,4 @@ extern uint8_t *g_ioApicAddr;
 
 void IoApicInit();
 void IoApicSetEntry(uint8_t *base, uint8_t index, uint64_t data);
+void IoApicEnablePciIrq(uint8_t irq);

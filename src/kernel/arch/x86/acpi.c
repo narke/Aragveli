@@ -355,34 +355,64 @@ AcpiInit(void)
 	}
 }
 
+static ApicInterruptOverride *
+AcpiFindOverride(uint8_t irq)
+{
+	AcpiMadt *madt = g_madt;
+
+	uint8_t *p = (uint8_t *)(madt + 1);
+	uint8_t *end = (uint8_t *)madt + madt->header.length;
+
+	while (p < end)
+	{
+		ApicHeader *header = (ApicHeader *)p;
+
+		if (header->type == APIC_TYPE_INTERRUPT_OVERRIDE)
+		{
+			ApicInterruptOverride *s = (ApicInterruptOverride *)p;
+
+			if (s->source == irq)
+			{
+				return s;
+			}
+		}
+
+		p += header->length;
+	}
+
+	return NULL;
+}
+
 uint8_t
 AcpiRemapIrq(uint8_t irq)
 {
-    AcpiMadt *madt = g_madt;
+	ApicInterruptOverride *s = AcpiFindOverride(irq);
 
-    uint8_t *p = (uint8_t *)(madt + 1);
-    uint8_t *end = (uint8_t *)madt + madt->header.length;
+	return s ? (uint8_t)s->interrupt : irq;
+}
 
-    while (p < end)
-    {
-        ApicHeader *header = (ApicHeader *)p;
-        uint8_t type = header->type;
-        uint8_t length = header->length;
+// MPS INTI flags: polarity in bits 0-1, trigger mode in bits 2-3, 0 = bus default
+#define MPS_POLARITY_MASK   0x3
+#define MPS_POLARITY_LOW    0x3
+#define MPS_TRIGGER_MASK    0xc
+#define MPS_TRIGGER_LEVEL   0xc
 
-        if (type == APIC_TYPE_INTERRUPT_OVERRIDE)
-        {
-            ApicInterruptOverride *s = (ApicInterruptOverride *)p;
+#define IOAPIC_ACTIVE_LOW   (1 << 13)
+#define IOAPIC_LEVEL        (1 << 15)
 
-            if (s->source == irq)
-            {
-                return (uint8_t)s->interrupt;
-            }
-        }
+uint32_t
+AcpiIrqFlags(uint8_t irq, bool pci)
+{
+	ApicInterruptOverride *s = AcpiFindOverride(irq);
+	uint16_t flags = s ? s->flags : 0;
+	uint16_t polarity = flags & MPS_POLARITY_MASK;
+	uint16_t trigger  = flags & MPS_TRIGGER_MASK;
 
-        p += length;
-    }
+	// ISA defaults to edge/active-high, PCI to level/active-low
+	bool low   = polarity == MPS_POLARITY_LOW  || (polarity == 0 && pci);
+	bool level = trigger  == MPS_TRIGGER_LEVEL || (trigger  == 0 && pci);
 
-    return irq;
+	return (low ? IOAPIC_ACTIVE_LOW : 0) | (level ? IOAPIC_LEVEL : 0);
 }
 
 void
