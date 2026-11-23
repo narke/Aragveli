@@ -26,6 +26,7 @@ static bool msc_registered;
 static volatile uint8_t msc_addr;
 static uint8_t *bounce;
 static mutex_t *msc_lock;
+static mutex_t *msc_mount_lock;
 static semaphore_t *msc_done;
 static struct msc_request *volatile pending;
 static struct msc_request *inflight;
@@ -185,7 +186,15 @@ msc_mount_thread(uint32_t arg)
 {
 	(void)arg;
 
-	status_t status = vfs_create("/", "/mnt/usb", VFS_NODE_DIRECTORY);
+	mutex_lock(msc_mount_lock);
+
+	// A previous stick may still be mounted if its removal unmount was busy
+	status_t status = vfs_umount("/mnt/usb");
+
+	if (status == KERNEL_OK || status == -KERNEL_NO_SUCH_FILE_OR_FOLDER)
+	{
+		status = vfs_create("/", "/mnt/usb", VFS_NODE_DIRECTORY);
+	}
 
 	if (status == KERNEL_OK || status == -KERNEL_FILE_ALREADY_EXISTS)
 	{
@@ -201,6 +210,33 @@ msc_mount_thread(uint32_t arg)
 		kprintf("mount usb0 on /mnt/usb failed: %d\n", status);
 	}
 
+	mutex_unlock(msc_mount_lock);
+	thread_exit();
+}
+
+static void
+msc_umount_thread(uint32_t arg)
+{
+	(void)arg;
+
+	mutex_lock(msc_mount_lock);
+
+	// Skip if a stick was plugged in again before this thread ran
+	if (msc_addr == 0)
+	{
+		status_t status = vfs_umount("/mnt/usb");
+
+		if (status == KERNEL_OK)
+		{
+			kprintf("usb0 unmounted from /mnt/usb\n");
+		}
+		else if (status != -KERNEL_NO_SUCH_FILE_OR_FOLDER)
+		{
+			kprintf("umount /mnt/usb failed: %d\n", status);
+		}
+	}
+
+	mutex_unlock(msc_mount_lock);
 	thread_exit();
 }
 
@@ -220,8 +256,9 @@ tuh_msc_mount_cb(uint8_t dev_addr)
 		bounce   = malloc(MSC_BOUNCE_SECTORS * MSC_SECTOR_SIZE);
 		msc_lock = mutex_create();
 		msc_done = semaphore_create(0);
+		msc_mount_lock = mutex_create();
 
-		if (!bounce || !msc_lock || !msc_done)
+		if (!bounce || !msc_lock || !msc_done || !msc_mount_lock)
 		{
 			return;
 		}
@@ -257,4 +294,10 @@ tuh_msc_umount_cb(uint8_t dev_addr)
 	}
 
 	kprintf("USB storage removed\n");
+
+	// vfs_umount() takes VFS locks: keep it out of the usb thread
+	if (msc_registered)
+	{
+		thread_kernel_create("usb-umount", msc_umount_thread, NULL);
+	}
 }
